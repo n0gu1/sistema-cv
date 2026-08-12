@@ -1,4 +1,4 @@
-# Hola Mundo con Django
+# Sistema CV
 
 Aplicación mínima que muestra `Hola, mundo!` en la ruta principal.
 
