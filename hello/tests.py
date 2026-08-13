@@ -1,6 +1,8 @@
 from django.db import connection
 from django.core import mail
 from django.contrib.auth.tokens import default_token_generator
+from django.core.management import call_command
+from django.core.exceptions import ValidationError
 from django.test import TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils.encoding import force_bytes
@@ -9,16 +11,40 @@ from django.utils import timezone
 from unittest.mock import patch
 
 from reclutamiento.models import (
+    AreaEstudio,
+    CategoriaHabilidad,
+    Certificacion,
     Ciudad,
+    Departamento,
+    EstadoPlaza,
+    Habilidad,
+    HistorialEstadoPlaza,
+    Idioma,
+    ModalidadTrabajo,
+    NivelEducativo,
+    NivelHabilidad,
+    NivelIdioma,
     Pais,
+    PeriodoSalarial,
     PerfilAspirante,
+    Plaza,
     Profesion,
+    RequisitoCertificacion,
+    RequisitoDisponibilidad,
+    RequisitoEducacion,
+    RequisitoExperiencia,
+    RequisitoHabilidad,
+    RequisitoIdioma,
+    RequisitoPlaza,
     Region,
     RolUsuario,
+    TipoEmpleo,
+    TipoRequisito,
     Usuario,
     UsuarioRol,
 )
 from reclutamiento.tokens import email_verification_token
+from reclutamiento.vacancies import transition_vacancy
 
 
 class AuthenticationTests(TransactionTestCase):
@@ -109,7 +135,8 @@ class AuthenticationTests(TransactionTestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("dashboard"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard"))
         self.assertEqual(int(self.client.session["_auth_user_id"]), self.hr_user.pk)
 
     def test_applicant_is_redirected_to_applicant_portal(self):
@@ -194,7 +221,8 @@ class AuthenticationTests(TransactionTestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("dashboard"))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("dashboard"))
 
     def test_anonymous_users_are_redirected_to_login(self):
         response = self.client.get(reverse("dashboard"))
@@ -213,9 +241,6 @@ class AuthenticationTests(TransactionTestCase):
     def test_hr_pages_are_available_for_hr_user(self):
         self.client.force_login(self.hr_user)
         expected_content = {
-            "dashboard": "Centro de contratación",
-            "plazas": "Gestión de plazas",
-            "nueva_plaza": "Nueva plaza",
             "aspirantes": "Base de talento",
             "analisis": "Informe de compatibilidad",
         }
@@ -230,7 +255,8 @@ class AuthenticationTests(TransactionTestCase):
         self.client.force_login(self.hr_user)
 
         get_response = self.client.get(reverse("cerrar_sesion"))
-        self.assertRedirects(get_response, reverse("dashboard"))
+        self.assertEqual(get_response.status_code, 302)
+        self.assertEqual(get_response.url, reverse("dashboard"))
         self.assertIn("_auth_user_id", self.client.session)
 
         post_response = self.client.post(reverse("cerrar_sesion"))
@@ -413,3 +439,325 @@ class SaludViewTests(TestCase):
             response.content,
             {"aplicacion": "disponible", "base_de_datos": "conectada"},
         )
+
+
+class VacancyManagementTests(TransactionTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.models = (
+            RolUsuario,
+            Pais,
+            Region,
+            Ciudad,
+            Profesion,
+            Departamento,
+            TipoEmpleo,
+            ModalidadTrabajo,
+            PeriodoSalarial,
+            EstadoPlaza,
+            NivelEducativo,
+            AreaEstudio,
+            CategoriaHabilidad,
+            Habilidad,
+            NivelHabilidad,
+            Idioma,
+            NivelIdioma,
+            Certificacion,
+            TipoRequisito,
+            Usuario,
+            UsuarioRol,
+            Plaza,
+            HistorialEstadoPlaza,
+            RequisitoPlaza,
+            RequisitoHabilidad,
+            RequisitoIdioma,
+            RequisitoCertificacion,
+            RequisitoEducacion,
+            RequisitoExperiencia,
+            RequisitoDisponibilidad,
+        )
+        with connection.schema_editor() as schema_editor:
+            for model in cls.models:
+                schema_editor.create_model(model)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "CREATE TABLE postulaciones ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, plaza_id BIGINT NOT NULL)"
+            )
+            cursor.execute(
+                "CREATE TABLE resultados_requisitos_evaluacion ("
+                "evaluacion_id BIGINT NOT NULL, requisito_id BIGINT NOT NULL, "
+                "cumplido BOOLEAN, porcentaje_puntuacion DECIMAL(5,2), "
+                "evidencia TEXT, explicacion TEXT, "
+                "PRIMARY KEY (evaluacion_id, requisito_id))"
+            )
+
+    @classmethod
+    def tearDownClass(cls):
+        with connection.cursor() as cursor:
+            cursor.execute("DROP TABLE resultados_requisitos_evaluacion")
+            cursor.execute("DROP TABLE postulaciones")
+        with connection.schema_editor() as schema_editor:
+            for model in reversed(cls.models):
+                schema_editor.delete_model(model)
+        super().tearDownClass()
+
+    def setUp(self):
+        with connection.cursor() as cursor:
+            for table in (
+                "postulaciones",
+                "resultados_requisitos_evaluacion",
+                "requisitos_disponibilidad",
+                "requisitos_experiencia",
+                "requisitos_educacion",
+                "requisitos_certificacion",
+                "requisitos_idioma",
+                "requisitos_habilidad",
+                "requisitos_plaza",
+                "historial_estados_plaza",
+                "plazas",
+                "usuarios_roles",
+                "usuarios",
+                "roles_usuario",
+            ):
+                cursor.execute(f'DELETE FROM "{table}"')
+        call_command("inicializar_catalogos", verbosity=0)
+        self.hr_role = RolUsuario.objects.create(codigo="RRHH", nombre="RR. HH.")
+        self.user = Usuario.objects.create_user(
+            email="rrhh@example.com",
+            password="Clave-Segura-2026",
+            first_name="Carlos",
+            last_name="Méndez",
+            is_active=True,
+            is_verified=True,
+        )
+        UsuarioRol.objects.create(
+            usuario=self.user,
+            rol=self.hr_role,
+            asignado_en=timezone.now(),
+        )
+        self.client.force_login(self.user)
+
+    def _payload(self, **overrides):
+        data = {
+            "titulo": "Desarrollador Python",
+            "departamento": Departamento.objects.get(nombre="Tecnología").pk,
+            "profesion": Profesion.objects.get(nombre="Ingeniería de software").pk,
+            "tipo_empleo": TipoEmpleo.objects.get(codigo="TIEMPO_COMPLETO").pk,
+            "modalidad_trabajo": ModalidadTrabajo.objects.get(codigo="REMOTO").pk,
+            "periodo_salarial": PeriodoSalarial.objects.get(codigo="MES").pk,
+            "descripcion": "Construir servicios confiables con Python y Django.",
+            "detalle_ubicacion": "Remoto en Guatemala",
+            "salario_minimo": "12000.00",
+            "salario_maximo": "18000.00",
+            "codigo_moneda": "GTQ",
+            "cantidad_vacantes": "2",
+            "cierra_en": (timezone.now() + timezone.timedelta(days=30)).strftime(
+                "%Y-%m-%dT%H:%M"
+            ),
+            "anios_experiencia": "3",
+            "nivel_educativo": NivelEducativo.objects.get(
+                codigo="LICENCIATURA"
+            ).pk,
+            "area_estudio": AreaEstudio.objects.get(
+                nombre="Ingeniería en sistemas"
+            ).pk,
+            "habilidades_obligatorias": [
+                Habilidad.objects.get(nombre="Python").pk,
+                Habilidad.objects.get(nombre="Django").pk,
+            ],
+            "habilidades_deseables": [Habilidad.objects.get(nombre="Docker").pk],
+            "idioma": Idioma.objects.get(codigo_iso="en").pk,
+            "nivel_idioma": NivelIdioma.objects.get(codigo="B2").pk,
+            "requiere_viajar": "on",
+            "descripcion_horario": "Lunes a viernes",
+        }
+        data.update(overrides)
+        return data
+
+    def _create_draft(self):
+        response = self.client.post(
+            reverse("nueva_plaza"),
+            {**self._payload(), "accion": "borrador"},
+        )
+        self.assertEqual(response.status_code, 302)
+        return Plaza.objects.get()
+
+    def test_catalog_initialization_is_idempotent(self):
+        before = (
+            Departamento.objects.count(),
+            TipoEmpleo.objects.count(),
+            Habilidad.objects.count(),
+        )
+        call_command("inicializar_catalogos", verbosity=0)
+        after = (
+            Departamento.objects.count(),
+            TipoEmpleo.objects.count(),
+            Habilidad.objects.count(),
+        )
+        self.assertEqual(before, after)
+
+    def test_create_and_publish_vacancy_with_normalized_requirements(self):
+        response = self.client.post(
+            reverse("nueva_plaza"),
+            {**self._payload(), "accion": "publicar"},
+        )
+
+        vacancy = Plaza.objects.get()
+        self.assertRedirects(response, reverse("detalle_plaza", args=[vacancy.pk]))
+        self.assertEqual(vacancy.estado_id, "PUBLICADA")
+        self.assertIsNotNone(vacancy.publicado_en)
+        requirements = RequisitoPlaza.objects.filter(plaza=vacancy)
+        self.assertEqual(requirements.count(), 7)
+        self.assertEqual(sum(item.peso for item in requirements), 100)
+        self.assertEqual(RequisitoExperiencia.objects.count(), 1)
+        self.assertEqual(RequisitoEducacion.objects.count(), 1)
+        self.assertEqual(RequisitoHabilidad.objects.count(), 3)
+        self.assertEqual(RequisitoIdioma.objects.count(), 1)
+        self.assertEqual(RequisitoDisponibilidad.objects.count(), 1)
+        self.assertEqual(
+            list(
+                HistorialEstadoPlaza.objects.values_list(
+                    "codigo_estado_nuevo", flat=True
+                ).order_by("cambiado_en")
+            ),
+            ["BORRADOR", "PUBLICADA"],
+        )
+
+    def test_edit_vacancy_replaces_requirements_atomically(self):
+        vacancy = self._create_draft()
+        response = self.client.post(
+            reverse("editar_plaza", args=[vacancy.pk]),
+            {
+                **self._payload(
+                    titulo="Desarrollador Django Senior",
+                    habilidades_obligatorias=[
+                        Habilidad.objects.get(nombre="PostgreSQL").pk
+                    ],
+                    habilidades_deseables=[],
+                    idioma="",
+                    nivel_idioma="",
+                    requiere_viajar="",
+                    descripcion_horario="",
+                )
+            },
+        )
+
+        self.assertRedirects(response, reverse("detalle_plaza", args=[vacancy.pk]))
+        vacancy.refresh_from_db()
+        self.assertEqual(vacancy.titulo, "Desarrollador Django Senior")
+        self.assertEqual(RequisitoHabilidad.objects.count(), 1)
+        self.assertEqual(RequisitoIdioma.objects.count(), 0)
+
+    def test_invalid_transition_is_rejected_and_valid_flow_is_recorded(self):
+        vacancy = self._create_draft()
+        with self.assertRaises(ValidationError):
+            transition_vacancy(vacancy.pk, "PAUSADA", self.user)
+
+        transition_vacancy(vacancy.pk, "PUBLICADA", self.user)
+        transition_vacancy(vacancy.pk, "PAUSADA", self.user, "Revisión interna")
+        transition_vacancy(vacancy.pk, "PUBLICADA", self.user)
+        transition_vacancy(vacancy.pk, "CERRADA", self.user)
+        vacancy.refresh_from_db()
+        self.assertEqual(vacancy.estado_id, "CERRADA")
+        self.assertEqual(HistorialEstadoPlaza.objects.filter(plaza=vacancy).count(), 5)
+        with self.assertRaises(ValidationError):
+            transition_vacancy(vacancy.pk, "PUBLICADA", self.user)
+
+    def test_state_endpoint_updates_vacancy_and_rejects_get(self):
+        vacancy = self._create_draft()
+        state_url = reverse(
+            "cambiar_estado_plaza",
+            args=[vacancy.pk, "PUBLICADA"],
+        )
+
+        self.assertRedirects(
+            self.client.get(state_url),
+            reverse("detalle_plaza", args=[vacancy.pk]),
+        )
+        vacancy.refresh_from_db()
+        self.assertEqual(vacancy.estado_id, "BORRADOR")
+
+        self.assertRedirects(
+            self.client.post(state_url, {"motivo": "Aprobada por RR. HH."}),
+            reverse("detalle_plaza", args=[vacancy.pk]),
+        )
+        vacancy.refresh_from_db()
+        self.assertEqual(vacancy.estado_id, "PUBLICADA")
+        self.assertEqual(
+            HistorialEstadoPlaza.objects.latest("cambiado_en").motivo,
+            "Aprobada por RR. HH.",
+        )
+
+    def test_closed_vacancy_cannot_be_edited(self):
+        vacancy = self._create_draft()
+        transition_vacancy(vacancy.pk, "CERRADA", self.user)
+
+        response = self.client.get(reverse("editar_plaza", args=[vacancy.pk]))
+
+        self.assertRedirects(response, reverse("detalle_plaza", args=[vacancy.pk]))
+
+    def test_publish_requires_at_least_one_requirement(self):
+        payload = self._payload(
+            anios_experiencia="",
+            nivel_educativo="",
+            area_estudio="",
+            habilidades_obligatorias=[],
+            habilidades_deseables=[],
+            idioma="",
+            nivel_idioma="",
+            requiere_viajar="",
+            descripcion_horario="",
+        )
+
+        response = self.client.post(
+            reverse("nueva_plaza"),
+            {**payload, "accion": "publicar"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Agrega al menos un requisito")
+        self.assertEqual(Plaza.objects.count(), 0)
+
+    def test_list_supports_search_status_and_pagination_context(self):
+        vacancy = self._create_draft()
+        response = self.client.get(
+            reverse("plazas"),
+            {"q": "Python", "estado": "BORRADOR"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, vacancy.titulo)
+        self.assertEqual(response.context["page"].paginator.count, 1)
+
+    def test_dashboard_uses_real_vacancy_counts(self):
+        vacancy = self._create_draft()
+        transition_vacancy(vacancy.pk, "PUBLICADA", self.user)
+
+        response = self.client.get(reverse("dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["active_vacancies"], 1)
+        self.assertEqual(response.context["pending_vacancies"], 0)
+        self.assertContains(response, vacancy.titulo)
+
+    def test_salary_and_duplicate_skill_validation(self):
+        python_id = Habilidad.objects.get(nombre="Python").pk
+        response = self.client.post(
+            reverse("nueva_plaza"),
+            {
+                **self._payload(
+                    salario_minimo="20000",
+                    salario_maximo="10000",
+                    habilidades_obligatorias=[python_id],
+                    habilidades_deseables=[python_id],
+                ),
+                "accion": "borrador",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "salario máximo")
+        self.assertContains(response, "obligatoria y deseable")
+        self.assertEqual(Plaza.objects.count(), 0)

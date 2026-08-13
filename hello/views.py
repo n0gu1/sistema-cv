@@ -6,7 +6,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db import IntegrityError, connection
+from django.core.exceptions import ValidationError
+from django.db.models import Count, Q
 from django.http import JsonResponse
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.encoding import force_bytes, force_str
@@ -22,12 +25,26 @@ from reclutamiento.forms import (
     FormularioNuevaContrasena,
     FormularioReenvioVerificacion,
     FormularioRegistroAspirante,
+    FormularioPlaza,
 )
-from reclutamiento.models import Usuario
+from reclutamiento.models import (
+    Departamento,
+    HistorialEstadoPlaza,
+    ModalidadTrabajo,
+    Plaza,
+    RequisitoPlaza,
+    Usuario,
+)
 from reclutamiento.permissions import roles_required
 from reclutamiento.emails import send_verification_email
 from reclutamiento.services import register_applicant
 from reclutamiento.tokens import email_verification_token
+from reclutamiento.vacancies import (
+    ALLOWED_TRANSITIONS,
+    get_vacancy_form_initial,
+    save_vacancy,
+    transition_vacancy,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -144,17 +161,191 @@ def cerrar_sesion(request):
 
 @roles_required("RRHH", "ADMINISTRADOR")
 def dashboard(request):
-    return render(request, "dashboard.html")
+    vacancy_counts = dict(
+        Plaza.objects.values("estado_id")
+        .annotate(total=Count("id"))
+        .values_list("estado_id", "total")
+    )
+    priority_vacancies = (
+        Plaza.objects.filter(estado_id__in=("PUBLICADA", "PAUSADA"))
+        .select_related("departamento", "modalidad_trabajo")
+        .annotate(applicant_count=Count("postulacion", distinct=True))
+        .order_by("cierra_en", "-actualizado_en")[:3]
+    )
+    return render(
+        request,
+        "dashboard.html",
+        {
+            "vacancy_counts": vacancy_counts,
+            "active_vacancies": vacancy_counts.get("PUBLICADA", 0),
+            "pending_vacancies": vacancy_counts.get("BORRADOR", 0)
+            + vacancy_counts.get("PAUSADA", 0),
+            "priority_vacancies": priority_vacancies,
+        },
+    )
 
 
 @roles_required("RRHH", "ADMINISTRADOR")
 def plazas(request):
-    return render(request, "plazas.html")
+    vacancies = (
+        Plaza.objects.select_related(
+            "departamento",
+            "modalidad_trabajo",
+            "tipo_empleo",
+            "estado",
+        )
+        .annotate(applicant_count=Count("postulacion", distinct=True))
+        .order_by("-actualizado_en")
+    )
+    query = request.GET.get("q", "").strip()
+    status = request.GET.get("estado", "").strip().upper()
+    department = request.GET.get("departamento", "").strip()
+    work_mode = request.GET.get("modalidad", "").strip()
+    if query:
+        vacancies = vacancies.filter(
+            Q(titulo__icontains=query)
+            | Q(descripcion__icontains=query)
+            | Q(departamento__nombre__icontains=query)
+        )
+    if status:
+        vacancies = vacancies.filter(estado_id=status)
+    if department:
+        vacancies = vacancies.filter(departamento_id=department)
+    if work_mode:
+        vacancies = vacancies.filter(modalidad_trabajo_id=work_mode)
+
+    status_counts = dict(
+        Plaza.objects.values_list("estado_id")
+        .annotate(total=Count("id"))
+        .values_list("estado_id", "total")
+    )
+    page = Paginator(vacancies, 9).get_page(request.GET.get("pagina"))
+    return render(
+        request,
+        "plazas.html",
+        {
+            "page": page,
+            "status_counts": status_counts,
+            "total_count": Plaza.objects.count(),
+            "departments": Departamento.objects.filter(activo=True).order_by("nombre"),
+            "work_modes": ModalidadTrabajo.objects.order_by("nombre"),
+            "filters": {
+                "q": query,
+                "estado": status,
+                "departamento": department,
+                "modalidad": work_mode,
+            },
+        },
+    )
 
 
 @roles_required("RRHH", "ADMINISTRADOR")
 def nueva_plaza(request):
-    return render(request, "nueva_plaza.html")
+    form = FormularioPlaza(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        publish = request.POST.get("accion") == "publicar"
+        try:
+            vacancy = save_vacancy(form, request.user, publish=publish)
+        except ValidationError as error:
+            form.add_error(None, error.message)
+        else:
+            messages.success(
+                request,
+                "La plaza fue publicada." if publish else "La plaza se guardó como borrador.",
+            )
+            return redirect("detalle_plaza", plaza_id=vacancy.pk)
+    return render(
+        request,
+        "nueva_plaza.html",
+        {
+            "form": form,
+            "catalogs_ready": form.has_required_catalogs(),
+            "editing": False,
+        },
+    )
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
+def editar_plaza(request, plaza_id):
+    vacancy = get_object_or_404(Plaza.objects.select_related("estado"), pk=plaza_id)
+    if vacancy.estado_id == "CERRADA":
+        messages.error(request, "Una plaza cerrada no puede editarse.")
+        return redirect("detalle_plaza", plaza_id=vacancy.pk)
+    form = FormularioPlaza(
+        request.POST or None,
+        instance=vacancy,
+        initial=get_vacancy_form_initial(vacancy),
+    )
+    if request.method == "POST" and form.is_valid():
+        try:
+            vacancy = save_vacancy(form, request.user)
+        except ValidationError as error:
+            form.add_error(None, error.message)
+        else:
+            messages.success(request, "Los cambios de la plaza fueron guardados.")
+            return redirect("detalle_plaza", plaza_id=vacancy.pk)
+    return render(
+        request,
+        "nueva_plaza.html",
+        {
+            "form": form,
+            "plaza": vacancy,
+            "catalogs_ready": form.has_required_catalogs(),
+            "editing": True,
+        },
+    )
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
+def detalle_plaza(request, plaza_id):
+    vacancy = get_object_or_404(
+        Plaza.objects.select_related(
+            "departamento",
+            "profesion",
+            "ciudad",
+            "tipo_empleo",
+            "modalidad_trabajo",
+            "periodo_salarial",
+            "estado",
+            "creado_por",
+        ).annotate(applicant_count=Count("postulacion", distinct=True)),
+        pk=plaza_id,
+    )
+    requirements = RequisitoPlaza.objects.filter(plaza=vacancy).select_related(
+        "tipo"
+    ).order_by("orden_visualizacion")
+    history = HistorialEstadoPlaza.objects.filter(plaza=vacancy).select_related(
+        "cambiado_por"
+    ).order_by("-cambiado_en")
+    return render(
+        request,
+        "detalle_plaza.html",
+        {
+            "plaza": vacancy,
+            "requirements": requirements,
+            "history": history,
+            "allowed_transitions": ALLOWED_TRANSITIONS.get(vacancy.estado_id, set()),
+        },
+    )
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
+def cambiar_estado_plaza(request, plaza_id, estado):
+    if request.method != "POST":
+        return redirect("detalle_plaza", plaza_id=plaza_id)
+    try:
+        transition_vacancy(
+            plaza_id,
+            estado.upper(),
+            request.user,
+            request.POST.get("motivo"),
+        )
+    except (ValidationError, Plaza.DoesNotExist) as error:
+        message = error.message if isinstance(error, ValidationError) else "La plaza no existe."
+        messages.error(request, message)
+    else:
+        messages.success(request, "El estado de la plaza fue actualizado.")
+    return redirect("detalle_plaza", plaza_id=plaza_id)
 
 
 @roles_required("RRHH", "ADMINISTRADOR")
