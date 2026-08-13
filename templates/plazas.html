@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Plazas | Nexo Talento{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <div><span class="eyebrow">Reclutamiento / Plazas</span><h1>Gestión de plazas</h1><p>Publica oportunidades y sigue el avance de cada proceso de contratación.</p></div>
+    <a class="btn btn-primary btn-lg" href="{% url 'nueva_plaza' %}"><i class="bi bi-plus-lg"></i> Nueva plaza</a>
+</div>
+
+<div class="status-tabs" role="tablist" aria-label="Estado de plazas">
+    <button class="active" type="button" data-filter="all">Todas <span>18</span></button>
+    <button type="button" data-filter="active">Activas <span>12</span></button>
+    <button type="button" data-filter="draft">Borradores <span>3</span></button>
+    <button type="button" data-filter="paused">Pausadas <span>2</span></button>
+    <button type="button" data-filter="closed">Cerradas <span>1</span></button>
+</div>
+
+<section class="panel filter-panel">
+    <div class="filter-search"><i class="bi bi-search"></i><input id="jobSearch" type="search" placeholder="Buscar por puesto o departamento..." aria-label="Buscar plazas"></div>
+    <select class="form-select"><option>Todos los departamentos</option><option>Tecnología</option><option>Producto</option><option>Marketing</option></select>
+    <select class="form-select"><option>Cualquier modalidad</option><option>Remoto</option><option>Híbrido</option><option>Presencial</option></select>
+    <button class="btn btn-light"><i class="bi bi-sliders"></i> Más filtros</button>
+</section>
+
+<div class="jobs-grid" id="jobsGrid">
+    <article class="job-card" data-status="active" data-search="ux ui designer producto">
+        <div class="job-card-top"><div class="job-icon purple"><i class="bi bi-bezier2"></i></div><span class="status-badge active">Activa</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
+        <div class="job-card-title"><span>Producto</span><h2>UX/UI Designer</h2><p><i class="bi bi-geo-alt"></i> Ciudad de Guatemala · Híbrido</p></div>
+        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q12k - Q16k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
+        <div class="job-applicants"><div class="avatar-stack"><span>AM</span><span>CL</span><span>RF</span></div><div><strong>18 aspirantes</strong><small>5 nuevos esta semana</small></div></div>
+        <div class="job-card-footer"><div><span>Mejor coincidencia</span><strong class="match-good">94%</strong></div><a href="{% url 'aspirantes' %}">Ver candidatos <i class="bi bi-arrow-right"></i></a></div>
+    </article>
+    <article class="job-card" data-status="active" data-search="python developer tecnología">
+        <div class="job-card-top"><div class="job-icon blue"><i class="bi bi-code-slash"></i></div><span class="status-badge active">Activa</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
+        <div class="job-card-title"><span>Tecnología</span><h2>Python Developer</h2><p><i class="bi bi-geo-alt"></i> Remoto · Guatemala</p></div>
+        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q15k - Q20k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
+        <div class="job-applicants"><div class="avatar-stack"><span>LR</span><span>DC</span><span>JP</span></div><div><strong>24 aspirantes</strong><small>8 nuevos esta semana</small></div></div>
+        <div class="job-card-footer"><div><span>Mejor coincidencia</span><strong class="match-good">91%</strong></div><a href="{% url 'aspirantes' %}">Ver candidatos <i class="bi bi-arrow-right"></i></a></div>
+    </article>
+    <article class="job-card" data-status="active" data-search="data analyst inteligencia negocio">
+        <div class="job-card-top"><div class="job-icon orange"><i class="bi bi-bar-chart"></i></div><span class="status-badge active">Activa</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
+        <div class="job-card-title"><span>Inteligencia de negocio</span><h2>Data Analyst</h2><p><i class="bi bi-geo-alt"></i> Zona 10 · Presencial</p></div>
+        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q10k - Q14k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
+        <div class="job-applicants"><div class="avatar-stack"><span>SV</span><span>MG</span><span>+13</span></div><div><strong>15 aspirantes</strong><small>3 nuevos esta semana</small></div></div>
+        <div class="job-card-footer"><div><span>Mejor coincidencia</span><strong class="match-good">88%</strong></div><a href="{% url 'aspirantes' %}">Ver candidatos <i class="bi bi-arrow-right"></i></a></div>
+    </article>
+    <article class="job-card" data-status="paused" data-search="cloud engineer tecnología">
+        <div class="job-card-top"><div class="job-icon green"><i class="bi bi-cloud"></i></div><span class="status-badge paused">Pausada</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
+        <div class="job-card-title"><span>Tecnología</span><h2>Cloud Engineer</h2><p><i class="bi bi-geo-alt"></i> Remoto · Centroamérica</p></div>
+        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q18k - Q24k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
+        <div class="job-applicants"><div class="avatar-stack"><span>JC</span><span>EM</span><span>+7</span></div><div><strong>9 aspirantes</strong><small>Pausada hace 2 días</small></div></div>
+        <div class="job-card-footer"><div><span>Mejor coincidencia</span><strong>86%</strong></div><a href="{% url 'aspirantes' %}">Ver candidatos <i class="bi bi-arrow-right"></i></a></div>
+    </article>
+    <article class="job-card" data-status="draft" data-search="growth marketing marketing">
+        <div class="job-card-top"><div class="job-icon coral"><i class="bi bi-megaphone"></i></div><span class="status-badge draft">Borrador</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
+        <div class="job-card-title"><span>Marketing</span><h2>Growth Marketing Lead</h2><p><i class="bi bi-geo-alt"></i> Ciudad de Guatemala · Híbrido</p></div>
+        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Por definir</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
+        <div class="job-applicants empty"><i class="bi bi-pencil-square"></i><div><strong>Completa los requisitos</strong><small>Faltan 2 campos para publicar</small></div></div>
+        <div class="job-card-footer"><div><span>Progreso</span><strong>70%</strong></div><a href="{% url 'nueva_plaza' %}">Continuar edición <i class="bi bi-arrow-right"></i></a></div>
+    </article>
+    <article class="job-card" data-status="closed" data-search="qa automation tecnología">
+        <div class="job-card-top"><div class="job-icon slate"><i class="bi bi-bug"></i></div><span class="status-badge closed">Cerrada</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
+        <div class="job-card-title"><span>Tecnología</span><h2>QA Automation Engineer</h2><p><i class="bi bi-geo-alt"></i> Remoto · Guatemala</p></div>
+        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q13k - Q17k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
+        <div class="job-applicants"><div class="avatar-stack"><span>MR</span><span>AP</span></div><div><strong>32 aspirantes</strong><small>2 personas contratadas</small></div></div>
+        <div class="job-card-footer"><div><span>Resultado</span><strong class="match-good">Cubierta</strong></div><a href="#">Ver resumen <i class="bi bi-arrow-right"></i></a></div>
+    </article>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Análisis IA | Nexo Talento{% endblock %}
+{% block content %}
+<div class="page-heading analysis-heading">
+    <div><a class="back-link" href="{% url 'aspirantes' %}"><i class="bi bi-arrow-left"></i> Volver a aspirantes</a><span class="eyebrow"><i class="bi bi-stars"></i> Análisis completado hace 8 minutos</span><h1>Informe de compatibilidad</h1><p>Evaluación generada a partir del CV y los requisitos de la plaza.</p></div>
+    <div class="d-flex gap-2"><button class="btn btn-light btn-lg demo-action"><i class="bi bi-download"></i> Descargar informe</button><button class="btn btn-primary btn-lg demo-action">Mover a preselección</button></div>
+</div>
+
+<section class="candidate-hero panel">
+    <div class="candidate-main"><div class="avatar avatar-xl coral">AM</div><div><span class="status-badge screening">Preselección sugerida</span><h2>Ana Martínez</h2><p>Product Designer · Ciudad de Guatemala</p><div class="contact-line"><span><i class="bi bi-envelope"></i> ana.martinez@email.com</span><span><i class="bi bi-telephone"></i> +502 5555-1048</span></div></div></div>
+    <div class="candidate-doc"><span class="pdf-icon"><i class="bi bi-file-earmark-pdf"></i></span><div><strong>CV_Ana_Martinez_2026.pdf</strong><small>Actualizado el 12 de agosto · 1.8 MB</small></div><button class="icon-button"><i class="bi bi-eye"></i></button></div>
+    <div class="overall-score"><div class="score-ring" style="--score:94"><span><strong>94</strong><small>/100</small></span></div><div><span>Compatibilidad general</span><strong>Coincidencia excelente</strong><small>Top 3% de aspirantes</small></div></div>
+</section>
+
+<div class="analysis-layout">
+    <div class="analysis-main">
+        <section class="panel ai-summary">
+            <div class="panel-header"><div><span class="section-kicker"><i class="bi bi-stars"></i> Lectura de la IA</span><h2>Resumen profesional</h2></div><span class="confidence-pill">97% confianza</span></div>
+            <p>Diseñadora de producto con <strong>6 años de experiencia</strong> creando experiencias digitales para plataformas B2B y fintech. Demuestra dominio avanzado de Figma, investigación con usuarios y sistemas de diseño. Su trayectoria liderando proyectos multidisciplinarios coincide de forma sobresaliente con las responsabilidades del puesto.</p>
+            <div class="summary-signals"><span><i class="bi bi-check-circle-fill"></i> Liderazgo comprobado</span><span><i class="bi bi-check-circle-fill"></i> Experiencia en fintech</span><span><i class="bi bi-check-circle-fill"></i> Portafolio relevante</span></div>
+        </section>
+
+        <section class="panel requirements-panel">
+            <div class="panel-header"><div><span class="section-kicker">Requisitos de la plaza</span><h2>Coincidencias y brechas</h2></div><span class="requirements-total"><strong>8 de 9</strong> cumplidos</span></div>
+            <div class="requirement-list">
+                <article class="met"><span class="requirement-state"><i class="bi bi-check-lg"></i></span><div><strong>Experiencia mínima de 4 años</strong><p>Se detectaron 6 años y 4 meses de experiencia relevante.</p></div><div class="requirement-weight"><span>Obligatorio</span><strong>100%</strong></div></article>
+                <article class="met"><span class="requirement-state"><i class="bi bi-check-lg"></i></span><div><strong>Dominio avanzado de Figma</strong><p>Mencionado en 3 experiencias y 7 proyectos del portafolio.</p></div><div class="requirement-weight"><span>Obligatorio</span><strong>100%</strong></div></article>
+                <article class="met"><span class="requirement-state"><i class="bi bi-check-lg"></i></span><div><strong>Investigación con usuarios</strong><p>Experiencia en entrevistas, pruebas de usabilidad y síntesis.</p></div><div class="requirement-weight"><span>Obligatorio</span><strong>96%</strong></div></article>
+                <article class="met"><span class="requirement-state"><i class="bi bi-check-lg"></i></span><div><strong>Licenciatura relacionada</strong><p>Licenciatura en Diseño Gráfico, Universidad Rafael Landívar.</p></div><div class="requirement-weight"><span>Obligatorio</span><strong>100%</strong></div></article>
+                <article class="partial"><span class="requirement-state"><i class="bi bi-exclamation-lg"></i></span><div><strong>Inglés nivel C1</strong><p>El CV indica inglés B2. Conviene validarlo durante la entrevista.</p></div><div class="requirement-weight"><span>Deseable</span><strong>72%</strong></div></article>
+            </div>
+            <button class="btn btn-light w-100">Ver los 9 requisitos <i class="bi bi-chevron-down"></i></button>
+        </section>
+
+        <section class="panel experience-panel">
+            <div class="panel-header"><div><span class="section-kicker">Trayectoria detectada</span><h2>Experiencia relevante</h2></div><strong class="experience-total">6 años 4 meses</strong></div>
+            <div class="timeline">
+                <article><span class="timeline-dot"></span><div class="timeline-date">2022 - Actualidad</div><div><h3>Senior Product Designer</h3><strong>Fintech Nova</strong><p>Lideró el rediseño de la plataforma B2B y construyó un sistema de diseño usado por cuatro equipos de producto.</p><div><span class="skill-tag">Design systems</span><span class="skill-tag">Figma</span><span class="skill-tag">Leadership</span></div></div></article>
+                <article><span class="timeline-dot"></span><div class="timeline-date">2019 - 2022</div><div><h3>UX Designer</h3><strong>Estudio Lumen</strong><p>Diseñó productos digitales y condujo investigación cualitativa para clientes regionales de banca y comercio.</p><div><span class="skill-tag">UX Research</span><span class="skill-tag">Prototyping</span></div></div></article>
+            </div>
+        </section>
+    </div>
+
+    <aside class="analysis-side">
+        <section class="panel dimension-card"><div class="panel-header"><h2>Puntuación por dimensión</h2></div><div class="dimension-list"><div><span><i class="bi bi-lightning-charge"></i>Habilidades</span><strong>96%</strong><div><i style="width:96%"></i></div></div><div><span><i class="bi bi-briefcase"></i>Experiencia</span><strong>94%</strong><div><i style="width:94%"></i></div></div><div><span><i class="bi bi-mortarboard"></i>Educación</span><strong>100%</strong><div><i style="width:100%"></i></div></div><div><span><i class="bi bi-translate"></i>Idiomas</span><strong>72%</strong><div class="warning"><i style="width:72%"></i></div></div><div><span><i class="bi bi-calendar-check"></i>Disponibilidad</span><strong>100%</strong><div><i style="width:100%"></i></div></div></div></section>
+        <section class="panel strengths-card"><div class="panel-header"><h2>Fortalezas destacadas</h2></div><ul><li><i class="bi bi-stars"></i><span><strong>Pensamiento sistémico</strong>Experiencia escalando sistemas de diseño.</span></li><li><i class="bi bi-stars"></i><span><strong>Impacto medible</strong>Documenta resultados y métricas de negocio.</span></li><li><i class="bi bi-stars"></i><span><strong>Trabajo transversal</strong>Colaboración sólida con producto e ingeniería.</span></li></ul></section>
+        <section class="panel improvement-card"><div class="panel-header"><h2>Puntos a validar</h2></div><div><span><i class="bi bi-translate"></i></span><p><strong>Nivel de inglés</strong>Validar conversación avanzada en entrevista.</p></div><div><span><i class="bi bi-people"></i></span><p><strong>Gestión de equipo</strong>Profundizar en experiencia formal de liderazgo.</p></div></section>
+        <section class="panel recommendation-card"><i class="bi bi-lightbulb-fill"></i><span>Recomendación</span><h2>Avanzar a entrevista</h2><p>El perfil supera los requisitos críticos y presenta evidencia consistente.</p><button class="btn btn-primary w-100 demo-action">Agendar entrevista</button></section>
+    </aside>
+</div>
+{% endblock %}

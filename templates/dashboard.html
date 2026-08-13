@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | Nexo Talento{% endblock %}
+{% block content %}
+<div class="page-heading dashboard-heading">
+    <div>
+        <span class="eyebrow"><span class="pulse"></span> Miércoles, 12 de agosto</span>
+        <h1>Centro de contratación</h1>
+        <p>Una lectura clara de tu proceso de selección, desde la plaza hasta la mejor coincidencia.</p>
+    </div>
+    <a class="btn btn-primary btn-lg" href="{% url 'nueva_plaza' %}"><i class="bi bi-plus-lg"></i> Crear nueva plaza</a>
+</div>
+
+<section class="metric-grid" aria-label="Resumen de contratación">
+    <article class="metric-card metric-primary">
+        <div class="metric-top"><span>Plazas activas</span><span class="metric-icon"><i class="bi bi-briefcase"></i></span></div>
+        <div class="metric-value">12</div>
+        <div class="metric-caption positive"><i class="bi bi-arrow-up-right"></i> 3 publicadas este mes</div>
+        <div class="metric-pattern"></div>
+    </article>
+    <article class="metric-card">
+        <div class="metric-top"><span>Nuevos aspirantes</span><span class="metric-icon peach"><i class="bi bi-person-plus"></i></span></div>
+        <div class="metric-value">48</div>
+        <div class="metric-caption positive"><i class="bi bi-arrow-up-right"></i> 18% frente a julio</div>
+        <div class="mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    </article>
+    <article class="metric-card">
+        <div class="metric-top"><span>Compatibilidad media</span><span class="metric-icon mint"><i class="bi bi-bullseye"></i></span></div>
+        <div class="metric-value">76<span>%</span></div>
+        <div class="metric-caption">5 puntos sobre el promedio</div>
+        <div class="metric-progress"><span style="width: 76%"></span></div>
+    </article>
+    <article class="metric-card">
+        <div class="metric-top"><span>Por revisar</span><span class="metric-icon lavender"><i class="bi bi-hourglass-split"></i></span></div>
+        <div class="metric-value">09</div>
+        <div class="metric-caption warning"><i class="bi bi-clock"></i> 4 requieren atención hoy</div>
+        <div class="avatar-stack"><span>AM</span><span>LR</span><span>JC</span><span>+6</span></div>
+    </article>
+</section>
+
+<div class="row g-4 mt-1">
+    <div class="col-12 col-xl-8">
+        <section class="panel h-100">
+            <div class="panel-header">
+                <div><span class="section-kicker">Flujo de talento</span><h2>Actividad de postulaciones</h2></div>
+                <select class="form-select compact-select" aria-label="Periodo de actividad"><option>Últimos 7 días</option><option>Últimos 30 días</option></select>
+            </div>
+            <div class="chart-legend"><span><i class="legend-dot primary"></i> Postulaciones</span><span><i class="legend-dot orange"></i> Preseleccionados</span></div>
+            <div class="activity-chart" aria-label="Gráfica de postulaciones de los últimos siete días">
+                <div class="chart-y"><span>30</span><span>20</span><span>10</span><span>0</span></div>
+                <div class="chart-grid"><i></i><i></i><i></i><i></i></div>
+                <div class="chart-columns">
+                    <div><span class="bar-pair"><i style="height: 42%"></i><b style="height: 25%"></b></span><small>Lun</small></div>
+                    <div><span class="bar-pair"><i style="height: 58%"></i><b style="height: 34%"></b></span><small>Mar</small></div>
+                    <div><span class="bar-pair"><i style="height: 50%"></i><b style="height: 28%"></b></span><small>Mié</small></div>
+                    <div><span class="bar-pair"><i style="height: 72%"></i><b style="height: 42%"></b></span><small>Jue</small></div>
+                    <div><span class="bar-pair"><i style="height: 88%"></i><b style="height: 55%"></b></span><small>Vie</small></div>
+                    <div><span class="bar-pair"><i style="height: 64%"></i><b style="height: 38%"></b></span><small>Sáb</small></div>
+                    <div><span class="bar-pair"><i style="height: 78%"></i><b style="height: 49%"></b></span><small>Dom</small></div>
+                </div>
+            </div>
+        </section>
+    </div>
+    <div class="col-12 col-xl-4">
+        <section class="panel h-100">
+            <div class="panel-header"><div><span class="section-kicker">Conversión</span><h2>Embudo de selección</h2></div><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
+            <div class="funnel-list">
+                <div><span class="funnel-label"><i class="step-dot blue"></i>Postulados</span><strong>124</strong><span class="funnel-bar"><i style="width:100%"></i></span></div>
+                <div><span class="funnel-label"><i class="step-dot indigo"></i>Analizados por IA</span><strong>96</strong><span class="funnel-bar"><i style="width:77%"></i></span></div>
+                <div><span class="funnel-label"><i class="step-dot orange"></i>Preseleccionados</span><strong>31</strong><span class="funnel-bar"><i style="width:42%"></i></span></div>
+                <div><span class="funnel-label"><i class="step-dot green"></i>Entrevistas</span><strong>12</strong><span class="funnel-bar"><i style="width:24%"></i></span></div>
+            </div>
+            <div class="funnel-note"><i class="bi bi-stars"></i><span><strong>25% más eficiente</strong><small>La preselección mejoró este mes.</small></span></div>
+        </section>
+    </div>
+</div>
+
+<section class="panel mt-4">
+    <div class="panel-header candidates-header">
+        <div><span class="section-kicker">Recomendados por IA</span><h2>Talento con mayor compatibilidad</h2></div>
+        <a class="text-link" href="{% url 'aspirantes' %}">Ver todos los aspirantes <i class="bi bi-arrow-right"></i></a>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle candidate-table">
+            <thead><tr><th>Aspirante</th><th>Plaza</th><th>Habilidades clave</th><th>Compatibilidad</th><th>Estado</th><th><span class="visually-hidden">Acciones</span></th></tr></thead>
+            <tbody>
+                <tr><td><div class="candidate"><div class="avatar coral">AM</div><span><strong>Ana Martínez</strong><small>Product Designer · 6 años</small></span></div></td><td>UX/UI Designer</td><td><span class="skill-tag">Figma</span><span class="skill-tag">Research</span><span class="skill-more">+3</span></td><td><div class="score-cell"><strong>94%</strong><span><i style="width:94%"></i></span></div></td><td><span class="status-badge screening">Preselección</span></td><td><a class="icon-button" href="{% url 'analisis' %}" aria-label="Ver análisis de Ana"><i class="bi bi-arrow-up-right"></i></a></td></tr>
+                <tr><td><div class="candidate"><div class="avatar blue">LR</div><span><strong>Luis Ramírez</strong><small>Backend Developer · 5 años</small></span></div></td><td>Python Developer</td><td><span class="skill-tag">Python</span><span class="skill-tag">Django</span><span class="skill-more">+4</span></td><td><div class="score-cell"><strong>91%</strong><span><i style="width:91%"></i></span></div></td><td><span class="status-badge interview">Entrevista</span></td><td><a class="icon-button" href="{% url 'analisis' %}" aria-label="Ver análisis de Luis"><i class="bi bi-arrow-up-right"></i></a></td></tr>
+                <tr><td><div class="candidate"><div class="avatar gold">SV</div><span><strong>Sofía Vásquez</strong><small>Data Analyst · 4 años</small></span></div></td><td>Data Analyst</td><td><span class="skill-tag">SQL</span><span class="skill-tag">Power BI</span><span class="skill-more">+2</span></td><td><div class="score-cell"><strong>88%</strong><span><i style="width:88%"></i></span></div></td><td><span class="status-badge new">Nuevo</span></td><td><a class="icon-button" href="{% url 'analisis' %}" aria-label="Ver análisis de Sofía"><i class="bi bi-arrow-up-right"></i></a></td></tr>
+                <tr><td><div class="candidate"><div class="avatar green">JC</div><span><strong>Javier Castillo</strong><small>DevOps Engineer · 7 años</small></span></div></td><td>Cloud Engineer</td><td><span class="skill-tag">AWS</span><span class="skill-tag">Docker</span><span class="skill-more">+5</span></td><td><div class="score-cell"><strong>86%</strong><span><i style="width:86%"></i></span></div></td><td><span class="status-badge review">En revisión</span></td><td><a class="icon-button" href="{% url 'analisis' %}" aria-label="Ver análisis de Javier"><i class="bi bi-arrow-up-right"></i></a></td></tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<div class="row g-4 mt-1">
+    <div class="col-12 col-lg-7">
+        <section class="panel">
+            <div class="panel-header"><div><span class="section-kicker">Plazas prioritarias</span><h2>Contrataciones en movimiento</h2></div><a href="{% url 'plazas' %}" class="text-link">Gestionar plazas</a></div>
+            <div class="job-progress-list">
+                <article><div class="job-icon purple"><i class="bi bi-bezier2"></i></div><div class="flex-grow-1"><div class="job-title"><strong>UX/UI Designer</strong><span>18 aspirantes</span></div><small>Producto · Híbrido</small><div class="progress slim"><div class="progress-bar" style="width:75%"></div></div></div><strong class="job-days">8 días</strong></article>
+                <article><div class="job-icon blue"><i class="bi bi-code-slash"></i></div><div class="flex-grow-1"><div class="job-title"><strong>Python Developer</strong><span>24 aspirantes</span></div><small>Tecnología · Remoto</small><div class="progress slim"><div class="progress-bar" style="width:58%"></div></div></div><strong class="job-days">12 días</strong></article>
+                <article><div class="job-icon orange"><i class="bi bi-bar-chart"></i></div><div class="flex-grow-1"><div class="job-title"><strong>Data Analyst</strong><span>15 aspirantes</span></div><small>Inteligencia de negocio · Presencial</small><div class="progress slim"><div class="progress-bar" style="width:42%"></div></div></div><strong class="job-days">16 días</strong></article>
+            </div>
+        </section>
+    </div>
+    <div class="col-12 col-lg-5">
+        <section class="panel next-interview">
+            <div class="panel-header"><div><span class="section-kicker">Agenda</span><h2>Próxima entrevista</h2></div><span class="live-pill">En 45 min</span></div>
+            <div class="interview-card">
+                <div class="date-block"><strong>12</strong><span>AGO</span></div>
+                <div><h3>Luis Ramírez</h3><p>Python Developer · Entrevista técnica</p><span><i class="bi bi-clock"></i> 10:30 - 11:15</span><span><i class="bi bi-camera-video"></i> Google Meet</span></div>
+            </div>
+            <button class="btn btn-dark w-100 demo-action"><i class="bi bi-camera-video"></i> Unirse a la entrevista</button>
+        </section>
+    </div>
+</div>
+{% endblock %}
