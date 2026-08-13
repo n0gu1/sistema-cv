@@ -1,9 +1,11 @@
+import logging
+
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
-from django.db import connection
+from django.db import IntegrityError, connection
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -18,9 +20,17 @@ from reclutamiento.forms import (
     FormularioAcceso,
     FormularioCambioContrasena,
     FormularioNuevaContrasena,
+    FormularioReenvioVerificacion,
+    FormularioRegistroAspirante,
 )
 from reclutamiento.models import Usuario
 from reclutamiento.permissions import roles_required
+from reclutamiento.emails import send_verification_email
+from reclutamiento.services import register_applicant
+from reclutamiento.tokens import email_verification_token
+
+
+logger = logging.getLogger(__name__)
 
 
 def _home_for(user):
@@ -29,6 +39,15 @@ def _home_for(user):
     if user.has_role("ASPIRANTE"):
         return "portal"
     return "index"
+
+
+def _send_verification_safely(request, user):
+    try:
+        send_verification_email(request, user)
+        return True
+    except Exception:
+        logger.exception("No se pudo enviar la verificación a usuario_id=%s", user.pk)
+        return False
 
 
 def index(request):
@@ -52,6 +71,67 @@ def index(request):
         return redirect(_home_for(user))
 
     return render(request, "login.html", {"form": form})
+
+
+def registrar_aspirante(request):
+    if request.user.is_authenticated:
+        return redirect(_home_for(request.user))
+
+    form = FormularioRegistroAspirante(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            user = register_applicant(form)
+        except IntegrityError:
+            form.add_error(
+                "email",
+                "Ya existe una cuenta con este correo electrónico.",
+            )
+        else:
+            email_sent = _send_verification_safely(request, user)
+            return render(
+                request,
+                "auth/registro_exitoso.html",
+                {
+                    "title": "Verifica tu correo",
+                    "email": user.email,
+                    "email_sent": email_sent,
+                },
+            )
+    return render(
+        request,
+        "auth/registro_aspirante.html",
+        {"form": form, "title": "Crear cuenta"},
+    )
+
+
+def reenviar_verificacion(request):
+    if request.user.is_authenticated:
+        return redirect(_home_for(request.user))
+
+    form = FormularioReenvioVerificacion(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        user = (
+            Usuario.objects.filter(
+                email__iexact=form.cleaned_data["email"],
+                is_active=True,
+                is_verified=False,
+                usuariorol__rol__codigo="ASPIRANTE",
+            )
+            .distinct()
+            .first()
+        )
+        if user:
+            _send_verification_safely(request, user)
+        return render(
+            request,
+            "auth/reenvio_completado.html",
+            {"title": "Revisa tu correo"},
+        )
+    return render(
+        request,
+        "auth/reenviar_verificacion.html",
+        {"form": form, "title": "Reenviar verificación"},
+    )
 
 
 @login_required
@@ -167,7 +247,7 @@ def verificar_correo(request, uidb64, token):
     except (TypeError, ValueError, OverflowError):
         return render(request, "auth/enlace_invalido.html", status=400)
 
-    if not default_token_generator.check_token(user, token):
+    if not email_verification_token.check_token(user, token):
         return render(request, "auth/enlace_invalido.html", status=400)
 
     if not user.is_verified:

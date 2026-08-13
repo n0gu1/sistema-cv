@@ -1,6 +1,50 @@
 from django import forms
 from django.contrib.auth import authenticate
-from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
+from django.contrib.auth.forms import (
+    PasswordChangeForm,
+    SetPasswordForm,
+    UserCreationForm,
+)
+
+from reclutamiento.models import Usuario
+
+
+class FormularioRegistroAspirante(UserCreationForm):
+    first_name = forms.CharField(max_length=100)
+    last_name = forms.CharField(max_length=100)
+    email = forms.EmailField(max_length=254)
+    accept_terms = forms.BooleanField(required=True)
+
+    class Meta:
+        model = Usuario
+        fields = ("first_name", "last_name", "email")
+
+    def clean_email(self):
+        email = self.cleaned_data["email"].strip().lower()
+        if Usuario.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                "Ya existe una cuenta con este correo electrónico.",
+                code="duplicate_email",
+            )
+        return email
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data["email"]
+        user.first_name = self.cleaned_data["first_name"].strip()
+        user.last_name = self.cleaned_data["last_name"].strip()
+        user.is_active = True
+        user.is_verified = False
+        if commit:
+            user.save()
+        return user
+
+
+class FormularioReenvioVerificacion(forms.Form):
+    email = forms.EmailField(max_length=254)
+
+    def clean_email(self):
+        return self.cleaned_data["email"].strip().lower()
 
 
 class FormularioAcceso(forms.Form):

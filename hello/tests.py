@@ -6,8 +6,19 @@ from django.urls import reverse
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_encode
 from django.utils import timezone
+from unittest.mock import patch
 
-from reclutamiento.models import RolUsuario, Usuario, UsuarioRol
+from reclutamiento.models import (
+    Ciudad,
+    Pais,
+    PerfilAspirante,
+    Profesion,
+    Region,
+    RolUsuario,
+    Usuario,
+    UsuarioRol,
+)
+from reclutamiento.tokens import email_verification_token
 
 
 class AuthenticationTests(TransactionTestCase):
@@ -16,20 +27,31 @@ class AuthenticationTests(TransactionTestCase):
         super().setUpClass()
         with connection.schema_editor() as schema_editor:
             schema_editor.create_model(RolUsuario)
+            schema_editor.create_model(Pais)
+            schema_editor.create_model(Region)
+            schema_editor.create_model(Ciudad)
+            schema_editor.create_model(Profesion)
             schema_editor.create_model(Usuario)
             schema_editor.create_model(UsuarioRol)
+            schema_editor.create_model(PerfilAspirante)
 
     @classmethod
     def tearDownClass(cls):
         with connection.schema_editor() as schema_editor:
+            schema_editor.delete_model(PerfilAspirante)
             schema_editor.delete_model(UsuarioRol)
             schema_editor.delete_model(Usuario)
+            schema_editor.delete_model(Profesion)
+            schema_editor.delete_model(Ciudad)
+            schema_editor.delete_model(Region)
+            schema_editor.delete_model(Pais)
             schema_editor.delete_model(RolUsuario)
         super().tearDownClass()
 
     def setUp(self):
         # Unmanaged tables are intentionally outside Django's automatic flush.
         with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM perfiles_aspirantes")
             cursor.execute("DELETE FROM usuarios_roles")
             cursor.execute("DELETE FROM usuarios")
             cursor.execute("DELETE FROM roles_usuario")
@@ -253,7 +275,7 @@ class AuthenticationTests(TransactionTestCase):
         self.applicant.is_verified = False
         self.applicant.save(update_fields=["is_verified"])
         uid = urlsafe_base64_encode(force_bytes(self.applicant.pk))
-        token = default_token_generator.make_token(self.applicant)
+        token = email_verification_token.make_token(self.applicant)
 
         response = self.client.get(
             reverse(
@@ -265,6 +287,121 @@ class AuthenticationTests(TransactionTestCase):
         self.assertRedirects(response, reverse("index"))
         self.applicant.refresh_from_db()
         self.assertTrue(self.applicant.is_verified)
+
+    def test_public_registration_creates_applicant_and_sends_verification(self):
+        response = self.client.post(
+            reverse("registrar_aspirante"),
+            {
+                "first_name": "  Elena ",
+                "last_name": " Morales  ",
+                "email": "ELENA@EXAMPLE.COM",
+                "password1": "Clave-Registro-2026",
+                "password2": "Clave-Registro-2026",
+                "accept_terms": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Verifica tu correo")
+        user = Usuario.objects.get(email="elena@example.com")
+        self.assertEqual(user.first_name, "Elena")
+        self.assertEqual(user.last_name, "Morales")
+        self.assertFalse(user.is_verified)
+        self.assertTrue(user.is_active)
+        self.assertTrue(user.check_password("Clave-Registro-2026"))
+        self.assertEqual(user.role_codes(), {"ASPIRANTE"})
+        self.assertTrue(PerfilAspirante.objects.filter(usuario=user).exists())
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("multipart/alternative", str(mail.outbox[0].message()))
+        self.assertIn("/cuenta/verificar/", mail.outbox[0].body)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_registration_rejects_duplicate_email_case_insensitively(self):
+        response = self.client.post(
+            reverse("registrar_aspirante"),
+            {
+                "first_name": "Otra",
+                "last_name": "Persona",
+                "email": "ANDREA@EXAMPLE.COM",
+                "password1": "Clave-Registro-2026",
+                "password2": "Clave-Registro-2026",
+                "accept_terms": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Ya existe una cuenta")
+        self.assertEqual(Usuario.objects.filter(email__iexact="andrea@example.com").count(), 1)
+        self.assertEqual(len(mail.outbox), 0)
+
+    @patch("hello.views.send_verification_email", side_effect=OSError("SMTP caído"))
+    def test_registration_survives_email_provider_failure(self, mocked_send):
+        response = self.client.post(
+            reverse("registrar_aspirante"),
+            {
+                "first_name": "Elena",
+                "last_name": "Morales",
+                "email": "elena@example.com",
+                "password1": "Clave-Registro-2026",
+                "password2": "Clave-Registro-2026",
+                "accept_terms": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tu cuenta fue creada")
+        self.assertTrue(Usuario.objects.filter(email="elena@example.com").exists())
+        mocked_send.assert_called_once()
+
+    def test_registration_requires_terms_and_strong_matching_passwords(self):
+        response = self.client.post(
+            reverse("registrar_aspirante"),
+            {
+                "first_name": "Elena",
+                "last_name": "Morales",
+                "email": "elena@example.com",
+                "password1": "1234567890",
+                "password2": "otra-clave",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Debes aceptar los términos")
+        self.assertFalse(Usuario.objects.filter(email="elena@example.com").exists())
+
+    def test_verification_token_is_single_use(self):
+        self.applicant.is_verified = False
+        self.applicant.save(update_fields=["is_verified"])
+        uid = urlsafe_base64_encode(force_bytes(self.applicant.pk))
+        token = email_verification_token.make_token(self.applicant)
+        url = reverse(
+            "verificar_correo",
+            kwargs={"uidb64": uid, "token": token},
+        )
+
+        self.assertRedirects(self.client.get(url), reverse("index"))
+        self.assertEqual(self.client.get(url).status_code, 400)
+
+    def test_resend_verification_does_not_disclose_account_existence(self):
+        self.applicant.is_verified = False
+        self.applicant.save(update_fields=["is_verified"])
+        existing_response = self.client.post(
+            reverse("reenviar_verificacion"),
+            {"email": self.applicant.email},
+        )
+        missing_response = self.client.post(
+            reverse("reenviar_verificacion"),
+            {"email": "missing@example.com"},
+        )
+        verified_response = self.client.post(
+            reverse("reenviar_verificacion"),
+            {"email": self.hr_user.email},
+        )
+
+        self.assertContains(existing_response, "Revisa tu correo")
+        self.assertContains(missing_response, "Revisa tu correo")
+        self.assertContains(verified_response, "Revisa tu correo")
+        self.assertEqual(len(mail.outbox), 1)
 
 
 class SaludViewTests(TestCase):

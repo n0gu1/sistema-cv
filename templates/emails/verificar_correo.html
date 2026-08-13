@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="es">
+<body style="margin:0;padding:32px;background:#f5f7fb;font-family:Arial,sans-serif;color:#17233d">
+  <table role="presentation" style="width:100%;max-width:560px;margin:auto;background:#fff;border-radius:16px;border-collapse:separate;border-spacing:0;overflow:hidden">
+    <tr><td style="padding:28px 32px;background:#17253f;color:#fff;font-size:20px;font-weight:bold">Nexo Talento</td></tr>
+    <tr><td style="padding:34px 32px">
+      <p style="margin:0 0 12px;font-size:14px">Hola {{ user.first_name }},</p>
+      <h1 style="margin:0 0 14px;font-size:25px">Verifica tu correo electrónico</h1>
+      <p style="margin:0 0 26px;color:#667186;font-size:14px;line-height:1.6">Tu cuenta de aspirante ya fue creada. Confirma que este correo te pertenece para ingresar y comenzar a postularte.</p>
+      <a href="{{ verification_url }}" style="display:inline-block;padding:14px 22px;border-radius:10px;background:#6658d9;color:#fff;text-decoration:none;font-weight:bold;font-size:14px">Verificar mi cuenta</a>
+      <p style="margin:28px 0 0;color:#9299a8;font-size:11px;line-height:1.5">Si no creaste esta cuenta, puedes ignorar este mensaje.</p>
+    </td></tr>
+  </table>
+</body>
+</html>

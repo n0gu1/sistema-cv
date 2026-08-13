@@ -1,0 +1,10 @@
+Hola {{ user.first_name }},
+
+Gracias por crear tu cuenta en Nexo Talento.
+
+Verifica tu correo abriendo el siguiente enlace:
+{{ verification_url }}
+
+Si no creaste esta cuenta, puedes ignorar este mensaje.
+
+Equipo Nexo Talento

@@ -10,6 +10,8 @@ from hello.views import (
     nueva_plaza,
     plazas,
     portal,
+    reenviar_verificacion,
+    registrar_aspirante,
     restablecer_contrasena,
     salud,
     solicitar_recuperacion,
@@ -24,6 +26,12 @@ urlpatterns = [
     path("aspirantes/", aspirantes, name="aspirantes"),
     path("analisis/", analisis, name="analisis"),
     path("portal/", portal, name="portal"),
+    path("cuenta/registro/", registrar_aspirante, name="registrar_aspirante"),
+    path(
+        "cuenta/reenviar-verificacion/",
+        reenviar_verificacion,
+        name="reenviar_verificacion",
+    ),
     path("cuenta/salir/", cerrar_sesion, name="cerrar_sesion"),
     path(
         "cuenta/cambiar-contrasena/",
