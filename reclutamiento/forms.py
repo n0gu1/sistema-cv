@@ -11,14 +11,24 @@ from reclutamiento.models import Usuario
 from reclutamiento.models import (
     AreaEstudio,
     Certificacion,
+    CertificacionAspirante,
     Ciudad,
     Departamento,
+    Entrevista,
+    EstadoEntrevista,
+    ExperienciaLaboral,
+    FormacionAcademica,
     Habilidad,
+    HabilidadAspirante,
     Idioma,
+    IdiomaAspirante,
+    Institucion,
     ModalidadTrabajo,
     NivelEducativo,
+    NivelHabilidad,
     NivelIdioma,
     PeriodoSalarial,
+    PerfilAspirante,
     Plaza,
     Profesion,
     TipoEmpleo,
@@ -54,6 +64,226 @@ class FormularioRegistroAspirante(UserCreationForm):
         if commit:
             user.save()
         return user
+
+
+class FormularioPerfilAspirante(forms.ModelForm):
+    first_name = forms.CharField(max_length=100, label="Nombres")
+    last_name = forms.CharField(max_length=100, label="Apellidos")
+
+    class Meta:
+        model = PerfilAspirante
+        fields = (
+            "profesion",
+            "ciudad",
+            "telefono",
+            "direccion",
+            "resumen_profesional",
+            "disponible_desde",
+            "acepta_reubicacion",
+            "acepta_viajar",
+        )
+        widgets = {
+            "resumen_profesional": forms.Textarea(attrs={"rows": 5}),
+            "disponible_desde": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["profesion"].queryset = Profesion.objects.order_by("nombre")
+        self.fields["ciudad"].queryset = Ciudad.objects.select_related(
+            "region", "region__pais"
+        ).order_by("nombre")
+        if self.instance and self.instance.pk:
+            self.fields["first_name"].initial = self.instance.usuario.first_name
+            self.fields["last_name"].initial = self.instance.usuario.last_name
+
+
+class FormularioExperiencia(forms.ModelForm):
+    class Meta:
+        model = ExperienciaLaboral
+        exclude = ("aspirante",)
+        widgets = {
+            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
+            "fecha_fin": forms.DateInput(attrs={"type": "date"}),
+            "descripcion": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["profesion"].queryset = Profesion.objects.order_by("nombre")
+        self.fields["ciudad"].queryset = Ciudad.objects.select_related("region").order_by(
+            "nombre"
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start = cleaned_data.get("fecha_inicio")
+        end = cleaned_data.get("fecha_fin")
+        if start and end and end < start:
+            self.add_error("fecha_fin", "La fecha final no puede ser anterior al inicio.")
+        return cleaned_data
+
+
+class FormularioFormacion(forms.ModelForm):
+    class Meta:
+        model = FormacionAcademica
+        exclude = ("aspirante",)
+        widgets = {
+            "fecha_inicio": forms.DateInput(attrs={"type": "date"}),
+            "fecha_fin": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["institucion"].queryset = Institucion.objects.order_by("nombre")
+        self.fields["nivel_educativo"].queryset = NivelEducativo.objects.order_by(
+            "orden_nivel"
+        )
+        self.fields["area_estudio"].queryset = AreaEstudio.objects.order_by("nombre")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start = cleaned_data.get("fecha_inicio")
+        end = cleaned_data.get("fecha_fin")
+        if start and end and end < start:
+            self.add_error("fecha_fin", "La fecha final no puede ser anterior al inicio.")
+        return cleaned_data
+
+
+class FormularioHabilidadAspirante(forms.ModelForm):
+    class Meta:
+        model = HabilidadAspirante
+        exclude = ("aspirante",)
+
+    def __init__(self, *args, aspirante=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.aspirante = aspirante
+        skills = Habilidad.objects.filter(activo=True)
+        if aspirante and self.instance._state.adding:
+            skills = skills.exclude(habilidadaspirante__aspirante=aspirante)
+        self.fields["habilidad"].queryset = skills.order_by("nombre")
+        self.fields["nivel_habilidad"].queryset = NivelHabilidad.objects.order_by(
+            "orden_nivel"
+        )
+
+
+class FormularioIdiomaAspirante(forms.ModelForm):
+    class Meta:
+        model = IdiomaAspirante
+        exclude = ("aspirante",)
+
+    def __init__(self, *args, aspirante=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        languages = Idioma.objects.all()
+        if aspirante and self.instance._state.adding:
+            languages = languages.exclude(idiomaaspirante__aspirante=aspirante)
+        self.fields["idioma"].queryset = languages.order_by("nombre")
+        self.fields["nivel_idioma"].queryset = NivelIdioma.objects.order_by(
+            "orden_nivel"
+        )
+
+
+class FormularioCertificacionAspirante(forms.ModelForm):
+    class Meta:
+        model = CertificacionAspirante
+        exclude = ("aspirante",)
+        widgets = {
+            "emitida_en": forms.DateInput(attrs={"type": "date"}),
+            "vence_en": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["certificacion"].queryset = Certificacion.objects.order_by("nombre")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        issued = cleaned_data.get("emitida_en")
+        expires = cleaned_data.get("vence_en")
+        if issued and expires and expires < issued:
+            self.add_error("vence_en", "El vencimiento no puede ser anterior a la emisión.")
+        return cleaned_data
+
+
+class FormularioCurriculo(forms.Form):
+    archivo = forms.FileField(
+        label="Currículum en PDF",
+        help_text="Máximo 5 MB.",
+    )
+
+    def clean_archivo(self):
+        uploaded = self.cleaned_data["archivo"]
+        if uploaded.size > 5 * 1024 * 1024:
+            raise forms.ValidationError("El archivo no puede superar 5 MB.")
+        if uploaded.content_type != "application/pdf":
+            raise forms.ValidationError("El currículum debe ser un archivo PDF.")
+        signature = uploaded.read(5)
+        uploaded.seek(0)
+        if signature != b"%PDF-":
+            raise forms.ValidationError("El contenido del archivo no corresponde a un PDF.")
+        return uploaded
+
+
+class FormularioPostulacion(forms.Form):
+    carta_presentacion = forms.CharField(
+        required=False,
+        max_length=4000,
+        widget=forms.Textarea(attrs={"rows": 6}),
+    )
+
+
+class FormularioCambioEstadoPostulacion(forms.Form):
+    estado = forms.ChoiceField(choices=())
+    motivo = forms.CharField(required=False, max_length=1000, widget=forms.Textarea)
+
+    def __init__(self, *args, estados=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["estado"].choices = estados
+
+
+class FormularioEntrevista(forms.ModelForm):
+    class Meta:
+        model = Entrevista
+        fields = (
+            "inicia_en",
+            "termina_en",
+            "zona_horaria",
+            "detalle_ubicacion",
+            "url_reunion",
+            "notas",
+        )
+        widgets = {
+            "inicia_en": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+            ),
+            "termina_en": forms.DateTimeInput(
+                attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"
+            ),
+            "notas": forms.Textarea(attrs={"rows": 4}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start = cleaned_data.get("inicia_en")
+        end = cleaned_data.get("termina_en")
+        if start and end and end <= start:
+            self.add_error("termina_en", "La entrevista debe terminar después de iniciar.")
+        if not cleaned_data.get("detalle_ubicacion") and not cleaned_data.get(
+            "url_reunion"
+        ):
+            self.add_error(
+                "detalle_ubicacion",
+                "Indica una ubicación o un enlace de reunión.",
+            )
+        return cleaned_data
+
+
+class FormularioEstadoEntrevista(forms.Form):
+    estado = forms.ModelChoiceField(queryset=EstadoEntrevista.objects.none())
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["estado"].queryset = EstadoEntrevista.objects.order_by("nombre")
 
 
 class FormularioReenvioVerificacion(forms.Form):

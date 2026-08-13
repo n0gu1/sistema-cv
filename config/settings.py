@@ -107,6 +107,9 @@ else:
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+PRIVATE_UPLOAD_ROOT = Path(
+    os.environ.get("PRIVATE_UPLOAD_ROOT", BASE_DIR / "private_uploads")
+)
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",

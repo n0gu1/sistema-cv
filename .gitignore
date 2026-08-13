@@ -4,5 +4,6 @@ __pycache__/
 staticfiles/
 .venv/
 .env
+private_uploads/
 .idea/
 .vscode/

@@ -60,9 +60,16 @@ class AuthenticationTests(TransactionTestCase):
             schema_editor.create_model(Usuario)
             schema_editor.create_model(UsuarioRol)
             schema_editor.create_model(PerfilAspirante)
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "CREATE TABLE postulaciones ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, aspirante_id BIGINT NOT NULL)"
+            )
 
     @classmethod
     def tearDownClass(cls):
+        with connection.cursor() as cursor:
+            cursor.execute("DROP TABLE postulaciones")
         with connection.schema_editor() as schema_editor:
             schema_editor.delete_model(PerfilAspirante)
             schema_editor.delete_model(UsuarioRol)
@@ -77,6 +84,7 @@ class AuthenticationTests(TransactionTestCase):
     def setUp(self):
         # Unmanaged tables are intentionally outside Django's automatic flush.
         with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM postulaciones")
             cursor.execute("DELETE FROM perfiles_aspirantes")
             cursor.execute("DELETE FROM usuarios_roles")
             cursor.execute("DELETE FROM usuarios")
@@ -149,7 +157,11 @@ class AuthenticationTests(TransactionTestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("portal"))
+        self.assertRedirects(
+            response,
+            reverse("portal"),
+            fetch_redirect_response=False,
+        )
         self.assertEqual(self.client.session.get_expire_at_browser_close(), True)
 
     def test_invalid_password_does_not_create_session(self):
@@ -235,7 +247,7 @@ class AuthenticationTests(TransactionTestCase):
     def test_role_permissions_are_enforced(self):
         self.client.force_login(self.applicant)
 
-        self.assertEqual(self.client.get(reverse("portal")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("cargar_curriculo")).status_code, 200)
         self.assertEqual(self.client.get(reverse("dashboard")).status_code, 403)
 
     def test_hr_pages_are_available_for_hr_user(self):
