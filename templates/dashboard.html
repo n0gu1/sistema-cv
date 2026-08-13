@@ -13,8 +13,8 @@
 <section class="metric-grid" aria-label="Resumen de contratación">
     <article class="metric-card metric-primary">
         <div class="metric-top"><span>Plazas activas</span><span class="metric-icon"><i class="bi bi-briefcase"></i></span></div>
-        <div class="metric-value">12</div>
-        <div class="metric-caption positive"><i class="bi bi-arrow-up-right"></i> 3 publicadas este mes</div>
+        <div class="metric-value">{{ active_vacancies }}</div>
+        <div class="metric-caption positive"><i class="bi bi-check-circle"></i> Procesos publicados</div>
         <div class="metric-pattern"></div>
     </article>
     <article class="metric-card">
@@ -31,8 +31,8 @@
     </article>
     <article class="metric-card">
         <div class="metric-top"><span>Por revisar</span><span class="metric-icon lavender"><i class="bi bi-hourglass-split"></i></span></div>
-        <div class="metric-value">09</div>
-        <div class="metric-caption warning"><i class="bi bi-clock"></i> 4 requieren atención hoy</div>
+        <div class="metric-value">{{ pending_vacancies|stringformat:'02d' }}</div>
+        <div class="metric-caption warning"><i class="bi bi-clock"></i> Borradores o plazas pausadas</div>
         <div class="avatar-stack"><span>AM</span><span>LR</span><span>JC</span><span>+6</span></div>
     </article>
 </section>
@@ -96,11 +96,7 @@
     <div class="col-12 col-lg-7">
         <section class="panel">
             <div class="panel-header"><div><span class="section-kicker">Plazas prioritarias</span><h2>Contrataciones en movimiento</h2></div><a href="{% url 'plazas' %}" class="text-link">Gestionar plazas</a></div>
-            <div class="job-progress-list">
-                <article><div class="job-icon purple"><i class="bi bi-bezier2"></i></div><div class="flex-grow-1"><div class="job-title"><strong>UX/UI Designer</strong><span>18 aspirantes</span></div><small>Producto · Híbrido</small><div class="progress slim"><div class="progress-bar" style="width:75%"></div></div></div><strong class="job-days">8 días</strong></article>
-                <article><div class="job-icon blue"><i class="bi bi-code-slash"></i></div><div class="flex-grow-1"><div class="job-title"><strong>Python Developer</strong><span>24 aspirantes</span></div><small>Tecnología · Remoto</small><div class="progress slim"><div class="progress-bar" style="width:58%"></div></div></div><strong class="job-days">12 días</strong></article>
-                <article><div class="job-icon orange"><i class="bi bi-bar-chart"></i></div><div class="flex-grow-1"><div class="job-title"><strong>Data Analyst</strong><span>15 aspirantes</span></div><small>Inteligencia de negocio · Presencial</small><div class="progress slim"><div class="progress-bar" style="width:42%"></div></div></div><strong class="job-days">16 días</strong></article>
-            </div>
+            <div class="job-progress-list">{% for vacancy in priority_vacancies %}<article><div class="job-icon {% cycle 'purple' 'blue' 'orange' %}"><i class="bi bi-briefcase"></i></div><div class="flex-grow-1"><div class="job-title"><strong>{{ vacancy.titulo }}</strong><span>{{ vacancy.applicant_count }} aspirantes</span></div><small>{{ vacancy.departamento.nombre }} · {{ vacancy.modalidad_trabajo.nombre }}</small><div class="progress slim"><div class="progress-bar" style="width:{% if vacancy.estado_id == 'PUBLICADA' %}75{% else %}35{% endif %}%"></div></div></div><a class="job-days" href="{% url 'detalle_plaza' vacancy.pk %}">Gestionar</a></article>{% empty %}<div class="inline-empty">Publica una plaza para verla en este resumen.</div>{% endfor %}</div>
         </section>
     </div>
     <div class="col-12 col-lg-5">

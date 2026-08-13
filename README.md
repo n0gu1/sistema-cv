@@ -30,6 +30,18 @@ python manage.py crear_usuario admin@empresa.com `
 Los roles permitidos son `ADMINISTRADOR`, `RRHH` y `ASPIRANTE`. El estado de
 este y los siguientes modulos se mantiene en [`BACKEND_CHECKLIST.txt`](BACKEND_CHECKLIST.txt).
 
+## Catalogos de plazas
+
+Antes de crear la primera plaza, inicializa los catalogos base. El comando es
+idempotente y puede ejecutarse nuevamente sin duplicar registros:
+
+```powershell
+python manage.py inicializar_catalogos
+```
+
+La gestion de plazas permite crear borradores, editar requisitos, publicar,
+pausar, reactivar y cerrar procesos conservando su historial de estados.
+
 ## Pruebas
 
 ```powershell

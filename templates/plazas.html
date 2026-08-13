@@ -6,63 +6,42 @@
     <a class="btn btn-primary btn-lg" href="{% url 'nueva_plaza' %}"><i class="bi bi-plus-lg"></i> Nueva plaza</a>
 </div>
 
-<div class="status-tabs" role="tablist" aria-label="Estado de plazas">
-    <button class="active" type="button" data-filter="all">Todas <span>18</span></button>
-    <button type="button" data-filter="active">Activas <span>12</span></button>
-    <button type="button" data-filter="draft">Borradores <span>3</span></button>
-    <button type="button" data-filter="paused">Pausadas <span>2</span></button>
-    <button type="button" data-filter="closed">Cerradas <span>1</span></button>
+<div class="status-tabs" aria-label="Estado de plazas">
+    <a class="{% if not filters.estado %}active{% endif %}" href="{% url 'plazas' %}">Todas <span>{{ total_count }}</span></a>
+    <a class="{% if filters.estado == 'PUBLICADA' %}active{% endif %}" href="?estado=PUBLICADA">Activas <span>{{ status_counts.PUBLICADA|default:0 }}</span></a>
+    <a class="{% if filters.estado == 'BORRADOR' %}active{% endif %}" href="?estado=BORRADOR">Borradores <span>{{ status_counts.BORRADOR|default:0 }}</span></a>
+    <a class="{% if filters.estado == 'PAUSADA' %}active{% endif %}" href="?estado=PAUSADA">Pausadas <span>{{ status_counts.PAUSADA|default:0 }}</span></a>
+    <a class="{% if filters.estado == 'CERRADA' %}active{% endif %}" href="?estado=CERRADA">Cerradas <span>{{ status_counts.CERRADA|default:0 }}</span></a>
 </div>
 
-<section class="panel filter-panel">
-    <div class="filter-search"><i class="bi bi-search"></i><input id="jobSearch" type="search" placeholder="Buscar por puesto o departamento..." aria-label="Buscar plazas"></div>
-    <select class="form-select"><option>Todos los departamentos</option><option>Tecnología</option><option>Producto</option><option>Marketing</option></select>
-    <select class="form-select"><option>Cualquier modalidad</option><option>Remoto</option><option>Híbrido</option><option>Presencial</option></select>
-    <button class="btn btn-light"><i class="bi bi-sliders"></i> Más filtros</button>
-</section>
+<form class="panel filter-panel" method="get">
+    <div class="filter-search"><i class="bi bi-search"></i><input name="q" type="search" value="{{ filters.q }}" placeholder="Buscar por puesto o departamento..." aria-label="Buscar plazas"></div>
+    <select class="form-select" name="departamento"><option value="">Todos los departamentos</option>{% for department in departments %}<option value="{{ department.pk }}" {% if filters.departamento == department.pk|stringformat:'s' %}selected{% endif %}>{{ department.nombre }}</option>{% endfor %}</select>
+    <select class="form-select" name="modalidad"><option value="">Cualquier modalidad</option>{% for mode in work_modes %}<option value="{{ mode.pk }}" {% if filters.modalidad == mode.pk|stringformat:'s' %}selected{% endif %}>{{ mode.nombre }}</option>{% endfor %}</select>
+    {% if filters.estado %}<input type="hidden" name="estado" value="{{ filters.estado }}">{% endif %}
+    <button class="btn btn-light" type="submit"><i class="bi bi-funnel"></i> Filtrar</button>
+    {% if filters.q or filters.departamento or filters.modalidad or filters.estado %}<a class="btn btn-link" href="{% url 'plazas' %}">Limpiar</a>{% endif %}
+</form>
 
-<div class="jobs-grid" id="jobsGrid">
-    <article class="job-card" data-status="active" data-search="ux ui designer producto">
-        <div class="job-card-top"><div class="job-icon purple"><i class="bi bi-bezier2"></i></div><span class="status-badge active">Activa</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
-        <div class="job-card-title"><span>Producto</span><h2>UX/UI Designer</h2><p><i class="bi bi-geo-alt"></i> Ciudad de Guatemala · Híbrido</p></div>
-        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q12k - Q16k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
-        <div class="job-applicants"><div class="avatar-stack"><span>AM</span><span>CL</span><span>RF</span></div><div><strong>18 aspirantes</strong><small>5 nuevos esta semana</small></div></div>
-        <div class="job-card-footer"><div><span>Mejor coincidencia</span><strong class="match-good">94%</strong></div><a href="{% url 'aspirantes' %}">Ver candidatos <i class="bi bi-arrow-right"></i></a></div>
+{% if page.object_list %}
+<div class="jobs-grid">
+    {% for plaza in page.object_list %}
+    <article class="job-card">
+        <div class="job-card-top">
+            <div class="job-icon {% cycle 'purple' 'blue' 'orange' 'green' 'coral' 'slate' %}"><i class="bi bi-briefcase"></i></div>
+            <span class="status-badge {% if plaza.estado_id == 'PUBLICADA' %}active{% elif plaza.estado_id == 'PAUSADA' %}paused{% elif plaza.estado_id == 'CERRADA' %}closed{% else %}draft{% endif %}">{{ plaza.estado.nombre }}</span>
+            <a class="icon-button" href="{% url 'detalle_plaza' plaza.pk %}" aria-label="Ver {{ plaza.titulo }}"><i class="bi bi-arrow-up-right"></i></a>
+        </div>
+        <div class="job-card-title"><span>{{ plaza.departamento.nombre }}</span><h2>{{ plaza.titulo }}</h2><p><i class="bi bi-geo-alt"></i> {{ plaza.detalle_ubicacion|default:'Ubicación por definir' }} · {{ plaza.modalidad_trabajo.nombre }}</p></div>
+        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> {% if plaza.salario_minimo or plaza.salario_maximo %}{{ plaza.codigo_moneda }} {{ plaza.salario_minimo|default:'-' }} - {{ plaza.salario_maximo|default:'-' }}{% else %}Salario por definir{% endif %}</span><span><i class="bi bi-clock"></i> {{ plaza.tipo_empleo.nombre }}</span></div>
+        <div class="job-applicants"><div class="job-icon slate"><i class="bi bi-people"></i></div><div><strong>{{ plaza.applicant_count }} aspirante{{ plaza.applicant_count|pluralize }}</strong><small>{{ plaza.cantidad_vacantes }} vacante{{ plaza.cantidad_vacantes|pluralize }}</small></div></div>
+        <div class="job-card-footer"><div><span>Actualizada</span><strong>{{ plaza.actualizado_en|date:'d M Y' }}</strong></div><a href="{% url 'detalle_plaza' plaza.pk %}">Gestionar plaza <i class="bi bi-arrow-right"></i></a></div>
     </article>
-    <article class="job-card" data-status="active" data-search="python developer tecnología">
-        <div class="job-card-top"><div class="job-icon blue"><i class="bi bi-code-slash"></i></div><span class="status-badge active">Activa</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
-        <div class="job-card-title"><span>Tecnología</span><h2>Python Developer</h2><p><i class="bi bi-geo-alt"></i> Remoto · Guatemala</p></div>
-        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q15k - Q20k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
-        <div class="job-applicants"><div class="avatar-stack"><span>LR</span><span>DC</span><span>JP</span></div><div><strong>24 aspirantes</strong><small>8 nuevos esta semana</small></div></div>
-        <div class="job-card-footer"><div><span>Mejor coincidencia</span><strong class="match-good">91%</strong></div><a href="{% url 'aspirantes' %}">Ver candidatos <i class="bi bi-arrow-right"></i></a></div>
-    </article>
-    <article class="job-card" data-status="active" data-search="data analyst inteligencia negocio">
-        <div class="job-card-top"><div class="job-icon orange"><i class="bi bi-bar-chart"></i></div><span class="status-badge active">Activa</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
-        <div class="job-card-title"><span>Inteligencia de negocio</span><h2>Data Analyst</h2><p><i class="bi bi-geo-alt"></i> Zona 10 · Presencial</p></div>
-        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q10k - Q14k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
-        <div class="job-applicants"><div class="avatar-stack"><span>SV</span><span>MG</span><span>+13</span></div><div><strong>15 aspirantes</strong><small>3 nuevos esta semana</small></div></div>
-        <div class="job-card-footer"><div><span>Mejor coincidencia</span><strong class="match-good">88%</strong></div><a href="{% url 'aspirantes' %}">Ver candidatos <i class="bi bi-arrow-right"></i></a></div>
-    </article>
-    <article class="job-card" data-status="paused" data-search="cloud engineer tecnología">
-        <div class="job-card-top"><div class="job-icon green"><i class="bi bi-cloud"></i></div><span class="status-badge paused">Pausada</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
-        <div class="job-card-title"><span>Tecnología</span><h2>Cloud Engineer</h2><p><i class="bi bi-geo-alt"></i> Remoto · Centroamérica</p></div>
-        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q18k - Q24k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
-        <div class="job-applicants"><div class="avatar-stack"><span>JC</span><span>EM</span><span>+7</span></div><div><strong>9 aspirantes</strong><small>Pausada hace 2 días</small></div></div>
-        <div class="job-card-footer"><div><span>Mejor coincidencia</span><strong>86%</strong></div><a href="{% url 'aspirantes' %}">Ver candidatos <i class="bi bi-arrow-right"></i></a></div>
-    </article>
-    <article class="job-card" data-status="draft" data-search="growth marketing marketing">
-        <div class="job-card-top"><div class="job-icon coral"><i class="bi bi-megaphone"></i></div><span class="status-badge draft">Borrador</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
-        <div class="job-card-title"><span>Marketing</span><h2>Growth Marketing Lead</h2><p><i class="bi bi-geo-alt"></i> Ciudad de Guatemala · Híbrido</p></div>
-        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Por definir</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
-        <div class="job-applicants empty"><i class="bi bi-pencil-square"></i><div><strong>Completa los requisitos</strong><small>Faltan 2 campos para publicar</small></div></div>
-        <div class="job-card-footer"><div><span>Progreso</span><strong>70%</strong></div><a href="{% url 'nueva_plaza' %}">Continuar edición <i class="bi bi-arrow-right"></i></a></div>
-    </article>
-    <article class="job-card" data-status="closed" data-search="qa automation tecnología">
-        <div class="job-card-top"><div class="job-icon slate"><i class="bi bi-bug"></i></div><span class="status-badge closed">Cerrada</span><button class="icon-button"><i class="bi bi-three-dots"></i></button></div>
-        <div class="job-card-title"><span>Tecnología</span><h2>QA Automation Engineer</h2><p><i class="bi bi-geo-alt"></i> Remoto · Guatemala</p></div>
-        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> Q13k - Q17k</span><span><i class="bi bi-clock"></i> Tiempo completo</span></div>
-        <div class="job-applicants"><div class="avatar-stack"><span>MR</span><span>AP</span></div><div><strong>32 aspirantes</strong><small>2 personas contratadas</small></div></div>
-        <div class="job-card-footer"><div><span>Resultado</span><strong class="match-good">Cubierta</strong></div><a href="#">Ver resumen <i class="bi bi-arrow-right"></i></a></div>
-    </article>
+    {% endfor %}
 </div>
+
+{% if page.paginator.num_pages > 1 %}<nav class="page-pagination" aria-label="Paginación de plazas">{% if page.has_previous %}<a href="?pagina={{ page.previous_page_number }}&q={{ filters.q|urlencode }}&estado={{ filters.estado }}&departamento={{ filters.departamento }}&modalidad={{ filters.modalidad }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span>Página {{ page.number }} de {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?pagina={{ page.next_page_number }}&q={{ filters.q|urlencode }}&estado={{ filters.estado }}&departamento={{ filters.departamento }}&modalidad={{ filters.modalidad }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav>{% endif %}
+{% else %}
+<section class="panel empty-state"><span><i class="bi bi-briefcase"></i></span><h2>No encontramos plazas</h2><p>{% if filters.q or filters.estado or filters.departamento or filters.modalidad %}Prueba con otros filtros o limpia la búsqueda.{% else %}Crea la primera plaza para iniciar un proceso de contratación.{% endif %}</p>{% if filters.q or filters.estado or filters.departamento or filters.modalidad %}<a class="btn btn-light" href="{% url 'plazas' %}">Limpiar filtros</a>{% else %}<a class="btn btn-primary" href="{% url 'nueva_plaza' %}">Crear primera plaza</a>{% endif %}</section>
+{% endif %}
 {% endblock %}

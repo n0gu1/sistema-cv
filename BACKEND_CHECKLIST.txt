@@ -34,10 +34,17 @@ Convenciones:
 [ ] Segundo factor de autenticacion, si el alcance final lo requiere.
 
 2. CRUD DE PLAZAS Y REQUISITOS
-[ ] Crear, editar y consultar plazas desde PostgreSQL.
-[ ] Publicar, pausar, reactivar y cerrar plazas.
-[ ] Gestionar requisitos obligatorios y deseables.
-[ ] Validar transiciones y guardar historial de estados.
+[x] Crear, editar, consultar y filtrar plazas desde PostgreSQL.
+[x] Paginacion del listado de plazas.
+[x] Publicar, pausar, reactivar y cerrar plazas.
+[x] Gestionar experiencia y educacion requeridas.
+[x] Gestionar habilidades obligatorias y deseables.
+[x] Gestionar idioma, certificaciones y disponibilidad.
+[x] Normalizar requisitos en sus tablas especializadas.
+[x] Distribuir y validar los pesos de evaluacion hasta completar 100%.
+[x] Validar transiciones y guardar historial de estados.
+[x] Evitar edicion de plazas cerradas y requisitos con evaluaciones asociadas.
+[x] Inicializacion idempotente de catalogos base.
 
 3. GESTION DE ASPIRANTES
 [x] Registro de aspirantes.
