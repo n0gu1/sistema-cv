@@ -1,6 +1,7 @@
 # Sistema CV
 
-Aplicación mínima que muestra `Hola, mundo!` en la ruta principal.
+Sistema de reclutamiento para gestionar plazas, perfiles profesionales,
+postulaciones, entrevistas y análisis de currículums.
 
 ## Ejecutar localmente
 
@@ -41,6 +42,25 @@ python manage.py inicializar_catalogos
 
 La gestion de plazas permite crear borradores, editar requisitos, publicar,
 pausar, reactivar y cerrar procesos conservando su historial de estados.
+
+## Perfil y postulaciones
+
+El portal del aspirante permite completar información personal y profesional,
+registrar experiencia, formación, habilidades, idiomas y certificaciones. Las
+plazas publicadas vigentes se muestran en una bolsa de empleo y cada
+postulación conserva su estado e historial. Recursos Humanos puede avanzar el
+proceso y programar entrevistas.
+
+Los currículums se validan como PDF, se identifican con SHA-256 y se guardan en
+un directorio privado durante desarrollo. Configura `PRIVATE_UPLOAD_ROOT` para
+elegir su ubicación. Antes de usar estos módulos ejecuta:
+
+```powershell
+python manage.py inicializar_catalogos
+```
+
+El paso pendiente para producción es sustituir el almacenamiento privado local
+por S3 o Azure Blob y entregar los documentos mediante URLs temporales.
 
 ## Pruebas
 

@@ -48,20 +48,22 @@ Convenciones:
 
 3. GESTION DE ASPIRANTES
 [x] Registro de aspirantes.
-[-] Perfil inicial creado; falta completar datos personales y profesionales.
-[ ] Experiencia, educacion, habilidades, idiomas y certificaciones.
-[ ] Busqueda, filtros y paginacion reales.
+[x] Perfil con datos personales, profesionales y disponibilidad.
+[x] Experiencia, educacion, habilidades, idiomas y certificaciones.
+[x] Porcentaje de completitud calculado con datos reales.
+[x] Busqueda y paginacion real para Recursos Humanos.
 
 4. POSTULACIONES
-[ ] Crear y retirar postulaciones.
-[ ] Evitar postulaciones duplicadas.
-[ ] Cambiar estados y registrar historial.
-[ ] Gestionar entrevistas.
+[x] Explorar y consultar plazas publicadas vigentes.
+[x] Crear y retirar postulaciones.
+[x] Evitar postulaciones duplicadas.
+[x] Cambiar estados y registrar historial.
+[x] Gestionar entrevistas y sus estados.
 
 5. CURRICULUMS
-[ ] Carga y validacion segura de PDF.
+[x] Carga privada local y validacion de firma, MIME y tamano del PDF.
 [ ] Almacenamiento privado en S3 o Azure Blob.
-[ ] Generacion de suma SHA-256 y deteccion de duplicados.
+[x] Generacion de suma SHA-256 y deteccion de duplicados.
 [ ] URLs firmadas y temporales para consultar documentos.
 
 6. ANALISIS INTELIGENTE

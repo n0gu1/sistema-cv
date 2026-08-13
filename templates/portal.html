@@ -1,70 +1,25 @@
-{% load static %}
-<!doctype html>
-<html lang="es">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Mi espacio | Nexo Talento</title>
-    <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="{% static 'css/app.css' %}">
-</head>
-<body class="portal-body">
-<header class="portal-header">
-    <div class="portal-container">
-        <a class="brand portal-brand" href="{% url 'portal' %}"><span class="brand-mark"><i class="bi bi-stars"></i></span><span><strong>Nexo</strong><small>Encuentra tu siguiente reto</small></span></a>
-        <nav class="portal-nav d-none d-md-flex"><a class="active" href="#">Mi espacio</a><a href="#vacancies">Explorar plazas</a><a href="#applications">Mis solicitudes</a></nav>
-        <div class="portal-actions"><button class="icon-button has-alert" aria-label="Notificaciones"><i class="bi bi-bell"></i></button><div class="avatar avatar-sm coral">{{ request.user.first_name|first }}{{ request.user.last_name|first }}</div><span class="d-none d-lg-block"><strong>{{ request.user.get_full_name }}</strong><small>Aspirante</small></span><button class="icon-button d-md-none" data-bs-toggle="offcanvas" data-bs-target="#portalMenu" aria-label="Abrir menú"><i class="bi bi-list"></i></button></div>
+{% extends "portal_base.html" %}
+{% block content %}
+<section class="portal-welcome">
+    <div><span class="eyebrow">Tu centro de oportunidades</span><h1>Hola, {{ request.user.first_name }}</h1><p>Completa tu perfil, consulta plazas activas y sigue cada postulación desde un solo lugar.</p></div>
+    <a class="btn btn-dark btn-lg" href="{% url 'oportunidades' %}">Explorar oportunidades <i class="bi bi-arrow-right"></i></a>
+</section>
+<div class="portal-grid">
+    <div>
+        <section class="profile-completion">
+            <div class="profile-progress-ring" style="--profile-progress: {{ profile_percentage }}"><span><strong>{{ profile_percentage }}%</strong><small>completo</small></span></div>
+            <div><span class="section-kicker">Haz que te encuentren</span><h2>Tu perfil profesional</h2><p>Cada sección completa mejora la información disponible para Recursos Humanos.</p><div class="completion-checks"><span class="{% if profile_sections.datos %}done{% endif %}"><i class="bi bi-{% if profile_sections.datos %}check-lg{% else %}plus{% endif %}"></i> Datos personales</span><span class="{% if profile_sections.experiencia %}done{% endif %}"><i class="bi bi-{% if profile_sections.experiencia %}check-lg{% else %}plus{% endif %}"></i> Experiencia</span><span class="{% if profile_sections.curriculo %}done{% endif %}"><i class="bi bi-{% if profile_sections.curriculo %}check-lg{% else %}plus{% endif %}"></i> Currículum</span></div></div>
+            <a class="btn btn-light" href="{% url 'perfil_aspirante' %}">Completar perfil</a>
+        </section>
+        <section class="portal-section" id="applications">
+            <div class="portal-section-header"><div><span class="section-kicker">En seguimiento</span><h2>Mis solicitudes</h2></div><a href="{% url 'mis_postulaciones' %}">Ver historial <i class="bi bi-arrow-right"></i></a></div>
+            {% if applications %}<div class="application-list">{% for application in applications %}<article><div class="company-mark purple"><i class="bi bi-briefcase"></i></div><div class="application-info"><span>{{ application.plaza.departamento.nombre }}</span><h3>{{ application.plaza.titulo }}</h3><p><i class="bi bi-geo-alt"></i> {{ application.plaza.modalidad_trabajo.nombre }}</p></div><div class="application-status"><span class="status-badge review">{{ application.estado.nombre }}</span><small>Actualizada {{ application.actualizado_en|timesince }} atrás</small></div><a class="icon-button" href="{% url 'mi_postulacion' application.pk %}" aria-label="Ver postulación"><i class="bi bi-chevron-right"></i></a></article>{% endfor %}</div>{% else %}<div class="portal-empty"><i class="bi bi-send"></i><h3>Aún no tienes solicitudes</h3><p>Explora las plazas publicadas y envía tu primera postulación.</p></div>{% endif %}
+        </section>
     </div>
-</header>
-
-<main class="portal-container portal-content">
-    <section class="portal-welcome">
-        <div><span class="eyebrow">Miércoles, 12 de agosto</span><h1>Hola, {{ request.user.first_name }} <span>👋</span></h1><p>Tu perfil está generando buenas coincidencias. Hay 3 nuevas plazas que podrían interesarte.</p></div>
-        <a class="btn btn-dark btn-lg" href="#vacancies">Explorar oportunidades <i class="bi bi-arrow-down"></i></a>
-    </section>
-
-    <div class="portal-grid">
-        <div>
-            <section class="profile-completion">
-                <div class="profile-progress-ring"><span><strong>82%</strong><small>completo</small></span></div>
-                <div><span class="section-kicker">Haz que te encuentren</span><h2>Tu perfil ya destaca</h2><p>Agrega certificaciones e idiomas para mejorar la precisión de tus coincidencias.</p><div class="completion-checks"><span class="done"><i class="bi bi-check-lg"></i> Información personal</span><span class="done"><i class="bi bi-check-lg"></i> Experiencia</span><span><i class="bi bi-plus"></i> Certificaciones</span></div></div>
-                <button class="btn btn-light demo-action">Completar perfil</button>
-            </section>
-
-            <section class="portal-section" id="applications">
-                <div class="portal-section-header"><div><span class="section-kicker">En seguimiento</span><h2>Mis solicitudes</h2></div><a href="#">Ver historial <i class="bi bi-arrow-right"></i></a></div>
-                <div class="application-list">
-                    <article><div class="company-mark purple"><i class="bi bi-bezier2"></i></div><div class="application-info"><span>Producto digital</span><h3>UX/UI Designer</h3><p><i class="bi bi-building"></i> Nexo Labs · Ciudad de Guatemala</p></div><div class="application-match"><small>Compatibilidad</small><strong>92%</strong></div><div class="application-status"><span class="status-badge interview">Entrevista</span><small>Programada para el viernes</small></div><button class="icon-button"><i class="bi bi-chevron-right"></i></button></article>
-                    <article><div class="company-mark blue"><i class="bi bi-phone"></i></div><div class="application-info"><span>Fintech</span><h3>Product Designer</h3><p><i class="bi bi-building"></i> QuetzalPay · Remoto</p></div><div class="application-match"><small>Compatibilidad</small><strong>87%</strong></div><div class="application-status"><span class="status-badge review">En revisión</span><small>Actualizada hace 2 días</small></div><button class="icon-button"><i class="bi bi-chevron-right"></i></button></article>
-                    <article><div class="company-mark orange"><i class="bi bi-bag"></i></div><div class="application-info"><span>Comercio electrónico</span><h3>UX Researcher</h3><p><i class="bi bi-building"></i> MercaGo · Híbrido</p></div><div class="application-match"><small>Compatibilidad</small><strong>81%</strong></div><div class="application-status"><span class="status-badge new">Enviada</span><small>Enviada hace 5 días</small></div><button class="icon-button"><i class="bi bi-chevron-right"></i></button></article>
-                </div>
-            </section>
-        </div>
-
-        <aside>
-            <section class="portal-card cv-card"><div class="portal-card-header"><h2>Mi currículum</h2><button class="icon-button"><i class="bi bi-three-dots"></i></button></div><div class="cv-file"><span class="pdf-icon"><i class="bi bi-file-earmark-pdf"></i></span><div><strong>CV_Andrea_Ruiz.pdf</strong><small>Actualizado hace 4 días</small></div><i class="bi bi-check-circle-fill"></i></div><div class="cv-analysis"><span><i class="bi bi-stars"></i> Análisis completado</span><strong>8.6<small>/10</small></strong></div><button class="btn btn-outline-dark w-100 demo-action"><i class="bi bi-upload"></i> Actualizar currículum</button></section>
-            <section class="portal-card notification-card"><div class="portal-card-header"><h2>Notificaciones</h2><a href="#">Ver todas</a></div><div class="notification-item unread"><span><i class="bi bi-calendar-check"></i></span><div><strong>Entrevista confirmada</strong><p>Tu entrevista para UX/UI Designer fue programada.</p><small>Hace 2 horas</small></div></div><div class="notification-item"><span class="orange"><i class="bi bi-eye"></i></span><div><strong>Revisaron tu perfil</strong><p>QuetzalPay consultó tu postulación.</p><small>Ayer</small></div></div></section>
-        </aside>
-    </div>
-
-    <section class="portal-section vacancies-section" id="vacancies">
-        <div class="portal-section-header"><div><span class="section-kicker">Elegidas para ti</span><h2>Plazas con alta compatibilidad</h2></div><a href="#">Ver todas las plazas <i class="bi bi-arrow-right"></i></a></div>
-        <div class="recommended-jobs">
-            <article><div class="recommended-top"><div class="company-mark green"><i class="bi bi-layers"></i></div><button class="icon-button"><i class="bi bi-bookmark"></i></button></div><span>Híbrido · Producto</span><h3>Senior Product Designer</h3><p><i class="bi bi-building"></i> Vertex Studio</p><div class="recommended-tags"><span>Figma</span><span>Design Systems</span><span>Research</span></div><div class="recommended-footer"><div class="small-score">95%</div><span><strong>Excelente coincidencia</strong><small>Publicada hoy</small></span><button class="btn btn-dark demo-action">Ver plaza</button></div></article>
-            <article><div class="recommended-top"><div class="company-mark purple"><i class="bi bi-bank"></i></div><button class="icon-button"><i class="bi bi-bookmark"></i></button></div><span>Remoto · Fintech</span><h3>UX Lead</h3><p><i class="bi bi-building"></i> NovaBank</p><div class="recommended-tags"><span>Leadership</span><span>UX Strategy</span><span>B2B</span></div><div class="recommended-footer"><div class="small-score">89%</div><span><strong>Muy buena coincidencia</strong><small>Publicada ayer</small></span><button class="btn btn-dark demo-action">Ver plaza</button></div></article>
-            <article><div class="recommended-top"><div class="company-mark orange"><i class="bi bi-heart-pulse"></i></div><button class="icon-button"><i class="bi bi-bookmark"></i></button></div><span>Presencial · Healthtech</span><h3>Product Designer</h3><p><i class="bi bi-building"></i> Vitalis</p><div class="recommended-tags"><span>Mobile</span><span>Prototyping</span><span>UI</span></div><div class="recommended-footer"><div class="small-score">84%</div><span><strong>Buena coincidencia</strong><small>Publicada hace 3 días</small></span><button class="btn btn-dark demo-action">Ver plaza</button></div></article>
-        </div>
-    </section>
-</main>
-
-<div class="offcanvas offcanvas-end" tabindex="-1" id="portalMenu"><div class="offcanvas-header"><h2 class="offcanvas-title">Menú</h2><button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div><div class="offcanvas-body portal-mobile-nav"><a href="#">Mi espacio</a><a href="#vacancies">Explorar plazas</a><a href="#applications">Mis solicitudes</a><a href="{% url 'cambiar_contrasena' %}">Cambiar contraseña</a><form method="post" action="{% url 'cerrar_sesion' %}">{% csrf_token %}<button class="btn btn-outline-danger w-100" type="submit">Cerrar sesión</button></form></div></div>
-<div class="toast-container position-fixed bottom-0 end-0 p-3"><div id="demoToast" class="toast border-0"><div class="toast-body d-flex align-items-center gap-3"><span class="toast-check"><i class="bi bi-check-lg"></i></span><div><strong class="d-block">Acción registrada</strong><span class="text-secondary">Prototipo listo para conectar al backend.</span></div><button type="button" class="btn-close ms-auto" data-bs-dismiss="toast"></button></div></div></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{% static 'js/app.js' %}"></script>
-</body>
-</html>
+    <aside>
+        <section class="portal-card cv-card"><div class="portal-card-header"><h2>Mi currículum</h2></div>{% if curriculum %}<div class="cv-file"><span class="pdf-icon"><i class="bi bi-file-earmark-pdf"></i></span><div><strong>{{ curriculum.nombre_archivo_original }}</strong><small>Cargado {{ curriculum.cargado_en|timesince }} atrás</small></div><i class="bi bi-check-circle-fill"></i></div><a class="btn btn-outline-dark w-100" href="{% url 'descargar_curriculo' curriculum.pk %}"><i class="bi bi-download"></i> Descargar</a>{% else %}<div class="portal-empty compact"><i class="bi bi-file-earmark-pdf"></i><p>No has cargado un currículum.</p></div>{% endif %}<a class="btn btn-dark w-100 mt-2" href="{% url 'cargar_curriculo' %}"><i class="bi bi-upload"></i> {% if curriculum %}Actualizar{% else %}Cargar{% endif %} currículum</a></section>
+        <section class="portal-card"><div class="portal-card-header"><h2>Resumen del perfil</h2></div><div class="profile-summary-list"><span><i class="bi bi-briefcase"></i><strong>{{ perfil.profesion|default:"Profesión pendiente" }}</strong></span><span><i class="bi bi-geo-alt"></i><strong>{{ perfil.ciudad|default:"Ubicación pendiente" }}</strong></span><span><i class="bi bi-calendar-check"></i><strong>{% if perfil.disponible_desde %}Disponible desde {{ perfil.disponible_desde|date:"d/m/Y" }}{% else %}Disponibilidad pendiente{% endif %}</strong></span></div></section>
+    </aside>
+</div>
+<section class="portal-section vacancies-section" id="vacancies"><div class="portal-section-header"><div><span class="section-kicker">Publicadas recientemente</span><h2>Oportunidades disponibles</h2></div><a href="{% url 'oportunidades' %}">Ver todas las plazas <i class="bi bi-arrow-right"></i></a></div>{% if vacancies %}<div class="recommended-jobs">{% for vacancy in vacancies %}<article><div class="recommended-top"><div class="company-mark green"><i class="bi bi-building"></i></div></div><span>{{ vacancy.modalidad_trabajo.nombre }} · {{ vacancy.departamento.nombre }}</span><h3>{{ vacancy.titulo }}</h3><p><i class="bi bi-geo-alt"></i> {{ vacancy.ciudad|default:vacancy.detalle_ubicacion|default:"Ubicación por confirmar" }}</p><div class="recommended-footer"><span><strong>{{ vacancy.tipo_empleo.nombre }}</strong><small>Publicada {{ vacancy.publicado_en|timesince }} atrás</small></span><a class="btn btn-dark" href="{% url 'detalle_oportunidad' vacancy.pk %}">Ver plaza</a></div></article>{% endfor %}</div>{% else %}<div class="portal-empty"><i class="bi bi-search"></i><h3>No hay plazas nuevas por ahora</h3><p>Las oportunidades publicadas aparecerán aquí.</p></div>{% endif %}</section>
+{% endblock %}

@@ -34,8 +34,9 @@
                 <i class="bi bi-briefcase"></i><span>Plazas</span><span class="nav-count">12</span>
             </a>
             <a class="nav-item {% if request.resolver_match.url_name == 'aspirantes' %}active{% endif %}" href="{% url 'aspirantes' %}">
-                <i class="bi bi-people"></i><span>Aspirantes</span><span class="nav-count">48</span>
+                <i class="bi bi-people"></i><span>Aspirantes</span>
             </a>
+            <a class="nav-item {% if request.resolver_match.url_name == 'postulaciones' or request.resolver_match.url_name == 'detalle_postulacion' %}active{% endif %}" href="{% url 'postulaciones' %}"><i class="bi bi-send"></i><span>Postulaciones</span></a>
             <a class="nav-item {% if request.resolver_match.url_name == 'analisis' %}active{% endif %}" href="{% url 'analisis' %}">
                 <i class="bi bi-cpu"></i><span>Análisis IA</span>
             </a>
@@ -78,7 +79,6 @@
                 <kbd>Ctrl K</kbd>
             </div>
             <div class="topbar-actions">
-                <a class="portal-link d-none d-sm-inline-flex" href="{% url 'portal' %}"><i class="bi bi-person-circle"></i> Ver portal del aspirante</a>
                 <button class="icon-button has-alert" aria-label="Notificaciones"><i class="bi bi-bell"></i></button>
                 <div class="avatar avatar-sm d-lg-none">{{ request.user.first_name|first }}{{ request.user.last_name|first }}</div>
             </div>
@@ -86,7 +86,7 @@
 
         <main class="content-area">
             {% if messages %}
-                <div class="page-messages">{% for message in messages %}<div class="auth-alert success"><i class="bi bi-check-circle"></i>{{ message }}</div>{% endfor %}</div>
+                <div class="page-messages">{% for message in messages %}<div class="auth-alert {% if message.tags == 'error' %}error{% else %}success{% endif %}"><i class="bi bi-info-circle"></i>{{ message }}</div>{% endfor %}</div>
             {% endif %}
             {% block content %}{% endblock %}
         </main>
