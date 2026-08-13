@@ -13,6 +13,23 @@ python manage.py runserver
 
 Abre <http://127.0.0.1:8000/> en el navegador.
 
+## Autenticacion
+
+El acceso usa la tabla `usuarios`, hashes de contrasena de Django, sesiones
+firmadas y los roles existentes en `usuarios_roles`. Para crear la primera
+cuenta ejecuta el comando sin `--password`; este la solicita de forma oculta y
+evita guardarla en el historial del terminal:
+
+```powershell
+python manage.py crear_usuario admin@empresa.com `
+  --nombres "Nombre" `
+  --apellidos "Apellido" `
+  --rol ADMINISTRADOR
+```
+
+Los roles permitidos son `ADMINISTRADOR`, `RRHH` y `ASPIRANTE`. El estado de
+este y los siguientes modulos se mantiene en [`BACKEND_CHECKLIST.txt`](BACKEND_CHECKLIST.txt).
+
 ## Pruebas
 
 ```powershell
