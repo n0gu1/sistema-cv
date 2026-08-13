@@ -33,9 +33,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const applicant = button.dataset.loginRole === "aspirante";
             emailInput.placeholder = applicant ? "tu.correo@email.com" : "nombre@empresa.com";
             registerCopy.innerHTML = applicant
-                ? "¿Aún no tienes cuenta? <a href=\"#\" data-demo-link>Crear una cuenta</a>"
+                ? `¿Aún no tienes cuenta? <a href="${registerCopy.dataset.registerUrl}">Crear una cuenta</a>`
                 : "¿Tu empresa aún no usa Nexo? <a href=\"#\" data-demo-link>Solicitar acceso</a>";
-            bindDemoLink(registerCopy.querySelector("a"));
+            if (!applicant) bindDemoLink(registerCopy.querySelector("a"));
         });
     });
 

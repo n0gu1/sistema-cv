@@ -23,7 +23,13 @@ Convenciones:
 [x] Proteccion contra redirecciones externas mediante el parametro next.
 [x] Comando crear_usuario para crear las primeras cuentas de forma segura.
 [-] SMTP preparado mediante variables de entorno; faltan credenciales reales.
-[ ] Registro publico de aspirantes y envio inicial del correo de verificacion.
+[x] Registro publico transaccional de aspirantes.
+[x] Asignacion exclusiva del rol ASPIRANTE y creacion del perfil inicial.
+[x] Envio inicial y reenvio seguro del correo de verificacion.
+[x] Correo de verificacion en HTML con alternativa de texto.
+[x] Token de verificacion de un solo uso.
+[x] Respuesta de reenvio que no revela si una cuenta existe.
+[x] Recuperacion ante fallos temporales del proveedor de correo.
 [ ] Limite de intentos y bloqueo temporal contra fuerza bruta.
 [ ] Segundo factor de autenticacion, si el alcance final lo requiere.
 
@@ -34,8 +40,8 @@ Convenciones:
 [ ] Validar transiciones y guardar historial de estados.
 
 3. GESTION DE ASPIRANTES
-[ ] Registro de aspirantes.
-[ ] Perfil personal y profesional.
+[x] Registro de aspirantes.
+[-] Perfil inicial creado; falta completar datos personales y profesionales.
 [ ] Experiencia, educacion, habilidades, idiomas y certificaciones.
 [ ] Busqueda, filtros y paginacion reales.
 

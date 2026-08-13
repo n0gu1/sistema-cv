@@ -1,0 +1,26 @@
+{% extends "auth/auth_base.html" %}
+{% block card_class %}auth-card-wide{% endblock %}
+{% block content %}
+<span class="eyebrow">Portal del aspirante</span>
+<h1>Crea tu cuenta</h1>
+<p>Completa tus datos básicos. Después verificaremos tu correo antes de habilitar el acceso.</p>
+
+{% if form.non_field_errors %}<div class="auth-alert error"><i class="bi bi-exclamation-circle"></i>{{ form.non_field_errors.0 }}</div>{% endif %}
+<form method="post" class="auth-form registration-form" novalidate>
+    {% csrf_token %}
+    <div class="auth-field-grid">
+        <div><label for="id_first_name">Nombres</label><input class="form-control form-control-lg" id="id_first_name" name="first_name" value="{{ form.first_name.value|default:'' }}" required autocomplete="given-name" maxlength="100" placeholder="Andrea">{% if form.first_name.errors %}<small class="auth-field-error">{{ form.first_name.errors.0 }}</small>{% endif %}</div>
+        <div><label for="id_last_name">Apellidos</label><input class="form-control form-control-lg" id="id_last_name" name="last_name" value="{{ form.last_name.value|default:'' }}" required autocomplete="family-name" maxlength="100" placeholder="Ruiz">{% if form.last_name.errors %}<small class="auth-field-error">{{ form.last_name.errors.0 }}</small>{% endif %}</div>
+    </div>
+    <div><label for="id_email">Correo electrónico</label><input class="form-control form-control-lg" id="id_email" name="email" value="{{ form.email.value|default:'' }}" type="email" required autocomplete="email" maxlength="254" placeholder="tu.correo@email.com">{% if form.email.errors %}<small class="auth-field-error">{{ form.email.errors.0 }}</small>{% endif %}</div>
+    <div class="auth-field-grid">
+        <div><label for="id_password1">Contraseña</label><input class="form-control form-control-lg" id="id_password1" name="password1" type="password" required autocomplete="new-password" placeholder="Mínimo 10 caracteres">{% if form.password1.errors %}<small class="auth-field-error">{{ form.password1.errors.0 }}</small>{% endif %}</div>
+        <div><label for="id_password2">Confirmar contraseña</label><input class="form-control form-control-lg" id="id_password2" name="password2" type="password" required autocomplete="new-password" placeholder="Repite tu contraseña">{% if form.password2.errors %}<small class="auth-field-error">{{ form.password2.errors.0 }}</small>{% endif %}</div>
+    </div>
+    <small class="password-help"><i class="bi bi-shield-check"></i> Usa 10 caracteres o más y evita contraseñas comunes o solo numéricas.</small>
+    <label class="terms-check"><input class="form-check-input" type="checkbox" name="accept_terms" required {% if form.accept_terms.value %}checked{% endif %}> Acepto los términos de uso y el tratamiento de mis datos para procesos de selección.</label>
+    {% if form.accept_terms.errors %}<small class="auth-field-error">Debes aceptar los términos para crear tu cuenta.</small>{% endif %}
+    <button class="btn btn-primary btn-lg" type="submit">Crear cuenta <i class="bi bi-arrow-right"></i></button>
+</form>
+<p class="register-copy">¿Ya tienes una cuenta? <a href="{% url 'index' %}">Iniciar sesión</a></p>
+{% endblock %}

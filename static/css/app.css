@@ -316,6 +316,7 @@ button, input, select, textarea { font: inherit; }
 .account-menu form { margin: 0; }
 .auth-page { display: grid; min-height: 100vh; place-items: center; padding: 25px; background: radial-gradient(circle at 10% 10%, #eeebff 0, transparent 32%), #f7f8fb; }
 .auth-card { width: min(440px, 100%); padding: 34px; border: 1px solid var(--line); border-radius: 20px; background: #fff; box-shadow: var(--shadow); }
+.auth-card.auth-card-wide { width: min(650px, 100%); }
 .auth-brand { margin-bottom: 38px; }
 .auth-brand strong { color: var(--ink); }
 .auth-icon { display: grid; width: 46px; height: 46px; place-items: center; margin-bottom: 17px; border-radius: 13px; color: var(--primary); background: var(--primary-soft); font-size: 20px; }
@@ -330,6 +331,15 @@ button, input, select, textarea { font: inherit; }
 .auth-back { display: block; margin-top: 20px; color: #6e7890; font-size: 9px; font-weight: 650; text-align: center; }
 .auth-back:hover { color: var(--primary); }
 .page-messages { display: grid; gap: 8px; margin-bottom: 18px; }
+.auth-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+.auth-form > div > label, .auth-field-grid label { display: block; margin: 3px 0 7px; color: #4f5b70; font-size: 10px; font-weight: 700; }
+.password-help { display: flex; align-items: center; gap: 6px; color: #7e889a; font-size: 8px; line-height: 1.5; }
+.password-help i { color: var(--green); }
+.terms-check { display: flex; align-items: flex-start; gap: 8px; color: #6f7a8e; font-size: 9px; line-height: 1.55; }
+.terms-check input { margin-top: 2px; flex: 0 0 auto; }
+.verification-steps { display: grid; gap: 11px; margin: -5px 0 25px; padding: 16px; border-radius: 12px; background: #f6f7fa; }
+.verification-steps span { display: flex; align-items: center; gap: 8px; color: #647086; font-size: 9px; }
+.verification-steps i { color: var(--primary); font-size: 14px; }
 
 @media (max-width: 1199.98px) {
     .metric-grid { grid-template-columns: repeat(2, 1fr); }
@@ -383,6 +393,8 @@ button, input, select, textarea { font: inherit; }
     .role-switch { grid-template-columns: 1fr; }
     .role-switch button { min-height: 59px; }
     .remember-row span { display: none; }
+    .auth-field-grid { grid-template-columns: 1fr; }
+    .auth-card { padding: 27px 21px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

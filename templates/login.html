@@ -113,7 +113,7 @@
                 <div class="demo-access"><span><i class="bi bi-shield-check"></i></span><p><strong>Acceso protegido</strong><small>Las credenciales se verifican de forma segura en el servidor.</small></p></div>
             </form>
 
-            <p class="register-copy" id="registerCopy">¿Tu empresa aún no usa Nexo? <a href="#" data-demo-link>Solicitar acceso</a></p>
+            <p class="register-copy" id="registerCopy" data-register-url="{% url 'registrar_aspirante' %}">{% if form.role.value == 'aspirante' %}¿Aún no tienes cuenta? <a href="{% url 'registrar_aspirante' %}">Crear una cuenta</a>{% else %}¿Tu empresa aún no usa Nexo? <a href="#" data-demo-link>Solicitar acceso</a>{% endif %}</p>
         </div>
         <footer class="login-footer"><span>© 2026 Nexo Talento</span><a href="#">Privacidad</a><a href="#">Ayuda</a></footer>
     </section>
