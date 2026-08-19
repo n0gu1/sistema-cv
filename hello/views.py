@@ -219,6 +219,10 @@ def dashboard(request):
             "active_vacancies": vacancy_counts.get("PUBLICADA", 0),
             "pending_vacancies": vacancy_counts.get("BORRADOR", 0)
             + vacancy_counts.get("PAUSADA", 0),
+            "closed_vacancies": vacancy_counts.get("CERRADA", 0),
+            "total_applicants": Usuario.objects.filter(
+                usuariorol__rol__codigo="ASPIRANTE"
+            ).distinct().count(),
             "priority_vacancies": priority_vacancies,
         },
     )
@@ -425,13 +429,28 @@ def postulaciones(request):
     if status:
         applications = applications.filter(estado_id=status)
     page = Paginator(applications, 15).get_page(request.GET.get("pagina"))
+    status_counts = dict(
+        Postulacion.objects.values_list("estado_id")
+        .annotate(total=Count("id"))
+        .values_list("estado_id", "total")
+    )
     statuses = Postulacion._meta.get_field("estado").remote_field.model.objects.order_by(
         "nombre"
     )
+    status_summary = [
+        {"status": item, "count": status_counts.get(item.codigo, 0)}
+        for item in statuses
+    ]
     return render(
         request,
         "postulaciones.html",
-        {"page": page, "statuses": statuses, "filters": {"q": query, "estado": status}},
+        {
+            "page": page,
+            "statuses": statuses,
+            "status_summary": status_summary,
+            "total_count": Postulacion.objects.count(),
+            "filters": {"q": query, "estado": status},
+        },
     )
 
 

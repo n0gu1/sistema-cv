@@ -346,6 +346,14 @@ class FormularioPlaza(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["cierra_en"].widget = forms.DateTimeInput(
+            attrs={"type": "datetime-local"},
+            format="%Y-%m-%dT%H:%M",
+        )
+        self.fields["disponible_desde"].widget = forms.DateInput(
+            attrs={"type": "date"},
+            format="%Y-%m-%d",
+        )
         self.fields["departamento"].queryset = Departamento.objects.filter(
             activo=True
         ).order_by("nombre")
@@ -383,6 +391,13 @@ class FormularioPlaza(forms.ModelForm):
         self.fields["certificaciones"].widget.attrs.update(
             {"class": "form-select multi-select"}
         )
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs.setdefault("class", "form-check-input")
+            elif isinstance(field.widget, forms.Select):
+                field.widget.attrs.setdefault("class", "form-select")
+            else:
+                field.widget.attrs.setdefault("class", "form-control")
 
     def clean(self):
         cleaned_data = super().clean()

@@ -1,47 +1,43 @@
 {% extends "base.html" %}
 {% block title %}Plazas | Nexo Talento{% endblock %}
+{% block page_title %}Plazas{% endblock %}
 {% block content %}
-<div class="page-heading">
-    <div><span class="eyebrow">Reclutamiento / Plazas</span><h1>Gestión de plazas</h1><p>Publica oportunidades y sigue el avance de cada proceso de contratación.</p></div>
-    <a class="btn btn-primary btn-lg" href="{% url 'nueva_plaza' %}"><i class="bi bi-plus-lg"></i> Nueva plaza</a>
-</div>
+<div class="page-heading simple-heading"><div><h1>Plazas</h1><p>Administra oportunidades y consulta el avance de cada proceso.</p></div><a class="btn btn-primary btn-lg" href="{% url 'nueva_plaza' %}"><i class="bi bi-plus-lg"></i> Nueva plaza</a></div>
 
-<div class="status-tabs" aria-label="Estado de plazas">
+<div class="status-tabs wide-tabs" aria-label="Estado de plazas">
     <a class="{% if not filters.estado %}active{% endif %}" href="{% url 'plazas' %}">Todas <span>{{ total_count }}</span></a>
     <a class="{% if filters.estado == 'PUBLICADA' %}active{% endif %}" href="?estado=PUBLICADA">Activas <span>{{ status_counts.PUBLICADA|default:0 }}</span></a>
-    <a class="{% if filters.estado == 'BORRADOR' %}active{% endif %}" href="?estado=BORRADOR">Borradores <span>{{ status_counts.BORRADOR|default:0 }}</span></a>
+    <a class="{% if filters.estado == 'BORRADOR' %}active{% endif %}" href="?estado=BORRADOR">Pendientes <span>{{ status_counts.BORRADOR|default:0 }}</span></a>
     <a class="{% if filters.estado == 'PAUSADA' %}active{% endif %}" href="?estado=PAUSADA">Pausadas <span>{{ status_counts.PAUSADA|default:0 }}</span></a>
     <a class="{% if filters.estado == 'CERRADA' %}active{% endif %}" href="?estado=CERRADA">Cerradas <span>{{ status_counts.CERRADA|default:0 }}</span></a>
 </div>
 
-<form class="panel filter-panel" method="get">
-    <div class="filter-search"><i class="bi bi-search"></i><input name="q" type="search" value="{{ filters.q }}" placeholder="Buscar por puesto o departamento..." aria-label="Buscar plazas"></div>
+<form class="list-toolbar" method="get">
+    <label class="filter-search"><i class="bi bi-search"></i><input name="q" type="search" value="{{ filters.q }}" placeholder="Buscar por puesto o departamento..."></label>
     <select class="form-select" name="departamento"><option value="">Todos los departamentos</option>{% for department in departments %}<option value="{{ department.pk }}" {% if filters.departamento == department.pk|stringformat:'s' %}selected{% endif %}>{{ department.nombre }}</option>{% endfor %}</select>
     <select class="form-select" name="modalidad"><option value="">Cualquier modalidad</option>{% for mode in work_modes %}<option value="{{ mode.pk }}" {% if filters.modalidad == mode.pk|stringformat:'s' %}selected{% endif %}>{{ mode.nombre }}</option>{% endfor %}</select>
     {% if filters.estado %}<input type="hidden" name="estado" value="{{ filters.estado }}">{% endif %}
-    <button class="btn btn-light" type="submit"><i class="bi bi-funnel"></i> Filtrar</button>
-    {% if filters.q or filters.departamento or filters.modalidad or filters.estado %}<a class="btn btn-link" href="{% url 'plazas' %}">Limpiar</a>{% endif %}
+    <button class="btn btn-light" type="submit"><i class="bi bi-funnel"></i> Filtros</button>
 </form>
 
-{% if page.object_list %}
-<div class="jobs-grid">
-    {% for plaza in page.object_list %}
-    <article class="job-card">
-        <div class="job-card-top">
-            <div class="job-icon {% cycle 'purple' 'blue' 'orange' 'green' 'coral' 'slate' %}"><i class="bi bi-briefcase"></i></div>
-            <span class="status-badge {% if plaza.estado_id == 'PUBLICADA' %}active{% elif plaza.estado_id == 'PAUSADA' %}paused{% elif plaza.estado_id == 'CERRADA' %}closed{% else %}draft{% endif %}">{{ plaza.estado.nombre }}</span>
-            <a class="icon-button" href="{% url 'detalle_plaza' plaza.pk %}" aria-label="Ver {{ plaza.titulo }}"><i class="bi bi-arrow-up-right"></i></a>
-        </div>
-        <div class="job-card-title"><span>{{ plaza.departamento.nombre }}</span><h2>{{ plaza.titulo }}</h2><p><i class="bi bi-geo-alt"></i> {{ plaza.detalle_ubicacion|default:'Ubicación por definir' }} · {{ plaza.modalidad_trabajo.nombre }}</p></div>
-        <div class="job-meta"><span><i class="bi bi-cash-stack"></i> {% if plaza.salario_minimo or plaza.salario_maximo %}{{ plaza.codigo_moneda }} {{ plaza.salario_minimo|default:'-' }} - {{ plaza.salario_maximo|default:'-' }}{% else %}Salario por definir{% endif %}</span><span><i class="bi bi-clock"></i> {{ plaza.tipo_empleo.nombre }}</span></div>
-        <div class="job-applicants"><div class="job-icon slate"><i class="bi bi-people"></i></div><div><strong>{{ plaza.applicant_count }} aspirante{{ plaza.applicant_count|pluralize }}</strong><small>{{ plaza.cantidad_vacantes }} vacante{{ plaza.cantidad_vacantes|pluralize }}</small></div></div>
-        <div class="job-card-footer"><div><span>Actualizada</span><strong>{{ plaza.actualizado_en|date:'d M Y' }}</strong></div><a href="{% url 'detalle_plaza' plaza.pk %}">Gestionar plaza <i class="bi bi-arrow-right"></i></a></div>
-    </article>
-    {% endfor %}
-</div>
-
-{% if page.paginator.num_pages > 1 %}<nav class="page-pagination" aria-label="Paginación de plazas">{% if page.has_previous %}<a href="?pagina={{ page.previous_page_number }}&q={{ filters.q|urlencode }}&estado={{ filters.estado }}&departamento={{ filters.departamento }}&modalidad={{ filters.modalidad }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span>Página {{ page.number }} de {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?pagina={{ page.next_page_number }}&q={{ filters.q|urlencode }}&estado={{ filters.estado }}&departamento={{ filters.departamento }}&modalidad={{ filters.modalidad }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav>{% endif %}
-{% else %}
-<section class="panel empty-state"><span><i class="bi bi-briefcase"></i></span><h2>No encontramos plazas</h2><p>{% if filters.q or filters.estado or filters.departamento or filters.modalidad %}Prueba con otros filtros o limpia la búsqueda.{% else %}Crea la primera plaza para iniciar un proceso de contratación.{% endif %}</p>{% if filters.q or filters.estado or filters.departamento or filters.modalidad %}<a class="btn btn-light" href="{% url 'plazas' %}">Limpiar filtros</a>{% else %}<a class="btn btn-primary" href="{% url 'nueva_plaza' %}">Crear primera plaza</a>{% endif %}</section>
-{% endif %}
+<section class="panel data-panel">
+    <div class="table-responsive">
+        <table class="table management-table mb-0">
+            <thead><tr><th>Puesto</th><th>Departamento</th><th>Ubicación</th><th>Postulaciones</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody>
+            {% for plaza in page.object_list %}
+                <tr>
+                    <td><a class="vacancy-name" href="{% url 'detalle_plaza' plaza.pk %}">{{ plaza.titulo }}</a><small>ID: PLA-{{ plaza.pk|stringformat:'04d' }}</small></td>
+                    <td>{{ plaza.departamento.nombre }}</td>
+                    <td>{{ plaza.detalle_ubicacion|default:plaza.modalidad_trabajo.nombre }}</td>
+                    <td class="text-center">{{ plaza.applicant_count }}</td>
+                    <td><span class="status-badge {% if plaza.estado_id == 'PUBLICADA' %}active{% elif plaza.estado_id == 'PAUSADA' %}paused{% elif plaza.estado_id == 'CERRADA' %}closed{% else %}draft{% endif %}">{{ plaza.estado.nombre }}</span></td>
+                    <td><a class="icon-button" href="{% url 'detalle_plaza' plaza.pk %}" aria-label="Gestionar {{ plaza.titulo }}"><i class="bi bi-three-dots-vertical"></i></a></td>
+                </tr>
+            {% empty %}<tr><td colspan="6"><div class="inline-empty">No se encontraron plazas con estos filtros.</div></td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="table-footer"><span>Mostrando {{ page.start_index }} a {{ page.end_index }} de {{ page.paginator.count }} plazas</span><nav>{% if page.has_previous %}<a href="?pagina={{ page.previous_page_number }}&q={{ filters.q|urlencode }}&estado={{ filters.estado }}&departamento={{ filters.departamento }}&modalidad={{ filters.modalidad }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span class="current-page">{{ page.number }}</span>{% if page.has_next %}<a href="?pagina={{ page.next_page_number }}&q={{ filters.q|urlencode }}&estado={{ filters.estado }}&departamento={{ filters.departamento }}&modalidad={{ filters.modalidad }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav></div>
+</section>
 {% endblock %}
