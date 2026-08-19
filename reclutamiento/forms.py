@@ -29,6 +29,7 @@ from reclutamiento.models import (
     NivelIdioma,
     PeriodoSalarial,
     PerfilAspirante,
+    PerfilPersonal,
     Plaza,
     Profesion,
     TipoEmpleo,
@@ -96,6 +97,39 @@ class FormularioPerfilAspirante(forms.ModelForm):
         if self.instance and self.instance.pk:
             self.fields["first_name"].initial = self.instance.usuario.first_name
             self.fields["last_name"].initial = self.instance.usuario.last_name
+
+
+class FormularioConfiguracionCuenta(forms.ModelForm):
+    first_name = forms.CharField(max_length=100, label="Nombres")
+    last_name = forms.CharField(max_length=100, label="Apellidos")
+
+    class Meta:
+        model = PerfilPersonal
+        fields = ("departamento", "cargo", "telefono")
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+        self.fields["departamento"].queryset = Departamento.objects.filter(
+            activo=True
+        ).order_by("nombre")
+        self.fields["first_name"].initial = user.first_name
+        self.fields["last_name"].initial = user.last_name
+        for field in self.fields.values():
+            field.widget.attrs["class"] = (
+                "form-select" if isinstance(field.widget, forms.Select) else "form-control"
+            )
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        profile.usuario = self.user
+        self.user.first_name = self.cleaned_data["first_name"].strip()
+        self.user.last_name = self.cleaned_data["last_name"].strip()
+        self.user.updated_at = timezone.now()
+        if commit:
+            self.user.save(update_fields=("first_name", "last_name", "updated_at"))
+            profile.save()
+        return profile
 
 
 class FormularioExperiencia(forms.ModelForm):

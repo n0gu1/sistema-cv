@@ -38,8 +38,8 @@
             <a class="nav-item {% if request.resolver_match.url_name == 'postulaciones' or request.resolver_match.url_name == 'detalle_postulacion' %}active{% endif %}" href="{% url 'postulaciones' %}"><i class="bi bi-send"></i><span>Postulaciones</span></a>
             <a class="nav-item {% if request.resolver_match.url_name == 'analisis' %}active{% endif %}" href="{% url 'analisis' %}"><i class="bi bi-bar-chart"></i><span>Análisis</span></a>
             <a class="nav-item" href="#"><i class="bi bi-bell"></i><span>Notificaciones</span><span class="nav-alert-count">3</span></a>
-            <a class="nav-item" href="#"><i class="bi bi-file-earmark-bar-graph"></i><span>Reportes</span></a>
-            <a class="nav-item" href="#"><i class="bi bi-gear"></i><span>Configuración</span></a>
+            <a class="nav-item {% if request.resolver_match.url_name == 'reportes' %}active{% endif %}" href="{% url 'reportes' %}"><i class="bi bi-file-earmark-bar-graph"></i><span>Reportes</span></a>
+            <a class="nav-item {% if request.resolver_match.url_name == 'configuracion' %}active{% endif %}" href="{% url 'configuracion' %}"><i class="bi bi-gear"></i><span>Configuración</span></a>
         </nav>
 
         <div class="sidebar-user">

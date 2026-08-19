@@ -36,6 +36,7 @@ from reclutamiento.models import (
     NivelIdioma,
     Pais,
     PerfilAspirante,
+    PerfilPersonal,
     PeriodoSalarial,
     Plaza,
     Postulacion,
@@ -75,6 +76,7 @@ class ApplicantWorkflowTests(TransactionTestCase):
         EstadoEntrevista,
         Usuario,
         UsuarioRol,
+        PerfilPersonal,
         PerfilAspirante,
         ExperienciaLaboral,
         FormacionAcademica,
@@ -253,6 +255,35 @@ class ApplicantWorkflowTests(TransactionTestCase):
             reverse("descargar_curriculo", args=[self.curriculum.pk])
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_hr_can_view_reports(self):
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(reverse("reportes"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Estado de las postulaciones")
+        self.assertContains(response, "Plazas con mayor actividad")
+
+    def test_hr_can_update_account_settings(self):
+        self.client.force_login(self.hr_user)
+
+        response = self.client.post(
+            reverse("configuracion"),
+            {
+                "first_name": "Sofía",
+                "last_name": "Herrera",
+                "departamento": self.department.pk,
+                "cargo": "Especialista de selección",
+                "telefono": "5555-0101",
+            },
+        )
+
+        self.assertRedirects(response, reverse("configuracion"))
+        self.hr_user.refresh_from_db()
+        profile = PerfilPersonal.objects.get(usuario=self.hr_user)
+        self.assertEqual(self.hr_user.first_name, "Sofía")
+        self.assertEqual(profile.cargo, "Especialista de selección")
 
     def test_application_creation_prevents_duplicates_and_records_history(self):
         application = create_application(self.vacancy.pk, self.profile, "Me interesa.")

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Configuración | Nexo Talento{% endblock %}
+{% block page_title %}Configuración{% endblock %}
+{% block content %}
+<div class="page-heading simple-heading"><div><h1>Configuración</h1><p>Administra tu información personal, perfil laboral y seguridad de acceso.</p></div></div>
+
+<div class="settings-layout">
+    <aside class="panel settings-navigation">
+        <span>Configuración</span>
+        <a class="active" href="#perfil"><i class="bi bi-person"></i><div><strong>Perfil de cuenta</strong><small>Datos personales y laborales</small></div></a>
+        <a href="#seguridad"><i class="bi bi-shield-lock"></i><div><strong>Seguridad</strong><small>Contraseña y acceso</small></div></a>
+        <a href="#sistema"><i class="bi bi-info-circle"></i><div><strong>Sistema</strong><small>Información de la plataforma</small></div></a>
+    </aside>
+
+    <div class="settings-content">
+        <form class="panel settings-card" id="perfil" method="post">
+            {% csrf_token %}
+            <div class="settings-card-header"><div><span class="settings-icon"><i class="bi bi-person"></i></span><div><h2>Perfil de cuenta</h2><p>Información visible dentro del equipo de reclutamiento.</p></div></div><button class="btn btn-primary" type="submit"><i class="bi bi-check2"></i> Guardar cambios</button></div>
+            <div class="settings-profile-head"><span class="avatar settings-avatar">{{ request.user.first_name|first }}{{ request.user.last_name|first }}</span><div><strong>{{ request.user.get_full_name }}</strong><small>{{ request.user.email }}</small><em>Recursos Humanos</em></div></div>
+            <div class="settings-form-grid">
+                <div class="field-stack"><label for="{{ form.first_name.id_for_label }}">Nombres</label>{{ form.first_name }}{{ form.first_name.errors }}</div>
+                <div class="field-stack"><label for="{{ form.last_name.id_for_label }}">Apellidos</label>{{ form.last_name }}{{ form.last_name.errors }}</div>
+                <div class="field-stack field-span-2"><label>Correo electrónico</label><input class="form-control" value="{{ request.user.email }}" disabled><small>El correo se utiliza para iniciar sesión y no puede cambiarse desde aquí.</small></div>
+                <div class="field-stack"><label for="{{ form.cargo.id_for_label }}">Cargo</label>{{ form.cargo }}{{ form.cargo.errors }}</div>
+                <div class="field-stack"><label for="{{ form.departamento.id_for_label }}">Departamento</label>{{ form.departamento }}{{ form.departamento.errors }}</div>
+                <div class="field-stack field-span-2"><label for="{{ form.telefono.id_for_label }}">Teléfono</label>{{ form.telefono }}{{ form.telefono.errors }}</div>
+            </div>
+        </form>
+
+        <section class="panel settings-card" id="seguridad">
+            <div class="settings-card-header"><div><span class="settings-icon green"><i class="bi bi-shield-check"></i></span><div><h2>Seguridad de la cuenta</h2><p>Protege tu acceso y revisa el estado de la cuenta.</p></div></div></div>
+            <div class="security-settings-list">
+                <div><span><i class="bi bi-key"></i></span><p><strong>Contraseña</strong><small>Actualiza tu contraseña periódicamente para mantener la cuenta segura.</small></p><a class="btn btn-light" href="{% url 'cambiar_contrasena' %}">Cambiar contraseña</a></div>
+                <div><span><i class="bi bi-envelope-check"></i></span><p><strong>Correo verificado</strong><small>{{ request.user.email }}</small></p><b class="security-state {% if request.user.is_verified %}verified{% endif %}">{% if request.user.is_verified %}Verificado{% else %}Pendiente{% endif %}</b></div>
+                <div><span><i class="bi bi-clock-history"></i></span><p><strong>Último acceso</strong><small>{% if request.user.last_login %}{{ request.user.last_login|date:"d/m/Y H:i" }}{% else %}Primer acceso registrado{% endif %}</small></p></div>
+            </div>
+        </section>
+
+        <section class="panel settings-card" id="sistema">
+            <div class="settings-card-header"><div><span class="settings-icon violet"><i class="bi bi-bullseye"></i></span><div><h2>Nexo Talento</h2><p>Información general de la plataforma.</p></div></div><span class="system-version">Versión 1.0</span></div>
+            <div class="system-info-grid"><div><small>Estado del servicio</small><strong><i></i> Operativo</strong></div><div><small>Tipo de cuenta</small><strong>Equipo de reclutamiento</strong></div><div><small>Soporte</small><strong>soporte@nexotalento.example</strong></div></div>
+        </section>
+    </div>
+</div>
+{% endblock %}

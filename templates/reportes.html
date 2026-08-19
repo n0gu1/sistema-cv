@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Reportes | Nexo Talento{% endblock %}
+{% block page_title %}Reportes{% endblock %}
+{% block content %}
+<div class="page-heading report-heading">
+    <div><h1>Reportes</h1><p>Analiza el rendimiento de tus procesos y toma decisiones con datos actualizados.</p></div>
+    <div class="report-actions">
+        <form method="get"><select class="form-select" name="periodo" onchange="this.form.submit()"><option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 días</option><option value="90" {% if period == '90' %}selected{% endif %}>Últimos 90 días</option><option value="365" {% if period == '365' %}selected{% endif %}>Último año</option><option value="all" {% if period == 'all' %}selected{% endif %}>Todo el período</option></select></form>
+        <button class="btn btn-outline-primary btn-lg" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+    </div>
+</div>
+
+<section class="metric-grid clean-metrics report-metrics" aria-label="Indicadores del período">
+    <article class="metric-card"><div class="metric-top"><span>Plazas creadas</span><span class="metric-icon"><i class="bi bi-briefcase"></i></span></div><div class="metric-value">{{ total_vacancies }}</div><small>{{ active_vacancies }} activas actualmente</small></article>
+    <article class="metric-card"><div class="metric-top"><span>Postulaciones</span><span class="metric-icon violet"><i class="bi bi-send"></i></span></div><div class="metric-value">{{ total_applications }}</div><small>{{ average_applications }} por plaza</small></article>
+    <article class="metric-card"><div class="metric-top"><span>Entrevistas</span><span class="metric-icon amber"><i class="bi bi-calendar3"></i></span></div><div class="metric-value">{{ interview_count }}</div><small>Programadas en el período</small></article>
+    <article class="metric-card"><div class="metric-top"><span>Contrataciones</span><span class="metric-icon green"><i class="bi bi-person-check"></i></span></div><div class="metric-value">{{ hired_count }}</div><small>{{ conversion_rate }}% de conversión</small></article>
+</section>
+
+<section class="report-grid">
+    <article class="panel report-panel">
+        <div class="panel-header"><div><h2>Estado de las postulaciones</h2><p>Distribución del pipeline durante el período seleccionado.</p></div><span class="report-total">{{ total_applications }} total</span></div>
+        <div class="status-report-list">
+            {% for row in status_rows %}<div><span>{{ row.estado__nombre }}</span><div><i style="width:{{ row.percentage }}%"></i></div><strong>{{ row.total }}</strong><small>{{ row.percentage }}%</small></div>{% empty %}<div class="inline-empty">Aún no hay postulaciones para este período.</div>{% endfor %}
+        </div>
+    </article>
+
+    <article class="panel report-panel">
+        <div class="panel-header"><div><h2>Plazas con mayor actividad</h2><p>Oportunidades que concentran más postulaciones.</p></div></div>
+        <div class="top-vacancy-report">
+            {% for vacancy in top_vacancies %}<div><span><strong>{{ vacancy.titulo }}</strong><small>{{ vacancy.departamento.nombre }}</small></span><div><i style="width:{{ vacancy.bar_width }}%"></i></div><b>{{ vacancy.applicant_count }}</b></div>{% empty %}<div class="inline-empty">No hay plazas disponibles.</div>{% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="report-summary-strip">
+    <div><span><i class="bi bi-people"></i></span><p><strong>{{ total_applicants }}</strong><small>Aspirantes registrados</small></p></div>
+    <div><span class="green"><i class="bi bi-graph-up-arrow"></i></span><p><strong>{{ conversion_rate }}%</strong><small>Tasa de contratación</small></p></div>
+    <div><span class="amber"><i class="bi bi-bar-chart"></i></span><p><strong>{{ average_applications }}</strong><small>Postulaciones por plaza</small></p></div>
+</section>
+
+<section class="panel data-panel report-table">
+    <div class="panel-header"><div><h2>Postulaciones recientes</h2><p>Últimos movimientos registrados en el período.</p></div><a href="{% url 'postulaciones' %}">Ver todas</a></div>
+    <div class="table-responsive"><table class="table management-table mb-0"><thead><tr><th>Aspirante</th><th>Plaza</th><th>Fecha</th><th>Estado</th><th></th></tr></thead><tbody>
+        {% for application in recent_applications %}<tr><td><div class="candidate-cell"><span class="avatar avatar-sm blue">{{ application.aspirante.usuario.first_name|first }}{{ application.aspirante.usuario.last_name|first }}</span><div><strong>{{ application.aspirante.usuario.get_full_name }}</strong><small>{{ application.aspirante.usuario.email }}</small></div></div></td><td><a class="vacancy-name" href="{% url 'detalle_plaza' application.plaza_id %}">{{ application.plaza.titulo }}</a></td><td>{{ application.postulado_en|date:"d/m/Y" }}</td><td><span class="status-badge {% if application.estado_id == 'CONTRATADA' %}selected{% elif application.estado_id == 'RECHAZADA' or application.estado_id == 'RETIRADA' %}closed{% elif application.estado_id == 'ENTREVISTA' or application.estado_id == 'PRESELECCIONADA' %}active{% else %}draft{% endif %}">{{ application.estado.nombre }}</span></td><td><a class="icon-button" href="{% url 'detalle_postulacion' application.pk %}" aria-label="Ver postulación"><i class="bi bi-chevron-right"></i></a></td></tr>{% empty %}<tr><td colspan="5"><div class="inline-empty">No hay movimientos recientes.</div></td></tr>{% endfor %}
+    </tbody></table></div>
+</section>
+{% endblock %}
