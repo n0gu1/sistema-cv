@@ -1,5 +1,5 @@
+import csv
 import logging
-from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth import login, logout, update_session_auth_hash
@@ -9,7 +9,7 @@ from django.core.mail import send_mail
 from django.db import IntegrityError, connection, transaction
 from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -61,6 +61,11 @@ from reclutamiento.models import (
     Usuario,
 )
 from reclutamiento.permissions import roles_required
+from reclutamiento.reports import (
+    build_recruitment_report,
+    report_applications,
+    spreadsheet_safe,
+)
 from reclutamiento.applications import (
     ALLOWED_APPLICATION_TRANSITIONS,
     ALLOWED_INTERVIEW_TRANSITIONS,
@@ -233,81 +238,40 @@ def dashboard(request):
 
 @roles_required("RRHH", "ADMINISTRADOR")
 def reportes(request):
-    periods = {"30": 30, "90": 90, "365": 365, "all": None}
-    period = request.GET.get("periodo", "30")
-    if period not in periods:
-        period = "30"
-    days = periods[period]
-    start_date = timezone.now() - timedelta(days=days) if days else None
-
-    vacancies = Plaza.objects.all()
-    applications = Postulacion.objects.all()
-    interviews = Entrevista.objects.all()
-    if start_date:
-        vacancies = vacancies.filter(creado_en__gte=start_date)
-        applications = applications.filter(postulado_en__gte=start_date)
-        interviews = interviews.filter(inicia_en__gte=start_date)
-
-    total_applications = applications.count()
-    hired_count = applications.filter(estado_id="CONTRATADA").count()
-    status_rows = list(
-        applications.values("estado_id", "estado__nombre")
-        .annotate(total=Count("id"))
-        .order_by("-total", "estado__nombre")
-    )
-    for row in status_rows:
-        row["percentage"] = round(row["total"] * 100 / total_applications) if total_applications else 0
-
-    application_filter = Q()
-    if start_date:
-        application_filter = Q(postulacion__postulado_en__gte=start_date)
-    top_vacancies = list(
-        Plaza.objects.select_related("departamento", "estado")
-        .annotate(
-            applicant_count=Count(
-                "postulacion",
-                filter=application_filter,
-                distinct=True,
-            )
-        )
-        .order_by("-applicant_count", "titulo")[:5]
-    )
-    maximum_applicants = max((item.applicant_count for item in top_vacancies), default=0)
-    for vacancy in top_vacancies:
-        vacancy.bar_width = (
-            round(vacancy.applicant_count * 100 / maximum_applicants)
-            if maximum_applicants
-            else 0
-        )
-
-    recent_applications = applications.select_related(
-        "aspirante__usuario", "plaza", "estado"
-    ).order_by("-postulado_en")[:6]
-    total_vacancies = vacancies.count()
     return render(
         request,
         "reportes.html",
-        {
-            "period": period,
-            "total_vacancies": total_vacancies,
-            "active_vacancies": vacancies.filter(estado_id="PUBLICADA").count(),
-            "total_applicants": Usuario.objects.filter(
-                usuariorol__rol__codigo="ASPIRANTE"
-            ).distinct().count(),
-            "total_applications": total_applications,
-            "interview_count": interviews.count(),
-            "hired_count": hired_count,
-            "conversion_rate": round(hired_count * 100 / total_applications, 1)
-            if total_applications
-            else 0,
-            "average_applications": round(total_applications / total_vacancies, 1)
-            if total_vacancies
-            else 0,
-            "status_rows": status_rows,
-            "top_vacancies": top_vacancies,
-            "recent_applications": recent_applications,
-        },
+        build_recruitment_report(request.GET.get("periodo", "30")),
     )
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
+def exportar_reporte(request):
+    period, applications = report_applications(request.GET.get("periodo", "30"))
+    applications = applications.select_related(
+        "aspirante__usuario", "plaza__departamento", "estado"
+    ).order_by("-postulado_en")
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = (
+        f'attachment; filename="reporte-reclutamiento-{period}.csv"'
+    )
+    response.write("\ufeff")
+    writer = csv.writer(response)
+    writer.writerow(
+        ("Aspirante", "Correo", "Plaza", "Departamento", "Fecha", "Estado")
+    )
+    for application in applications.iterator():
+        writer.writerow(
+            (
+                spreadsheet_safe(application.aspirante.usuario.get_full_name()),
+                spreadsheet_safe(application.aspirante.usuario.email),
+                spreadsheet_safe(application.plaza.titulo),
+                spreadsheet_safe(application.plaza.departamento.nombre),
+                application.postulado_en.date().isoformat(),
+                spreadsheet_safe(application.estado.nombre),
+            )
+        )
+    return response
 
 
 @roles_required("RRHH", "ADMINISTRADOR")

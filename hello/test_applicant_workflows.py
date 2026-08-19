@@ -257,13 +257,28 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_hr_can_view_reports(self):
+        create_application(self.vacancy.pk, self.profile)
         self.client.force_login(self.hr_user)
 
         response = self.client.get(reverse("reportes"))
 
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["total_applications"], 1)
         self.assertContains(response, "Estado de las postulaciones")
         self.assertContains(response, "Plazas con mayor actividad")
+
+    def test_hr_can_export_report_as_csv(self):
+        create_application(self.vacancy.pk, self.profile)
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(reverse("exportar_reporte"), {"periodo": "all"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn("reporte-reclutamiento-all.csv", response["Content-Disposition"])
+        content = response.content.decode("utf-8-sig")
+        self.assertIn("Aspirante,Correo,Plaza", content)
+        self.assertIn("Desarrollador Python", content)
 
     def test_hr_can_update_account_settings(self):
         self.client.force_login(self.hr_user)
@@ -284,6 +299,24 @@ class ApplicantWorkflowTests(TransactionTestCase):
         profile = PerfilPersonal.objects.get(usuario=self.hr_user)
         self.assertEqual(self.hr_user.first_name, "Sofía")
         self.assertEqual(profile.cargo, "Especialista de selección")
+
+    def test_account_settings_reject_invalid_phone(self):
+        self.client.force_login(self.hr_user)
+
+        response = self.client.post(
+            reverse("configuracion"),
+            {
+                "first_name": "Sofía",
+                "last_name": "Herrera",
+                "departamento": self.department.pk,
+                "cargo": "Especialista de selección",
+                "telefono": "teléfono inválido",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "número de teléfono válido")
+        self.assertFalse(PerfilPersonal.objects.filter(usuario=self.hr_user).exists())
 
     def test_application_creation_prevents_duplicates_and_records_history(self):
         application = create_application(self.vacancy.pk, self.profile, "Me interesa.")

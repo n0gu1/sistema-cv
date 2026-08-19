@@ -5,6 +5,7 @@ from django.contrib.auth.forms import (
     SetPasswordForm,
     UserCreationForm,
 )
+from django.core.validators import RegexValidator
 from django.utils import timezone
 
 from reclutamiento.models import Usuario
@@ -102,6 +103,16 @@ class FormularioPerfilAspirante(forms.ModelForm):
 class FormularioConfiguracionCuenta(forms.ModelForm):
     first_name = forms.CharField(max_length=100, label="Nombres")
     last_name = forms.CharField(max_length=100, label="Apellidos")
+    telefono = forms.CharField(
+        max_length=30,
+        required=False,
+        validators=(
+            RegexValidator(
+                r"^[0-9+(). -]*$",
+                "Ingresa un número de teléfono válido.",
+            ),
+        ),
+    )
 
     class Meta:
         model = PerfilPersonal
@@ -119,6 +130,18 @@ class FormularioConfiguracionCuenta(forms.ModelForm):
             field.widget.attrs["class"] = (
                 "form-select" if isinstance(field.widget, forms.Select) else "form-control"
             )
+
+    def clean_first_name(self):
+        return self._clean_required_name("first_name")
+
+    def clean_last_name(self):
+        return self._clean_required_name("last_name")
+
+    def _clean_required_name(self, field_name):
+        value = self.cleaned_data[field_name].strip()
+        if not value:
+            raise forms.ValidationError("Este campo es obligatorio.")
+        return value
 
     def save(self, commit=True):
         profile = super().save(commit=False)

@@ -6,7 +6,8 @@
     <div><h1>Reportes</h1><p>Analiza el rendimiento de tus procesos y toma decisiones con datos actualizados.</p></div>
     <div class="report-actions">
         <form method="get"><select class="form-select" name="periodo" onchange="this.form.submit()"><option value="30" {% if period == '30' %}selected{% endif %}>Últimos 30 días</option><option value="90" {% if period == '90' %}selected{% endif %}>Últimos 90 días</option><option value="365" {% if period == '365' %}selected{% endif %}>Último año</option><option value="all" {% if period == 'all' %}selected{% endif %}>Todo el período</option></select></form>
-        <button class="btn btn-outline-primary btn-lg" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+        <a class="btn btn-outline-primary btn-lg" href="{% url 'exportar_reporte' %}?periodo={{ period }}"><i class="bi bi-download"></i> Exportar CSV</a>
+        <button class="btn btn-light btn-lg" type="button" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
     </div>
 </div>
 
