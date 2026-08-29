@@ -127,9 +127,9 @@ Convenciones:
 [ ] Probar Celery, Redis, Groq, Backblaze y OCR sin sustituirlos por mocks.
 
 11. BASE DE DATOS Y DESPLIEGUE
-[-] La base configurada responde y contiene 47 tablas en total.
-[ ] Completar las 63 tablas esperadas por los modelos de reclutamiento.
-[ ] Aplicar las 22 tablas ausentes detectadas actualmente:
+[x] La base configurada responde y contiene 70 tablas en total: 63 de reclutamiento, 6 de Django y 1 de control de migraciones.
+[x] Completar las 63 tablas esperadas por los modelos de reclutamiento.
+[x] Aplicar las 22 tablas que faltaban:
     analisis_cv, certificaciones_analisis_cv,
     datos_personales_analisis_cv, educaciones_analisis_cv,
     estados_procesamiento,
@@ -141,9 +141,9 @@ Convenciones:
     requisitos_educacion, requisitos_experiencia, requisitos_habilidad,
     requisitos_idioma, requisitos_plaza,
     resultados_requisitos_evaluacion y tipos_requisito.
-[ ] Documentar y automatizar schema.sql seguido de migracion_espanol.sql.
-[ ] Incorporar el esquema y los catalogos al proceso de despliegue en Render.
-[ ] Crear un mecanismo de migraciones versionadas para cambios futuros.
-[ ] Actualizar rollback.sql para eliminar tambien las tablas con nombres en espanol.
-[ ] Fijar la version de Python usada por desarrollo, web y worker.
-[ ] Verificar persistencia de curriculos en produccion cuando Backblaze este desactivado.
+[x] Documentar y automatizar schema.sql seguido de migracion_espanol.sql.
+[x] Incorporar el esquema y los catalogos al proceso de despliegue en Render.
+[x] Crear un mecanismo de migraciones versionadas para cambios futuros.
+[x] Actualizar rollback.sql para eliminar tambien las tablas con nombres en espanol.
+[x] Fijar la version de Python usada por desarrollo, web y worker.
+[x] Verificar persistencia de curriculos en produccion cuando Backblaze este desactivado.

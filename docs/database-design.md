@@ -175,11 +175,17 @@ Los conteos del dashboard, como cantidad de aspirantes por plaza, deben calcular
 
 ## Uso del DDL
 
-Crear una base vacia y ejecutar:
+Crear una base vacía y ejecutar:
 
 ```powershell
-psql -d sistema_cv -f database/schema.sql
+python manage.py migrate --noinput
+python manage.py aplicar_migraciones --instalar-esquema --inicializar-catalogos
 ```
+
+`--instalar-esquema` ejecuta `database/schema.sql` y después
+`database/migracion_espanol.sql` cuando no encuentra el esquema de negocio.
+Las versiones posteriores se leen desde `database/migraciones` y se registran
+en `esquema_migraciones`.
 
 Revertir el esquema:
 
@@ -187,4 +193,7 @@ Revertir el esquema:
 psql -d sistema_cv -f database/rollback.sql
 ```
 
-En Django, este modelo debe convertirse en modelos y migraciones nativas. No conviene ejecutar el DDL y despues pedir a Django que cree las mismas tablas.
+Los modelos Django actuales usan `managed = False`; por eso no se ejecutan
+migraciones nativas para estas tablas. El DDL inicial y los cambios posteriores
+se aplican exclusivamente mediante el instalador y las migraciones SQL
+versionadas para evitar que dos mecanismos intenten crear las mismas tablas.

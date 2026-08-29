@@ -3,6 +3,9 @@
 Sistema de reclutamiento para gestionar plazas, perfiles profesionales,
 postulaciones, entrevistas y análisis de currículums.
 
+El proyecto usa Python 3.11.9. La versión queda fijada para desarrollo en
+`.python-version`, para Render en `runtime.txt` y para Docker en el `Dockerfile`.
+
 ## Ejecutar localmente
 
 ```powershell
@@ -47,6 +50,14 @@ script idempotente `database/migracion_notificaciones.sql`:
 psql $env:DATABASE_URL -f database/migracion_notificaciones.sql
 ```
 
+Para una base vacía, el instalador versionado ejecuta primero `schema.sql`,
+después `migracion_espanol.sql` y finalmente las migraciones incrementales:
+
+```powershell
+python manage.py migrate --noinput
+python manage.py aplicar_migraciones --instalar-esquema --inicializar-catalogos
+```
+
 La gestion de plazas permite crear borradores, editar requisitos, publicar,
 pausar, reactivar y cerrar procesos conservando su historial de estados.
 
@@ -72,6 +83,13 @@ Para activar Backblaze en producción configura `BACKBLAZE_ENABLED=True`, las
 credenciales de la aplicación, el nombre del bucket, su endpoint regional y
 `BACKBLAZE_PRESIGNED_URL_EXPIRY`. Las descargas se entregan mediante URLs
 firmadas y temporales; las credenciales nunca se guardan en PostgreSQL.
+
+Cuando `BACKBLAZE_ENABLED=False`, `save_curriculum` guarda el PDF bajo
+`PRIVATE_UPLOAD_ROOT/curriculos` y `curriculum_path` valida la ruta antes de
+servirlo. En Render el sistema de archivos local es efímero; para conservar
+currículos con Backblaze desactivado debes montar un Persistent Disk y definir
+`PRIVATE_UPLOAD_ROOT` en su ruta montada. Sin ese disco, activa Backblaze para
+evitar perder archivos durante un redeploy.
 
 ### Análisis inteligente
 
@@ -221,28 +239,41 @@ en [`database/schema.sql`](database/schema.sql) y su reversion en
 El esquema desplegado en Neon utiliza nombres de tablas, columnas, indices,
 restricciones, secuencias y catalogos en espanol. La transformacion aplicada se
 encuentra en [`database/migracion_espanol.sql`](database/migracion_espanol.sql).
+Las migraciones posteriores se encuentran en
+[`database/migraciones`](database/migraciones) y se aplican con
+`python manage.py aplicar_migraciones`. El comando registra cada versión y su
+SHA-256 en `esquema_migraciones`, impide modificar migraciones ya aplicadas y
+usa un bloqueo advisory para evitar ejecuciones concurrentes.
 
 ### Conexion con Neon
 
 1. Crea `.env` a partir de `.env.example`.
 2. Asigna la cadena de conexion de Neon a `DATABASE_URL`.
 3. Instala dependencias con `python -m pip install -r requirements.txt`.
-4. Verifica la conexion con `python manage.py check --database default`.
+4. Ejecuta `python manage.py migrate --noinput`.
+5. Ejecuta `python manage.py aplicar_migraciones --instalar-esquema --inicializar-catalogos`.
+6. Verifica la conexión con `python manage.py check --database default`.
 
-Los modelos se encuentran en `reclutamiento/models.py`. Las tablas ya existen
-en Neon, por lo que los modelos usan `managed = False` y Django no intenta
-crearlas ni eliminarlas mediante migraciones.
+Los modelos se encuentran en `reclutamiento/models.py`. Usan `managed = False`
+para que Django no intente crear ni eliminar las tablas de negocio; su creación
+y actualización se controla mediante el DDL de referencia y las migraciones
+SQL versionadas.
 
 ## Despliegue en Render
 
-- Build command: `pip install -r requirements.txt && python manage.py collectstatic --noinput`
-- Start command: `gunicorn config.wsgi:application`
-- Variables: `DEBUG=False` y `SECRET_KEY` con un valor seguro
+- Python: `3.11.9`, mediante `runtime.txt` o `PYTHON_VERSION=3.11.9`.
+- Build command: `python -m pip install -r requirements.txt && python manage.py collectstatic --noinput`
+- Start command: `python manage.py migrate --noinput && python manage.py aplicar_migraciones --instalar-esquema --inicializar-catalogos && gunicorn config.wsgi:application`
+- Worker command: `python manage.py migrate --noinput && python manage.py aplicar_migraciones --instalar-esquema --inicializar-catalogos && celery -A config worker --loglevel=INFO --queues=analysis`
+- Variables: `DEBUG=False`, `SECRET_KEY` con un valor seguro y `DATABASE_URL`.
 
 Para un servicio Render que utilice OCR, selecciona el runtime Docker para que
 se construya con el `Dockerfile` del repositorio. Esa imagen instala Tesseract
 y los idiomas `spa` y `eng` durante el build; el runtime nativo debe instalar
-los mismos paquetes del sistema antes de iniciar la aplicación.
+los mismos paquetes del sistema antes de iniciar la aplicación. El comando de
+inicio del `Dockerfile` ejecuta las migraciones de Django, instala el esquema
+de referencia si la base está vacía, aplica las versiones pendientes y carga
+los catálogos antes de iniciar Gunicorn.
 
 ### Configurar Backblaze en Render
 

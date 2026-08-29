@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from reclutamiento.candidates import save_curriculum
+from reclutamiento.candidates import curriculum_path, save_curriculum
 from reclutamiento.applications import create_application, transition_application
 from reclutamiento.ai_analysis import analyze_application, enqueue_application_analysis
 from reclutamiento.forms import FormularioEntrevista
@@ -376,6 +376,24 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(curriculum.proveedor_almacenamiento, provider)
         self.assertTrue(curriculum.clave_objeto.startswith("curriculos/"))
         upload.assert_called_once()
+
+    def test_local_curriculum_persists_when_backblaze_is_disabled(self):
+        content = b"%PDF-1.4\nlocal-persistence\n%%EOF"
+        uploaded = SimpleUploadedFile(
+            "persistido-local.pdf",
+            content,
+            content_type="application/pdf",
+        )
+
+        with override_settings(BACKBLAZE_ENABLED=False), patch(
+            "reclutamiento.candidates.upload_backblaze_object"
+        ) as upload:
+            curriculum = save_curriculum(uploaded, self.profile)
+
+        path = curriculum_path(curriculum)
+        self.assertEqual(path.read_bytes(), content)
+        self.assertEqual(curriculum.proveedor_almacenamiento.codigo, "LOCAL_PRIVADO")
+        upload.assert_not_called()
 
     def test_backblaze_download_uses_temporary_url(self):
         provider = ProveedorAlmacenamiento.objects.create(
