@@ -66,6 +66,35 @@ credenciales de la aplicación, el nombre del bucket, su endpoint regional y
 `BACKBLAZE_PRESIGNED_URL_EXPIRY`. Las descargas se entregan mediante URLs
 firmadas y temporales; las credenciales nunca se guardan en PostgreSQL.
 
+### Análisis inteligente
+
+Recursos Humanos puede abrir una postulación y ejecutar el análisis de su CV.
+El sistema extrae el texto con `pypdf`, usa OCR opcional para documentos
+escaneados y envía únicamente el texto a la API de Groq. La respuesta se exige
+en JSON, se valida y se guarda en las tablas
+`analisis_cv`, `evaluaciones_postulacion` y `resultados_requisitos_evaluacion`.
+
+Configura estas variables sin subir `.env` al repositorio:
+
+```text
+GROQ_API_KEY=...
+GROQ_API_BASE_URL=https://api.groq.com/openai/v1
+GROQ_MODEL=qwen/qwen3.8-27b
+GROQ_TIMEOUT_SECONDS=90
+GROQ_MAX_TOKENS=2500
+ANALYSIS_MAX_TEXT_CHARS=16000
+ANALYSIS_OCR_ENABLED=True
+ANALYSIS_OCR_MAX_PAGES=5
+ANALYSIS_OCR_DPI=150
+TESSERACT_CMD=
+TESSERACT_LANG=spa+eng
+```
+
+El cálculo de compatibilidad es reproducible y usa el peso de cada requisito;
+la IA aporta la extracción y la evidencia, pero el resultado no sustituye la
+revisión humana. El procesamiento actual es síncrono; Celery y Redis quedan
+para el módulo de procesamiento en segundo plano.
+
 Configuración de ejemplo para el entorno de producción:
 
 ```text

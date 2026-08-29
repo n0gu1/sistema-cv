@@ -9,6 +9,7 @@ from reclutamiento.models import (
     EstadoEntrevista,
     EstadoPlaza,
     EstadoPostulacion,
+    EstadoProcesamiento,
     Habilidad,
     Idioma,
     Institucion,
@@ -37,6 +38,8 @@ class Command(BaseCommand):
             self._code_catalog(EstadoPostulacion, (("ENVIADA", "Enviada", {"es_final": False}), ("EN_REVISION", "En revisión", {"es_final": False}), ("PRESELECCIONADA", "Preseleccionada", {"es_final": False}), ("ENTREVISTA", "Entrevista", {"es_final": False}), ("OFERTA_ENVIADA", "Oferta enviada", {"es_final": False}), ("CONTRATADA", "Contratada", {"es_final": True}), ("RECHAZADA", "Rechazada", {"es_final": True}), ("RETIRADA", "Retirada", {"es_final": True})))
         if self._has_table(EstadoEntrevista):
             self._code_catalog(EstadoEntrevista, (("PROGRAMADA", "Programada", {"es_final": False}), ("CONFIRMADA", "Confirmada", {"es_final": False}), ("COMPLETADA", "Completada", {"es_final": True}), ("CANCELADA", "Cancelada", {"es_final": True}), ("NO_ASISTIO", "No asistió", {"es_final": True})))
+        if self._has_table(EstadoProcesamiento):
+            self._code_catalog(EstadoProcesamiento, (("PENDIENTE", "Pendiente", {"es_final": False}), ("PROCESANDO", "Procesando", {"es_final": False}), ("COMPLETADO", "Completado", {"es_final": True}), ("FALLIDO", "Fallido", {"es_final": True})))
         self._code_catalog(TipoRequisito, (("HABILIDAD", "Habilidad", {}), ("IDIOMA", "Idioma", {}), ("CERTIFICACION", "Certificación", {}), ("EDUCACION", "Educación", {}), ("EXPERIENCIA", "Experiencia", {}), ("DISPONIBILIDAD", "Disponibilidad", {})))
         self._code_catalog(TipoEmpleo, (("TIEMPO_COMPLETO", "Tiempo completo", {}), ("MEDIO_TIEMPO", "Medio tiempo", {}), ("CONTRATO", "Por contrato", {}), ("TEMPORAL", "Temporal", {})))
         self._code_catalog(ModalidadTrabajo, (("REMOTO", "Remoto", {}), ("HIBRIDO", "Híbrido", {}), ("PRESENCIAL", "Presencial", {})))

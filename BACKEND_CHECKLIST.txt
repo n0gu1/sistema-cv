@@ -67,12 +67,12 @@ Convenciones:
 [x] URLs firmadas y temporales para consultar documentos.
 
 6. ANALISIS INTELIGENTE
-[ ] Extraccion de texto con pypdf.
-[ ] OCR para documentos escaneados.
-[ ] Integracion con el proveedor de IA.
-[ ] Respuestas estructuradas y validadas.
-[ ] Calculo reproducible de compatibilidad.
-[ ] Evidencia, fortalezas, brechas y recomendaciones.
+[x] Extraccion de texto con pypdf.
+[x] OCR opcional para documentos escaneados mediante PyMuPDF, Pillow y Tesseract.
+[x] Integracion con Groq mediante Chat Completions y JSON mode.
+[x] Respuestas estructuradas y validadas antes de persistirlas.
+[x] Calculo reproducible de compatibilidad ponderada por requisito.
+[x] Evidencia, fortalezas, brechas y recomendaciones para revision humana.
 
 7. PROCESAMIENTO EN SEGUNDO PLANO
 [ ] Configurar Celery y Redis.

@@ -1,6 +1,6 @@
 import shutil
 import tempfile
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
@@ -12,27 +12,39 @@ from django.utils import timezone
 
 from reclutamiento.candidates import save_curriculum
 from reclutamiento.applications import create_application, transition_application
+from reclutamiento.ai_analysis import analyze_application
 from reclutamiento.models import (
+    AnalisisCV,
     AreaEstudio,
     CategoriaHabilidad,
     Certificacion,
     CertificacionAspirante,
+    CertificacionAnalisisCV,
     Ciudad,
     Curriculo,
+    DatosPersonalesAnalisisCV,
     Departamento,
+    EducacionAnalisisCV,
     Entrevista,
     EstadoEntrevista,
     EstadoPlaza,
     EstadoPostulacion,
+    EstadoProcesamiento,
+    EvaluacionPostulacion,
+    ExperienciaAnalisisCV,
     ExperienciaLaboral,
     FormacionAcademica,
     Habilidad,
     HabilidadAspirante,
+    HabilidadAnalisisCV,
     HistorialEstadoPostulacion,
     Idioma,
     IdiomaAspirante,
+    IdiomaAnalisisCV,
     Institucion,
     ModalidadTrabajo,
+    ModeloIA,
+    MotorAnalisis,
     NivelEducativo,
     NivelHabilidad,
     NivelIdioma,
@@ -45,8 +57,17 @@ from reclutamiento.models import (
     Profesion,
     ProveedorAlmacenamiento,
     Region,
+    RequisitoCertificacion,
+    RequisitoDisponibilidad,
+    RequisitoEducacion,
+    RequisitoExperiencia,
+    RequisitoHabilidad,
+    RequisitoIdioma,
+    RequisitoPlaza,
+    ResultadoRequisitoEvaluacion,
     RolUsuario,
     TipoEmpleo,
+    TipoRequisito,
     Usuario,
     UsuarioRol,
 )
@@ -76,6 +97,10 @@ class ApplicantWorkflowTests(TransactionTestCase):
         EstadoPlaza,
         EstadoPostulacion,
         EstadoEntrevista,
+        EstadoProcesamiento,
+        ModeloIA,
+        MotorAnalisis,
+        TipoRequisito,
         Usuario,
         UsuarioRol,
         PerfilPersonal,
@@ -86,9 +111,25 @@ class ApplicantWorkflowTests(TransactionTestCase):
         IdiomaAspirante,
         CertificacionAspirante,
         Plaza,
+        RequisitoPlaza,
+        RequisitoHabilidad,
+        RequisitoIdioma,
+        RequisitoCertificacion,
+        RequisitoEducacion,
+        RequisitoExperiencia,
+        RequisitoDisponibilidad,
         Curriculo,
+        AnalisisCV,
+        DatosPersonalesAnalisisCV,
+        ExperienciaAnalisisCV,
+        EducacionAnalisisCV,
+        HabilidadAnalisisCV,
+        IdiomaAnalisisCV,
+        CertificacionAnalisisCV,
         Postulacion,
         HistorialEstadoPostulacion,
+        EvaluacionPostulacion,
+        ResultadoRequisitoEvaluacion,
         Entrevista,
     )
 
@@ -446,4 +487,108 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertContains(
             self.client.get(reverse("detalle_postulacion", args=[application.pk])),
             "Historial de estados",
+        )
+
+    def test_hr_can_open_analysis_before_processing(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(reverse("analisis", args=[application.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Aún no hay un análisis")
+
+    def test_ai_analysis_persists_cv_data_and_weighted_compatibility(self):
+        for code, name, final in (
+            ("PENDIENTE", "Pendiente", False),
+            ("PROCESANDO", "Procesando", False),
+            ("COMPLETADO", "Completado", True),
+            ("FALLIDO", "Fallido", True),
+        ):
+            EstadoProcesamiento.objects.create(codigo=code, nombre=name, es_final=final)
+        requirement_type = TipoRequisito.objects.create(
+            codigo="HABILIDAD", nombre="Habilidad"
+        )
+        skill = Habilidad.objects.create(nombre="Python", activo=True)
+        requirement = RequisitoPlaza.objects.create(
+            plaza=self.vacancy,
+            tipo=requirement_type,
+            descripcion="Dominio de Python",
+            obligatorio=True,
+            peso="100.00",
+            orden_visualizacion=1,
+        )
+        RequisitoHabilidad.objects.create(
+            requisito=requirement,
+            habilidad=skill,
+        )
+        application = create_application(self.vacancy.pk, self.profile)
+        page = Mock()
+        page.extract_text.return_value = "Nombre Prueba\nExperiencia con Python"
+        reader = Mock()
+        reader.pages = [page]
+        payload = {
+            "personal_data": {
+                "full_name": "Nombre Prueba",
+                "email": "nombre@example.com",
+                "phone": "+502 5555-0101",
+                "occupation": "Ingeniería de software",
+                "city": "Ciudad de Guatemala",
+            },
+            "professional_summary": "Desarrollador con experiencia en Python.",
+            "calculated_experience_months": 36,
+            "experiences": [],
+            "educations": [],
+            "skills": [
+                {
+                    "name": "Python",
+                    "confidence": 0.98,
+                    "evidence": "Experiencia con Python",
+                }
+            ],
+            "languages": [],
+            "certifications": [],
+        }
+        with override_settings(
+            GROQ_API_KEY="test-key",
+            ANALYSIS_OCR_ENABLED=False,
+        ), patch("pypdf.PdfReader", return_value=reader), patch(
+            "reclutamiento.ai_analysis.call_groq", return_value=payload
+        ) as call:
+            evaluation = analyze_application(application)
+            repeated = analyze_application(application)
+
+        analysis = AnalisisCV.objects.get(curriculo=self.curriculum)
+        self.assertEqual(analysis.estado_id, "COMPLETADO")
+        self.assertTrue(analysis.vigente)
+        self.assertEqual(analysis.resumen_profesional, payload["professional_summary"])
+        self.assertEqual(
+            DatosPersonalesAnalisisCV.objects.get(analisis=analysis).correo,
+            "nombre@example.com",
+        )
+        self.assertEqual(HabilidadAnalisisCV.objects.get(analisis=analysis).habilidad, skill)
+        self.assertEqual(evaluation.pk, repeated.pk)
+        self.assertEqual(evaluation.estado_id, "COMPLETADO")
+        self.assertEqual(evaluation.porcentaje_compatibilidad, 100)
+        self.assertTrue(
+            ResultadoRequisitoEvaluacion.objects.get(
+                evaluacion=evaluation,
+                requisito=requirement,
+            ).cumplido
+        )
+        call.assert_called_once()
+
+        self.client.force_login(self.hr_user)
+        response = self.client.get(reverse("analisis", args=[application.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Desarrollador con experiencia en Python.")
+        self.assertContains(response, "Dominio de Python")
+        self.assertContains(response, "100%")
+        self.assertContains(
+            self.client.get(reverse("postulaciones")),
+            "100%",
+        )
+        self.assertContains(
+            self.client.get(reverse("dashboard")),
+            "Nombre Prueba",
         )

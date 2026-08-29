@@ -78,6 +78,7 @@ urlpatterns = [
         name="cambiar_estado_entrevista",
     ),
     path("analisis/", analisis, name="analisis"),
+    path("analisis/<int:postulacion_id>/", analisis, name="analisis"),
     path("reportes/", reportes, name="reportes"),
     path("reportes/exportar.csv", exportar_reporte, name="exportar_reporte"),
     path("configuracion/", configuracion, name="configuracion"),

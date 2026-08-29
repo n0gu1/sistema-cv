@@ -71,6 +71,24 @@ def delete_backblaze_object(object_key):
         )
 
 
+def download_backblaze_object(object_key):
+    try:
+        response = _backblaze_client().get_object(
+            Bucket=settings.BACKBLAZE_BUCKET_NAME,
+            Key=object_key,
+        )
+        body = response["Body"]
+        try:
+            return body.read()
+        finally:
+            body.close()
+    except (BotoCoreError, ClientError, OSError, KeyError) as error:
+        logger.exception("No se pudo leer el curriculo desde Backblaze.")
+        raise ValidationError(
+            "No fue posible leer el curriculo desde el almacenamiento privado."
+        ) from error
+
+
 def backblaze_download_url(object_key, original_filename):
     safe_filename = get_valid_filename(original_filename or "curriculo.pdf")
     safe_filename = safe_filename.replace('"', "")[:200] or "curriculo.pdf"

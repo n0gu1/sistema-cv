@@ -504,10 +504,19 @@ class VacancyManagementTests(TransactionTestCase):
                 "evidencia TEXT, explicacion TEXT, "
                 "PRIMARY KEY (evaluacion_id, requisito_id))"
             )
+            cursor.execute(
+                "CREATE TABLE evaluaciones_postulacion ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, postulacion_id BIGINT NOT NULL, "
+                "analisis_cv_id BIGINT, motor_analisis_id BIGINT, codigo_estado VARCHAR(20), "
+                "porcentaje_compatibilidad DECIMAL(5,2), fortalezas TEXT, "
+                "recomendaciones_mejora TEXT, iniciado_en DATETIME, completado_en DATETIME, "
+                "mensaje_error TEXT, vigente BOOLEAN, creado_en DATETIME)"
+            )
 
     @classmethod
     def tearDownClass(cls):
         with connection.cursor() as cursor:
+            cursor.execute("DROP TABLE evaluaciones_postulacion")
             cursor.execute("DROP TABLE resultados_requisitos_evaluacion")
             cursor.execute("DROP TABLE postulaciones")
         with connection.schema_editor() as schema_editor:
@@ -519,6 +528,7 @@ class VacancyManagementTests(TransactionTestCase):
         with connection.cursor() as cursor:
             for table in (
                 "postulaciones",
+                "evaluaciones_postulacion",
                 "resultados_requisitos_evaluacion",
                 "requisitos_disponibilidad",
                 "requisitos_experiencia",

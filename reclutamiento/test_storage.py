@@ -6,6 +6,7 @@ from django.test import SimpleTestCase, override_settings
 
 from reclutamiento.storage import (
     backblaze_download_url,
+    download_backblaze_object,
     upload_backblaze_object,
 )
 
@@ -62,6 +63,21 @@ class BackblazeStorageTests(SimpleTestCase):
             },
             ExpiresIn=300,
         )
+
+    @override_settings(**backblaze_settings)
+    @patch("reclutamiento.storage.boto3.client")
+    def test_downloads_object_bytes_and_closes_response_body(self, client_factory):
+        body = client_factory.return_value.get_object.return_value["Body"]
+        body.read.return_value = b"%PDF-1.4\n%%EOF"
+
+        data = download_backblaze_object("curriculos/1/archivo.pdf")
+
+        self.assertEqual(data, b"%PDF-1.4\n%%EOF")
+        client_factory.return_value.get_object.assert_called_once_with(
+            Bucket="sistema-cv-curriculos-privados",
+            Key="curriculos/1/archivo.pdf",
+        )
+        body.close.assert_called_once_with()
 
     @override_settings(
         BACKBLAZE_APPLICATION_KEY_ID="",

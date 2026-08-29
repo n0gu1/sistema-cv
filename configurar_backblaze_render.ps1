@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Configura Backblaze B2 como almacenamiento privado del servicio Render.
+    Configura Backblaze B2 o Groq para el servicio Render.
 
 .DESCRIPTION
-    Actualiza solamente las variables BACKBLAZE_* del servicio indicado y
-    solicita un nuevo despliegue. Las credenciales se guardan localmente como
+    Actualiza solamente las variables del proveedor seleccionado y solicita un
+    nuevo despliegue. Las credenciales se guardan localmente como
     SecureString protegido por DPAPI para el usuario actual de Windows.
 
     El script nunca escribe las claves en el repositorio ni las muestra en la
@@ -19,6 +19,9 @@
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\configurar_backblaze_render.ps1 -ForgetLocalCredentials
+
+.EXAMPLE
+    powershell -ExecutionPolicy Bypass -File .\configurar_backblaze_render.ps1 -GroqOnly
 #>
 
 [CmdletBinding()]
@@ -28,6 +31,7 @@ param(
     [string]$EndpointUrl,
     [string]$ObjectPrefix,
     [int]$PresignedUrlExpiry = 300,
+    [switch]$GroqOnly,
     [switch]$SkipDeploy,
     [switch]$ForgetLocalCredentials
 )
@@ -225,6 +229,75 @@ $renderApiKey = Read-SecretValue `
     -CurrentValue (Get-EnvironmentValue "RENDER_API_KEY") `
     -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.RenderApiKey }) `
     -Prompt "Render API key"
+
+if ($GroqOnly) {
+    $groqKey = Read-SecretValue `
+        -CurrentValue (Get-EnvironmentValue "GROQ_API_KEY") `
+        -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.GroqApiKey }) `
+        -Prompt "Groq API key"
+
+    $groqBaseEnvironmentValue = Get-EnvironmentValue "GROQ_API_BASE_URL"
+    if ([string]::IsNullOrWhiteSpace($groqBaseEnvironmentValue)) {
+        $groqBaseEnvironmentValue = "https://api.groq.com/openai/v1"
+    }
+    $groqBaseUrl = Read-TextValue `
+        -CurrentValue $groqBaseEnvironmentValue `
+        -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.GroqBaseUrl }) `
+        -Prompt "Groq API base URL" `
+        -DefaultValue "https://api.groq.com/openai/v1"
+
+    $groqModelEnvironmentValue = Get-EnvironmentValue "GROQ_MODEL"
+    if ([string]::IsNullOrWhiteSpace($groqModelEnvironmentValue)) {
+        $groqModelEnvironmentValue = "qwen/qwen3.8-27b"
+    }
+    $groqModel = Read-TextValue `
+        -CurrentValue $groqModelEnvironmentValue `
+        -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.GroqModel }) `
+        -Prompt "Groq model" `
+        -DefaultValue "qwen/qwen3.8-27b"
+
+    $groqBaseUrl = $groqBaseUrl.TrimEnd("/")
+    $groqUri = $null
+    if (-not [Uri]::TryCreate($groqBaseUrl, [UriKind]::Absolute, [ref]$groqUri) -or
+        $groqUri.Scheme -ne "https" -or $groqUri.Host -ne "api.groq.com") {
+        throw "GroqBaseUrl debe ser https://api.groq.com/openai/v1."
+    }
+
+    $groqVariables = @(
+        @{ Key = "GROQ_API_KEY"; Value = $groqKey },
+        @{ Key = "GROQ_API_BASE_URL"; Value = $groqBaseUrl },
+        @{ Key = "GROQ_MODEL"; Value = $groqModel },
+        @{ Key = "GROQ_TIMEOUT_SECONDS"; Value = "90" },
+        @{ Key = "GROQ_MAX_TOKENS"; Value = "2500" },
+        @{ Key = "ANALYSIS_MAX_TEXT_CHARS"; Value = "16000" }
+    )
+
+    Write-Host "Actualizando variables Groq del servicio $ServiceId..."
+    foreach ($variable in $groqVariables) {
+        $encodedKey = [Uri]::EscapeDataString($variable.Key)
+        $variableUri = "$apiBaseUrl/services/$ServiceId/env-vars/$encodedKey"
+        $body = @{ value = [string]$variable.Value } | ConvertTo-Json -Compress
+        $null = Invoke-RenderApi -Method Put -Uri $variableUri -Body $body
+        Write-Host "  OK: $($variable.Key)"
+    }
+
+    if ($SkipDeploy) {
+        Write-Host "Variables actualizadas. Se omitio el despliegue por -SkipDeploy."
+        exit 0
+    }
+
+    $deployUri = "$apiBaseUrl/services/$ServiceId/deploys"
+    $deployBody = @{ deployMode = "build_and_deploy" } | ConvertTo-Json -Compress
+    $deploy = Invoke-RenderApi -Method Post -Uri $deployUri -Body $deployBody
+
+    if ($null -ne $deploy.id) {
+        Write-Host "Despliegue solicitado correctamente: $($deploy.id)"
+    }
+    else {
+        Write-Host "Despliegue solicitado correctamente."
+    }
+    exit 0
+}
 
 $backblazeKeyId = Read-SecretValue `
     -CurrentValue (Get-EnvironmentValue "BACKBLAZE_APPLICATION_KEY_ID") `

@@ -30,10 +30,7 @@
     <article class="panel dashboard-panel">
         <div class="panel-header"><h2>Aspirantes con mayor compatibilidad</h2></div>
         <div class="top-candidate-list">
-            <div><span class="avatar avatar-sm coral">AM</span><p><strong>Ana Martínez</strong><small>Desarrollador Python</small></p><b>92%</b><a href="{% url 'analisis' %}">Ver candidato</a></div>
-            <div><span class="avatar avatar-sm blue">LM</span><p><strong>Luis Alberto Moreno</strong><small>Analista de Datos</small></p><b>88%</b><a href="{% url 'analisis' %}">Ver candidato</a></div>
-            <div><span class="avatar avatar-sm gold">DR</span><p><strong>Diego Ramírez</strong><small>Diseñador UX/UI</small></p><b>85%</b><a href="{% url 'analisis' %}">Ver candidato</a></div>
-            <div><span class="avatar avatar-sm green">CM</span><p><strong>Carla Méndez</strong><small>Gerente de Proyectos</small></p><b>80%</b><a href="{% url 'analisis' %}">Ver candidato</a></div>
+            {% for evaluation in top_evaluations %}<div><span class="avatar avatar-sm {% cycle 'coral' 'blue' 'gold' 'green' %}">{{ evaluation.postulacion.aspirante.usuario.first_name|first }}{{ evaluation.postulacion.aspirante.usuario.last_name|first }}</span><p><strong>{{ evaluation.postulacion.aspirante.usuario.get_full_name }}</strong><small>{{ evaluation.postulacion.plaza.titulo }}</small></p><b>{{ evaluation.porcentaje_compatibilidad|floatformat:0 }}%</b><a href="{% url 'analisis' evaluation.postulacion.pk %}">Ver análisis</a></div>{% empty %}<div class="inline-empty">Ejecuta un análisis para crear el ranking de compatibilidad.</div>{% endfor %}
         </div>
         <a class="panel-footer-link" href="{% url 'aspirantes' %}">Ver todos los aspirantes</a>
     </article>

@@ -8,7 +8,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db import IntegrityError, connection, transaction
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Q
+from django.db.models import Count, DecimalField, OuterRef, Q, Subquery
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
@@ -42,16 +42,24 @@ from reclutamiento.forms import (
     FormularioPlaza,
 )
 from reclutamiento.models import (
+    AnalisisCV,
     CertificacionAspirante,
+    CertificacionAnalisisCV,
     Curriculo,
+    DatosPersonalesAnalisisCV,
     Departamento,
+    EducacionAnalisisCV,
     Entrevista,
+    EvaluacionPostulacion,
+    ExperienciaAnalisisCV,
     ExperienciaLaboral,
     FormacionAcademica,
     HabilidadAspirante,
+    HabilidadAnalisisCV,
     HistorialEstadoPostulacion,
     HistorialEstadoPlaza,
     IdiomaAspirante,
+    IdiomaAnalisisCV,
     ModalidadTrabajo,
     PerfilAspirante,
     PerfilPersonal,
@@ -83,6 +91,7 @@ from reclutamiento.candidates import (
     save_profile,
     save_profile_record,
 )
+from reclutamiento.ai_analysis import AnalysisError, analyze_application, get_current_evaluation
 from reclutamiento.emails import send_verification_email
 from reclutamiento.services import register_applicant
 from reclutamiento.storage import B2_PROVIDER_CODE, backblaze_download_url
@@ -220,6 +229,14 @@ def dashboard(request):
         .annotate(applicant_count=Count("postulacion", distinct=True))
         .order_by("cierra_en", "-actualizado_en")[:3]
     )
+    top_evaluations = (
+        EvaluacionPostulacion.objects.filter(
+            vigente=True,
+            estado_id="COMPLETADO",
+            porcentaje_compatibilidad__isnull=False,
+        )
+        .order_by("-porcentaje_compatibilidad", "-creado_en")[:4]
+    )
     return render(
         request,
         "dashboard.html",
@@ -233,6 +250,7 @@ def dashboard(request):
                 usuariorol__rol__codigo="ASPIRANTE"
             ).distinct().count(),
             "priority_vacancies": priority_vacancies,
+            "top_evaluations": top_evaluations,
         },
     )
 
@@ -479,10 +497,24 @@ def aspirantes(request):
 
 @roles_required("RRHH", "ADMINISTRADOR")
 def postulaciones(request):
+    current_compatibility = (
+        EvaluacionPostulacion.objects.filter(
+            postulacion=OuterRef("pk"),
+            vigente=True,
+            estado_id="COMPLETADO",
+        )
+        .order_by("-creado_en")
+        .values("porcentaje_compatibilidad")[:1]
+    )
     applications = Postulacion.objects.select_related(
         "aspirante__usuario",
         "plaza__departamento",
         "estado",
+    ).annotate(
+        compatibility_score=Subquery(
+            current_compatibility,
+            output_field=DecimalField(max_digits=5, decimal_places=2),
+        )
     ).order_by("-actualizado_en")
     query = request.GET.get("q", "").strip()
     status = request.GET.get("estado", "").strip().upper()
@@ -540,6 +572,7 @@ def detalle_postulacion(request, postulacion_id):
     interviews = Entrevista.objects.filter(postulacion=application).select_related(
         "estado", "creado_por"
     ).order_by("-inicia_en")
+    evaluation = get_current_evaluation(application)
     for interview in interviews:
         interview.available_transitions = sorted(
             ALLOWED_INTERVIEW_TRANSITIONS.get(interview.estado_id, set())
@@ -563,6 +596,7 @@ def detalle_postulacion(request, postulacion_id):
             "state_form": FormularioCambioEstadoPostulacion(estados=status_choices),
             "has_state_transitions": bool(status_choices),
             "interview_form": FormularioEntrevista(),
+            "evaluacion": evaluation,
         },
     )
 
@@ -633,8 +667,130 @@ def cambiar_estado_entrevista(request, entrevista_id):
 
 
 @roles_required("RRHH", "ADMINISTRADOR")
-def analisis(request):
-    return render(request, "analisis.html")
+def analisis(request, postulacion_id=None):
+    if postulacion_id is None:
+        return render(request, "analisis_index.html")
+    application = get_object_or_404(
+        Postulacion.objects.select_related(
+            "aspirante__usuario",
+            "aspirante__profesion",
+            "aspirante__ciudad",
+            "plaza__departamento",
+            "curriculo__proveedor_almacenamiento",
+        ),
+        pk=postulacion_id,
+    )
+    if request.method == "POST":
+        try:
+            analyze_application(application, force=request.POST.get("force") == "1")
+        except AnalysisError as error:
+            messages.error(request, error.messages[0] if error.messages else str(error))
+        else:
+            messages.success(request, "El análisis del currículum fue completado.")
+        return redirect("analisis", postulacion_id=application.pk)
+
+    evaluation = get_current_evaluation(application)
+    analysis = (
+        AnalisisCV.objects.filter(curriculo=application.curriculo, vigente=True)
+        .select_related("estado", "motor_analisis", "motor_analisis__modelo_ia")
+        .order_by("-creado_en")
+        .first()
+    )
+    if evaluation:
+        analysis = evaluation.analisis_cv
+    requirements = list(
+        RequisitoPlaza.objects.filter(plaza=application.plaza)
+        .select_related("tipo")
+        .order_by("orden_visualizacion", "pk")
+    )
+    results = []
+    if evaluation:
+        results = list(
+            evaluation.resultadorequisitoevaluacion_set.select_related("requisito").all()
+        )
+    result_by_requirement = {result.requisito_id: result for result in results}
+    for requirement in requirements:
+        requirement.analysis_result = result_by_requirement.get(requirement.pk)
+
+    personal_data = (
+        DatosPersonalesAnalisisCV.objects.filter(analisis=analysis).first()
+        if analysis
+        else None
+    )
+    context = {
+        "postulacion": application,
+        "evaluacion": evaluation,
+        "analisis_cv": analysis,
+        "datos_personales": personal_data,
+        "experiencias": (
+            ExperienciaAnalisisCV.objects.filter(analisis=analysis)
+            .select_related("profesion")
+            .order_by("-fecha_inicio", "-pk")
+            if analysis
+            else []
+        ),
+        "educaciones": (
+            EducacionAnalisisCV.objects.filter(analisis=analysis)
+            .select_related("nivel_educativo", "area_estudio")
+            .order_by("-fecha_fin", "-fecha_inicio", "-pk")
+            if analysis
+            else []
+        ),
+        "habilidades": (
+            HabilidadAnalisisCV.objects.filter(analisis=analysis)
+            .select_related("habilidad")
+            .order_by("nombre_detectado")
+            if analysis
+            else []
+        ),
+        "idiomas": (
+            IdiomaAnalisisCV.objects.filter(analisis=analysis)
+            .select_related("idioma", "nivel_idioma")
+            .order_by("nombre_detectado")
+            if analysis
+            else []
+        ),
+        "certificaciones": (
+            CertificacionAnalisisCV.objects.filter(analisis=analysis)
+            .select_related("certificacion")
+            .order_by("nombre_detectado")
+            if analysis
+            else []
+        ),
+        "requirements": requirements,
+        "requirements_met": sum(result.cumplido for result in results),
+        "compatibility_score": (
+            evaluation.porcentaje_compatibilidad
+            if evaluation and evaluation.porcentaje_compatibilidad is not None
+            else None
+        ),
+        "candidate_name": (
+            personal_data.nombre_completo
+            if personal_data and personal_data.nombre_completo
+            else application.aspirante.usuario.get_full_name()
+        ),
+        "candidate_email": (
+            personal_data.correo
+            if personal_data and personal_data.correo
+            else application.aspirante.usuario.email
+        ),
+        "candidate_phone": (
+            personal_data.telefono
+            if personal_data and personal_data.telefono
+            else application.aspirante.telefono
+        ),
+        "candidate_profession": (
+            personal_data.profesion_texto
+            if personal_data and personal_data.profesion_texto
+            else application.aspirante.profesion
+        ),
+        "candidate_city": (
+            personal_data.ciudad_texto
+            if personal_data and personal_data.ciudad_texto
+            else application.aspirante.ciudad
+        ),
+    }
+    return render(request, "analisis.html", context)
 
 
 @roles_required("ASPIRANTE")

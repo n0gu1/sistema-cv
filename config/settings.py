@@ -119,6 +119,19 @@ BACKBLAZE_OBJECT_PREFIX = os.environ.get("BACKBLAZE_OBJECT_PREFIX", "curriculos"
 BACKBLAZE_PRESIGNED_URL_EXPIRY = int(
     os.environ.get("BACKBLAZE_PRESIGNED_URL_EXPIRY", "300")
 )
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_BASE_URL = os.environ.get(
+    "GROQ_API_BASE_URL", "https://api.groq.com/openai/v1"
+)
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
+GROQ_TIMEOUT_SECONDS = int(os.environ.get("GROQ_TIMEOUT_SECONDS", "90"))
+GROQ_MAX_TOKENS = int(os.environ.get("GROQ_MAX_TOKENS", "2500"))
+ANALYSIS_MAX_TEXT_CHARS = int(os.environ.get("ANALYSIS_MAX_TEXT_CHARS", "16000"))
+ANALYSIS_OCR_ENABLED = os.environ.get("ANALYSIS_OCR_ENABLED", "True").lower() == "true"
+ANALYSIS_OCR_MAX_PAGES = int(os.environ.get("ANALYSIS_OCR_MAX_PAGES", "5"))
+ANALYSIS_OCR_DPI = int(os.environ.get("ANALYSIS_OCR_DPI", "150"))
+TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")
+TESSERACT_LANG = os.environ.get("TESSERACT_LANG", "spa+eng")
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
