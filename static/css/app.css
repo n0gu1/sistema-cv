@@ -811,3 +811,58 @@ button, input, select, textarea { font: inherit; }
     .notification-heading { align-items: stretch; }
     .notification-item { padding: 18px 16px; }
 }
+
+/* Responsive layout corrections */
+.admin-body .main-panel,.admin-body .content-area,.topbar-context,.topbar-context strong,
+.analysis-layout > *,.analysis-main > *,.analysis-side > *,.candidate-hero > *,
+.candidate-main > div:last-child,.candidate-doc > div,.overall-score,
+.analysis-structured-column,.vacancy-detail-main,.vacancy-detail-side { min-width: 0; }
+.topbar-context strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.analysis-structured-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; min-width: 0; padding: 0 25px 24px; }
+.analysis-structured-column { min-width: 0; }
+.analysis-structured-column h3 { margin-top: 0; color: #263247; font-size: 16px; }
+.analysis-structured-column small,.candidate-doc strong,.cv-file strong,.application-summary a { overflow-wrap: anywhere; }
+.vacancy-detail-layout { display: grid; grid-template-columns: minmax(0,2fr) minmax(280px,1fr); align-items: start; gap: 20px; margin-top: 4px; min-width: 0; }
+.vacancy-detail-main,.vacancy-detail-side { display: grid; gap: 20px; align-content: start; }
+.vacancy-summary { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.vacancy-summary > div,.portal-page-heading > div,.portal-form-grid > div,.application-info,.application-status { min-width: 0; }
+.vacancy-summary strong { overflow-wrap: anywhere; }
+.table-responsive { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.portal-brand,.portal-brand > span:last-child,.profile-record > div:first-child,.settings-card-header > div { min-width: 0; }
+.portal-brand strong,.portal-brand small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.application-info h3,.profile-record p,.opportunity-card h2,.opportunity-hero h1 { overflow-wrap: anywhere; }
+
+.status-badge.status-enviada { color: #0866e5; background: #eaf2ff; }
+.status-badge.status-en_revision { color: #6652ae; background: #f0edff; }
+.status-badge.status-preseleccionada { color: #08734e; background: #e6f6ef; }
+.status-badge.status-entrevista { color: #95610d; background: #fff1d7; }
+.status-badge.status-oferta_enviada,.status-badge.status-contratada { color: #08734e; background: #e6f6ef; }
+.status-badge.status-rechazada,.status-badge.status-retirada { color: #8d3f4a; background: #fae9ec; }
+
+@media (max-width: 991.98px) {
+    .vacancy-detail-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 767.98px) {
+    .analysis-structured-grid { grid-template-columns: 1fr; padding-inline: 18px; padding-bottom: 20px; }
+    .admin-interview { display: grid; grid-template-columns: 1fr; align-items: start; gap: 12px; }
+    .admin-interview form { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; min-width: 0; }
+    .status-report-list > div:not(.inline-empty) { grid-template-columns: minmax(0,1fr) auto auto; gap: 8px; }
+    .status-report-list > div:not(.inline-empty) > div { grid-column: 1 / -1; width: 100%; }
+    .top-vacancy-report > div:not(.inline-empty) { grid-template-columns: minmax(0,1fr) auto; gap: 8px; }
+    .top-vacancy-report > div:not(.inline-empty) > div { grid-column: 1 / -1; width: 100%; }
+    .report-panel .panel-header { align-items: flex-start; flex-wrap: wrap; }
+    .report-panel .panel-header > div { flex: 1 1 180px; min-width: 0; }
+    .vacancy-summary > div { min-width: 0; }
+    .portal-form-actions > * { min-width: 0; flex: 1; }
+}
+
+@media (max-width: 479.98px) {
+    .portal-header .portal-container { gap: 12px; }
+    .admin-interview form { grid-template-columns: 1fr; }
+    .admin-interview form .form-select,.admin-interview form .btn { width: 100%; }
+    .profile-record { display: grid; grid-template-columns: minmax(0,1fr) auto; }
+    .profile-record > div:last-child { align-self: start; }
+    .portal-form-actions { flex-direction: column-reverse; }
+    .portal-form-actions > * { width: 100%; }
+}
