@@ -44,6 +44,7 @@ from reclutamiento.models import (
     UsuarioRol,
 )
 from reclutamiento.tokens import email_verification_token
+from reclutamiento.forms import FormularioPlaza
 from reclutamiento.vacancies import transition_vacancy
 
 
@@ -621,6 +622,20 @@ class VacancyManagementTests(TransactionTestCase):
             Habilidad.objects.count(),
         )
         self.assertEqual(before, after)
+
+    def test_negative_salaries_are_rejected(self):
+        cases = (
+            ("salario_minimo", "El salario mínimo no puede ser negativo."),
+            ("salario_maximo", "El salario máximo no puede ser negativo."),
+        )
+        for field_name, message in cases:
+            with self.subTest(field_name=field_name):
+                form = FormularioPlaza(
+                    data=self._payload(**{field_name: "-0.01"})
+                )
+
+                self.assertFalse(form.is_valid())
+                self.assertEqual(form.errors[field_name][0], message)
 
     def test_create_and_publish_vacancy_with_normalized_requirements(self):
         response = self.client.post(

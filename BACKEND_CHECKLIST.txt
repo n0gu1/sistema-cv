@@ -1,5 +1,5 @@
 BACKEND - SISTEMA DE RECLUTAMIENTO NEXO
-Ultima actualizacion: 12 de agosto de 2026
+Ultima actualizacion: 29 de agosto de 2026
 
 Convenciones:
 [x] Completado
@@ -31,7 +31,6 @@ Convenciones:
 [x] Respuesta de reenvio que no revela si una cuenta existe.
 [x] Recuperacion ante fallos temporales del proveedor de correo.
 [ ] Limite de intentos y bloqueo temporal contra fuerza bruta.
-[ ] Segundo factor de autenticacion, si el alcance final lo requiere.
 
 2. CRUD DE PLAZAS Y REQUISITOS
 [x] Crear, editar, consultar y filtrar plazas desde PostgreSQL.
@@ -45,6 +44,12 @@ Convenciones:
 [x] Validar transiciones y guardar historial de estados.
 [x] Evitar edicion de plazas cerradas y requisitos con evaluaciones asociadas.
 [x] Inicializacion idempotente de catalogos base.
+[x] Validar que salario minimo y maximo no sean negativos.
+[ ] Validar que cantidad_vacantes sea mayor que cero desde el formulario.
+[ ] Impedir mas contrataciones que la cantidad_vacantes de la plaza.
+[ ] Cerrar o pausar postulaciones cuando se complete la cantidad de vacantes.
+[ ] Excluir plazas vencidas de las metricas de plazas activas.
+[ ] Impedir reactivar una plaza cuya fecha de cierre ya vencio.
 
 3. GESTION DE ASPIRANTES
 [x] Registro de aspirantes.
@@ -52,6 +57,8 @@ Convenciones:
 [x] Experiencia, educacion, habilidades, idiomas y certificaciones.
 [x] Porcentaje de completitud calculado con datos reales.
 [x] Busqueda y paginacion real para Recursos Humanos.
+[ ] Permitir que RRHH consulte el perfil profesional completo de un aspirante.
+[ ] Mostrar en el portal todas las secciones pendientes que reducen la completitud.
 
 4. POSTULACIONES
 [x] Explorar y consultar plazas publicadas vigentes.
@@ -59,6 +66,13 @@ Convenciones:
 [x] Evitar postulaciones duplicadas.
 [x] Cambiar estados y registrar historial.
 [x] Gestionar entrevistas y sus estados.
+[ ] Corregir el contexto interviews/entrevistas para mostrar entrevistas al aspirante.
+[ ] Mostrar el formulario de entrevista solo en PRESELECCIONADA o ENTREVISTA.
+[ ] Conservar los errores y datos del formulario cuando una entrevista no sea valida.
+[ ] Impedir programar entrevistas en el pasado.
+[ ] Validar la zona horaria y usarla al interpretar la fecha de entrevista.
+[ ] Cancelar entrevistas activas al rechazar, retirar o contratar una postulacion.
+[ ] Definir el flujo funcional de oferta antes de pasar a CONTRATADA.
 
 5. CURRICULUMS
 [x] Carga privada local y validacion de firma, MIME y tamano del PDF.
@@ -73,11 +87,19 @@ Convenciones:
 [x] Respuestas estructuradas y validadas antes de persistirlas.
 [x] Calculo reproducible de compatibilidad ponderada por requisito.
 [x] Evidencia, fortalezas, brechas y recomendaciones para revision humana.
+[ ] Instalar Tesseract y los idiomas spa/eng en los entornos que usen OCR.
+[ ] Mostrar las certificaciones extraidas en la pantalla de analisis.
+[ ] Calcular experiencia solo para la profesion requerida y evitar periodos duplicados.
 
 7. PROCESAMIENTO EN SEGUNDO PLANO
 [x] Configurar Celery y Redis mediante variables de entorno y una cola dedicada.
 [x] Estados, reintentos limitados e idempotencia de tareas.
 [x] Progreso visible en la interfaz con consulta automática del estado.
+[ ] Recuperar y reenviar analisis atascados en PENDIENTE o PROCESANDO.
+[ ] Permitir reintento manual cuando un worker pierde una tarea.
+[ ] Definir de forma reproducible el worker de Render y sus variables de entorno.
+[ ] Evitar que el respaldo sincrono exceda el timeout de Gunicorn.
+[ ] Actualizar durante el polling el porcentaje numerico y aria-valuenow.
 
 8. API REST
 [x] Django REST Framework.
@@ -89,6 +111,7 @@ Convenciones:
 [x] Plantillas HTML y texto.
 [x] Confirmaciones, cambios de estado e invitaciones.
 [x] Notificaciones internas y marcado como leidas.
+[ ] Aplicar las tablas y catalogos de notificaciones en la base configurada.
 
 10. SEGURIDAD Y CALIDAD
 [x] CSRF activo en formularios y cierre de sesion.
@@ -97,3 +120,30 @@ Convenciones:
 [ ] Auditoria de acciones sensibles.
 [ ] Pruebas completas de permisos, archivos, IA y tareas.
 [ ] Monitoreo y registro estructurado de errores.
+[ ] Corregir la prueba de login que espera el texto antiguo "Bienvenido de vuelta".
+[ ] Dejar las 69 pruebas automatizadas pasando.
+[ ] Hacer que el endpoint /salud/ valide las tablas esenciales del sistema.
+[ ] Agregar una prueba de instalacion limpia contra el esquema PostgreSQL real.
+[ ] Probar Celery, Redis, Groq, Backblaze y OCR sin sustituirlos por mocks.
+
+11. BASE DE DATOS Y DESPLIEGUE
+[-] La base configurada responde y contiene 41 tablas en total.
+[ ] Completar las 63 tablas esperadas por los modelos de reclutamiento.
+[ ] Aplicar las 28 tablas ausentes detectadas actualmente:
+    analisis_cv, canales_notificacion, certificaciones_analisis_cv,
+    datos_personales_analisis_cv, educaciones_analisis_cv,
+    entregas_notificacion, estados_entrega, estados_procesamiento,
+    evaluaciones_postulacion, experiencias_analisis_cv,
+    habilidades_analisis_cv, historial_estados_plaza,
+    idiomas_analisis_cv, intentos_entrega_notificacion, modelos_ia,
+    motores_analisis, notificaciones, perfiles_personal,
+    requisitos_certificacion, requisitos_disponibilidad,
+    requisitos_educacion, requisitos_experiencia, requisitos_habilidad,
+    requisitos_idioma, requisitos_plaza,
+    resultados_requisitos_evaluacion, tipos_notificacion y tipos_requisito.
+[ ] Documentar y automatizar schema.sql seguido de migracion_espanol.sql.
+[ ] Incorporar el esquema y los catalogos al proceso de despliegue en Render.
+[ ] Crear un mecanismo de migraciones versionadas para cambios futuros.
+[ ] Actualizar rollback.sql para eliminar tambien las tablas con nombres en espanol.
+[ ] Fijar la version de Python usada por desarrollo, web y worker.
+[ ] Verificar persistencia de curriculos en produccion cuando Backblaze este desactivado.

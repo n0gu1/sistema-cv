@@ -497,6 +497,18 @@ class FormularioPlaza(forms.ModelForm):
         cleaned_data["codigo_moneda"] = currency or None
         return cleaned_data
 
+    def clean_salario_minimo(self):
+        salary_min = self.cleaned_data.get("salario_minimo")
+        if salary_min is not None and salary_min < 0:
+            raise forms.ValidationError("El salario mínimo no puede ser negativo.")
+        return salary_min
+
+    def clean_salario_maximo(self):
+        salary_max = self.cleaned_data.get("salario_maximo")
+        if salary_max is not None and salary_max < 0:
+            raise forms.ValidationError("El salario máximo no puede ser negativo.")
+        return salary_max
+
     def clean_cierra_en(self):
         closes_at = self.cleaned_data.get("cierra_en")
         if closes_at and closes_at <= timezone.now():
