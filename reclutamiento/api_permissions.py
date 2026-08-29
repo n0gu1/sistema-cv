@@ -11,6 +11,14 @@ def _is_staff(user):
     )
 
 
+def _is_applicant(user):
+    return bool(
+        user
+        and user.is_authenticated
+        and getattr(user, "has_role", lambda *roles: False)("ASPIRANTE")
+    )
+
+
 class PublicVacancyPermission(BasePermission):
     """Anyone may read the public vacancy catalogue; staff may manage it."""
 
@@ -29,8 +37,8 @@ class ApplicantAccessPermission(BasePermission):
         if not user or not user.is_authenticated:
             return False
         if view.action == "create":
-            return bool(getattr(user, "has_role", lambda *roles: False)("ASPIRANTE"))
-        return True
+            return _is_applicant(user)
+        return _is_staff(user) or _is_applicant(user)
 
     def has_object_permission(self, request, view, obj):
         return _is_staff(request.user) or obj.aspirante.usuario_id == request.user.pk
@@ -38,7 +46,7 @@ class ApplicantAccessPermission(BasePermission):
 
 class ApplicantProfilePermission(BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated)
+        return _is_staff(request.user) or _is_applicant(request.user)
 
     def has_object_permission(self, request, view, obj):
         return _is_staff(request.user) or obj.usuario_id == request.user.pk
