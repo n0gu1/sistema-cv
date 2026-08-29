@@ -111,7 +111,7 @@ Convenciones:
 [x] Plantillas HTML y texto.
 [x] Confirmaciones, cambios de estado e invitaciones.
 [x] Notificaciones internas y marcado como leidas.
-[ ] Aplicar las tablas y catalogos de notificaciones en la base configurada.
+[x] Aplicar las tablas y catalogos de notificaciones en la base configurada.
 
 10. SEGURIDAD Y CALIDAD
 [x] CSRF activo en formularios y cierre de sesion.
@@ -127,20 +127,20 @@ Convenciones:
 [ ] Probar Celery, Redis, Groq, Backblaze y OCR sin sustituirlos por mocks.
 
 11. BASE DE DATOS Y DESPLIEGUE
-[-] La base configurada responde y contiene 41 tablas en total.
+[-] La base configurada responde y contiene 47 tablas en total.
 [ ] Completar las 63 tablas esperadas por los modelos de reclutamiento.
-[ ] Aplicar las 28 tablas ausentes detectadas actualmente:
-    analisis_cv, canales_notificacion, certificaciones_analisis_cv,
+[ ] Aplicar las 22 tablas ausentes detectadas actualmente:
+    analisis_cv, certificaciones_analisis_cv,
     datos_personales_analisis_cv, educaciones_analisis_cv,
-    entregas_notificacion, estados_entrega, estados_procesamiento,
+    estados_procesamiento,
     evaluaciones_postulacion, experiencias_analisis_cv,
     habilidades_analisis_cv, historial_estados_plaza,
-    idiomas_analisis_cv, intentos_entrega_notificacion, modelos_ia,
-    motores_analisis, notificaciones, perfiles_personal,
+    idiomas_analisis_cv, modelos_ia,
+    motores_analisis, perfiles_personal,
     requisitos_certificacion, requisitos_disponibilidad,
     requisitos_educacion, requisitos_experiencia, requisitos_habilidad,
     requisitos_idioma, requisitos_plaza,
-    resultados_requisitos_evaluacion, tipos_notificacion y tipos_requisito.
+    resultados_requisitos_evaluacion y tipos_requisito.
 [ ] Documentar y automatizar schema.sql seguido de migracion_espanol.sql.
 [ ] Incorporar el esquema y los catalogos al proceso de despliegue en Render.
 [ ] Crear un mecanismo de migraciones versionadas para cambios futuros.

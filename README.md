@@ -40,6 +40,13 @@ idempotente y puede ejecutarse nuevamente sin duplicar registros:
 python manage.py inicializar_catalogos
 ```
 
+En PostgreSQL, las tablas y catálogos de notificaciones se aplican con el
+script idempotente `database/migracion_notificaciones.sql`:
+
+```powershell
+psql $env:DATABASE_URL -f database/migracion_notificaciones.sql
+```
+
 La gestion de plazas permite crear borradores, editar requisitos, publicar,
 pausar, reactivar y cerrar procesos conservando su historial de estados.
 
