@@ -255,6 +255,14 @@ def transition_vacancy(vacancy_id, target_code, user, reason=None):
         plaza=vacancy
     ).exists():
         raise ValidationError("Agrega al menos un requisito antes de publicar.")
+    if (
+        target_code == "PUBLICADA"
+        and vacancy.cierra_en is not None
+        and vacancy.cierra_en <= timezone.now()
+    ):
+        raise ValidationError(
+            "No se puede reactivar una plaza cuya fecha de cierre ya venció."
+        )
 
     now = timezone.now()
     vacancy.estado = EstadoPlaza.objects.get(codigo=target_code)

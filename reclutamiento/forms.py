@@ -7,6 +7,7 @@ from django.contrib.auth.forms import (
 )
 from django.core.validators import RegexValidator
 from django.utils import timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from reclutamiento.models import Usuario
 from reclutamiento.models import (
@@ -323,6 +324,15 @@ class FormularioEntrevista(forms.ModelForm):
         cleaned_data = super().clean()
         start = cleaned_data.get("inicia_en")
         end = cleaned_data.get("termina_en")
+        timezone_name = cleaned_data.get("zona_horaria")
+        if start and end and timezone_name:
+            zone = ZoneInfo(timezone_name)
+            start = timezone.make_aware(start.replace(tzinfo=None), zone)
+            end = timezone.make_aware(end.replace(tzinfo=None), zone)
+            cleaned_data["inicia_en"] = start
+            cleaned_data["termina_en"] = end
+        if start and start <= timezone.now():
+            self.add_error("inicia_en", "La entrevista debe iniciar en el futuro.")
         if start and end and end <= start:
             self.add_error("termina_en", "La entrevista debe terminar después de iniciar.")
         if not cleaned_data.get("detalle_ubicacion") and not cleaned_data.get(
@@ -333,6 +343,16 @@ class FormularioEntrevista(forms.ModelForm):
                 "Indica una ubicación o un enlace de reunión.",
             )
         return cleaned_data
+
+    def clean_zona_horaria(self):
+        value = self.cleaned_data["zona_horaria"].strip()
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            raise forms.ValidationError(
+                "Ingresa una zona horaria IANA válida, por ejemplo America/Guatemala."
+            )
+        return value
 
 
 class FormularioEstadoEntrevista(forms.Form):

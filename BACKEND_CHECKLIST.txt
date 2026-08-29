@@ -47,9 +47,9 @@ Convenciones:
 [x] Validar que salario minimo y maximo no sean negativos.
 [x] Validar que cantidad_vacantes sea mayor que cero desde el formulario.
 [x] Impedir mas contrataciones que la cantidad_vacantes de la plaza.
-[ ] Cerrar o pausar postulaciones cuando se complete la cantidad de vacantes.
-[ ] Excluir plazas vencidas de las metricas de plazas activas.
-[ ] Impedir reactivar una plaza cuya fecha de cierre ya vencio.
+[x] Cerrar o pausar postulaciones cuando se complete la cantidad de vacantes.
+[x] Excluir plazas vencidas de las metricas de plazas activas.
+[x] Impedir reactivar una plaza cuya fecha de cierre ya vencio.
 
 3. GESTION DE ASPIRANTES
 [x] Registro de aspirantes.
@@ -66,13 +66,13 @@ Convenciones:
 [x] Evitar postulaciones duplicadas.
 [x] Cambiar estados y registrar historial.
 [x] Gestionar entrevistas y sus estados.
-[ ] Corregir el contexto interviews/entrevistas para mostrar entrevistas al aspirante.
-[ ] Mostrar el formulario de entrevista solo en PRESELECCIONADA o ENTREVISTA.
-[ ] Conservar los errores y datos del formulario cuando una entrevista no sea valida.
-[ ] Impedir programar entrevistas en el pasado.
-[ ] Validar la zona horaria y usarla al interpretar la fecha de entrevista.
-[ ] Cancelar entrevistas activas al rechazar, retirar o contratar una postulacion.
-[ ] Definir el flujo funcional de oferta antes de pasar a CONTRATADA.
+[x] Corregir el contexto interviews/entrevistas para mostrar entrevistas al aspirante.
+[x] Mostrar el formulario de entrevista solo en PRESELECCIONADA o ENTREVISTA.
+[x] Conservar los errores y datos del formulario cuando una entrevista no sea valida.
+[x] Impedir programar entrevistas en el pasado.
+[x] Validar la zona horaria y usarla al interpretar la fecha de entrevista.
+[x] Cancelar entrevistas activas al rechazar, retirar o contratar una postulacion.
+[x] Definir el flujo funcional de oferta antes de pasar a CONTRATADA.
 
 5. CURRICULUMS
 [x] Carga privada local y validacion de firma, MIME y tamano del PDF.

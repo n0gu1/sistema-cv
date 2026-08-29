@@ -78,7 +78,11 @@ def build_recruitment_report(period):
     return {
         "period": period,
         "total_vacancies": total_vacancies,
-        "active_vacancies": vacancies.filter(estado_id="PUBLICADA").count(),
+        "active_vacancies": Plaza.objects.filter(
+            estado_id="PUBLICADA"
+        ).filter(
+            Q(cierra_en__isnull=True) | Q(cierra_en__gt=timezone.now())
+        ).count(),
         "total_applicants": Usuario.objects.filter(
             usuariorol__rol__codigo="ASPIRANTE"
         ).distinct().count(),

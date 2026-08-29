@@ -128,7 +128,7 @@ class AuthenticationTests(TransactionTestCase):
         response = self.client.get(reverse("index"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Bienvenido de vuelta")
+        self.assertContains(response, "Iniciar sesión")
         self.assertNotContains(response, "demoToast")
         self.assertNotContains(response, "Función disponible próximamente")
 
@@ -713,6 +713,16 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertEqual(vacancy.estado_id, "CERRADA")
         self.assertEqual(HistorialEstadoPlaza.objects.filter(plaza=vacancy).count(), 5)
         with self.assertRaises(ValidationError):
+            transition_vacancy(vacancy.pk, "PUBLICADA", self.user)
+
+    def test_expired_vacancy_cannot_be_reactivated(self):
+        vacancy = self._create_draft()
+        transition_vacancy(vacancy.pk, "PUBLICADA", self.user)
+        vacancy.cierra_en = timezone.now() - timezone.timedelta(days=1)
+        vacancy.save(update_fields=["cierra_en"])
+        transition_vacancy(vacancy.pk, "PAUSADA", self.user)
+
+        with self.assertRaisesRegex(ValidationError, "fecha de cierre"):
             transition_vacancy(vacancy.pk, "PUBLICADA", self.user)
 
     def test_state_endpoint_updates_vacancy_and_rejects_get(self):

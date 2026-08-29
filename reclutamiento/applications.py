@@ -16,14 +16,20 @@ from reclutamiento.notifications import (
     notify_interview_scheduled,
     notify_interview_status_changed,
 )
+from reclutamiento.vacancies import transition_vacancy
+
+
+OFFER_SENT_STATE = "OFERTA_ENVIADA"
+TERMINAL_APPLICATION_STATES = {"CONTRATADA", "RECHAZADA", "RETIRADA"}
+ACTIVE_INTERVIEW_STATES = {"PROGRAMADA", "CONFIRMADA"}
 
 
 ALLOWED_APPLICATION_TRANSITIONS = {
     "ENVIADA": {"EN_REVISION", "RETIRADA"},
     "EN_REVISION": {"PRESELECCIONADA", "RECHAZADA", "RETIRADA"},
     "PRESELECCIONADA": {"ENTREVISTA", "RECHAZADA", "RETIRADA"},
-    "ENTREVISTA": {"OFERTA_ENVIADA", "RECHAZADA", "RETIRADA"},
-    "OFERTA_ENVIADA": {"CONTRATADA", "RECHAZADA", "RETIRADA"},
+    "ENTREVISTA": {OFFER_SENT_STATE, "RECHAZADA", "RETIRADA"},
+    OFFER_SENT_STATE: {"CONTRATADA", "RECHAZADA", "RETIRADA"},
     "CONTRATADA": set(),
     "RECHAZADA": set(),
     "RETIRADA": set(),
@@ -41,9 +47,14 @@ ALLOWED_INTERVIEW_TRANSITIONS = {
 
 def vacancy_accepts_applications(vacancy, now=None):
     now = now or timezone.now()
-    return vacancy.estado_id == "PUBLICADA" and (
-        vacancy.cierra_en is None or vacancy.cierra_en > now
-    )
+    if vacancy.estado_id != "PUBLICADA" or (
+        vacancy.cierra_en is not None and vacancy.cierra_en <= now
+    ):
+        return False
+    return Postulacion.objects.filter(
+        plaza_id=vacancy.pk,
+        estado_id="CONTRATADA",
+    ).count() < vacancy.cantidad_vacantes
 
 
 @transaction.atomic
@@ -93,6 +104,10 @@ def transition_application(application_id, target_code, user, reason=None):
     )
     current_code = application.estado_id
     target_code = target_code.upper()
+    if target_code == "CONTRATADA" and current_code != OFFER_SENT_STATE:
+        raise ValidationError(
+            "La postulación debe tener una oferta enviada antes de contratarla."
+        )
     if target_code not in ALLOWED_APPLICATION_TRANSITIONS.get(current_code, set()):
         raise ValidationError(
             f"No se permite cambiar una postulación de {current_code} a {target_code}."
@@ -126,7 +141,33 @@ def transition_application(application_id, target_code, user, reason=None):
         cambiado_en=now,
     )
     notify_application_status_changed(application, current_code, target_code, user)
+    if target_code in TERMINAL_APPLICATION_STATES:
+        _cancel_active_interviews(application.pk)
+    if (
+        target_code == "CONTRATADA"
+        and hired_count + 1 >= vacancy.cantidad_vacantes
+        and vacancy.estado_id in {"PUBLICADA", "PAUSADA"}
+    ):
+        transition_vacancy(
+            vacancy.pk,
+            "CERRADA",
+            user,
+            "Cierre automático al completar la cantidad de vacantes.",
+        )
     return application
+
+
+def _cancel_active_interviews(application_id):
+    cancel_state = EstadoEntrevista.objects.get(codigo="CANCELADA")
+    interviews = Entrevista.objects.select_for_update().select_related("estado").filter(
+        postulacion_id=application_id,
+        estado_id__in=ACTIVE_INTERVIEW_STATES,
+    )
+    for interview in interviews:
+        previous_code = interview.estado_id
+        interview.estado = cancel_state
+        interview.save(update_fields=("estado",))
+        notify_interview_status_changed(interview, previous_code, "CANCELADA")
 
 
 @transaction.atomic

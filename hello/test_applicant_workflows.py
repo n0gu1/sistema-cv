@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from datetime import datetime
 from unittest.mock import Mock, patch
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from rest_framework.test import APIClient
 from reclutamiento.candidates import save_curriculum
 from reclutamiento.applications import create_application, transition_application
 from reclutamiento.ai_analysis import analyze_application, enqueue_application_analysis
+from reclutamiento.forms import FormularioEntrevista
 from reclutamiento.tasks import process_application_analysis
 from reclutamiento.models import (
     AnalisisCV,
@@ -43,6 +45,7 @@ from reclutamiento.models import (
     HabilidadAspirante,
     HabilidadAnalisisCV,
     HistorialEstadoPostulacion,
+    HistorialEstadoPlaza,
     Idioma,
     IdiomaAspirante,
     IdiomaAnalisisCV,
@@ -120,6 +123,7 @@ class ApplicantWorkflowTests(TransactionTestCase):
         IdiomaAspirante,
         CertificacionAspirante,
         Plaza,
+        HistorialEstadoPlaza,
         RequisitoPlaza,
         RequisitoHabilidad,
         RequisitoIdioma,
@@ -195,6 +199,7 @@ class ApplicantWorkflowTests(TransactionTestCase):
             codigo="REMOTO", nombre="Remoto"
         )
         EstadoPlaza.objects.create(codigo="PUBLICADA", nombre="Activa")
+        EstadoPlaza.objects.create(codigo="CERRADA", nombre="Cerrada", es_final=True)
         for code, name, final in (
             ("ENVIADA", "Enviada", False),
             ("EN_REVISION", "En revisión", False),
@@ -278,6 +283,19 @@ class ApplicantWorkflowTests(TransactionTestCase):
             suma_sha256="a" * 64,
             cargado_en=timezone.now(),
             activo=True,
+        )
+
+    def _interview(self, application, state="PROGRAMADA"):
+        start = timezone.now() + timezone.timedelta(days=3)
+        return Entrevista.objects.create(
+            postulacion=application,
+            creado_por=self.hr_user,
+            estado_id=state,
+            inicia_en=start,
+            termina_en=start + timezone.timedelta(hours=1),
+            zona_horaria="America/Guatemala",
+            detalle_ubicacion="Oficina central",
+            creado_en=timezone.now(),
         )
 
     def test_profile_update_and_owned_experience(self):
@@ -506,6 +524,9 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(mail.outbox[0].subject, "Actualización de tu postulación")
 
     def test_hiring_respects_vacancy_limit(self):
+        self._curriculum(self.other_profile, "otro-curriculo.pdf")
+        second_application = create_application(self.vacancy.pk, self.other_profile)
+
         first_application = create_application(self.vacancy.pk, self.profile)
         for target in (
             "EN_REVISION",
@@ -516,8 +537,8 @@ class ApplicantWorkflowTests(TransactionTestCase):
         ):
             transition_application(first_application.pk, target, self.hr_user)
 
-        self._curriculum(self.other_profile, "otro-curriculo.pdf")
-        second_application = create_application(self.vacancy.pk, self.other_profile)
+        self.vacancy.refresh_from_db()
+        self.assertEqual(self.vacancy.estado_id, "CERRADA")
         for target in (
             "EN_REVISION",
             "PRESELECCIONADA",
@@ -541,6 +562,34 @@ class ApplicantWorkflowTests(TransactionTestCase):
                 estado_id="CONTRATADA",
             ).count(),
             1,
+        )
+
+    def test_expired_vacancies_are_excluded_from_active_metrics(self):
+        now = timezone.now()
+        expired_vacancy = Plaza.objects.create(
+            departamento=self.department,
+            creado_por=self.hr_user,
+            tipo_empleo=self.employment_type,
+            modalidad_trabajo=self.work_mode,
+            estado_id="PUBLICADA",
+            titulo="Plaza vencida",
+            descripcion="Esta plaza ya no está vigente.",
+            cantidad_vacantes=1,
+            publicado_en=now - timezone.timedelta(days=20),
+            cierra_en=now - timezone.timedelta(days=1),
+            creado_en=now - timezone.timedelta(days=20),
+            actualizado_en=now - timezone.timedelta(days=1),
+        )
+        self.client.force_login(self.hr_user)
+
+        dashboard = self.client.get(reverse("dashboard"))
+        report = self.client.get(reverse("reportes"), {"periodo": "all"})
+
+        self.assertEqual(dashboard.context["active_vacancies"], 1)
+        self.assertEqual(report.context["active_vacancies"], 1)
+        self.assertNotIn(
+            expired_vacancy,
+            dashboard.context["priority_vacancies"],
         )
 
     def test_applicant_can_list_and_mark_notifications_as_read(self):
@@ -649,6 +698,157 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertIn("Programada", interview_notification.mensaje)
         self.assertIn("Confirmada", interview_notification.mensaje)
         self.assertEqual(mail.outbox[0].subject, "Actualización de entrevista")
+
+        self.client.force_login(self.applicant)
+        response = self.client.get(
+            reverse("mi_postulacion", args=[application.pk])
+        )
+        self.assertEqual(len(response.context["entrevistas"]), 1)
+        self.assertContains(response, "America/Guatemala")
+
+    def test_interview_form_is_only_available_in_interview_states(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        self.client.force_login(self.hr_user)
+
+        self.assertNotContains(
+            self.client.get(reverse("detalle_postulacion", args=[application.pk])),
+            "Programar entrevista",
+        )
+        transition_application(application.pk, "EN_REVISION", self.hr_user)
+        self.assertNotContains(
+            self.client.get(reverse("detalle_postulacion", args=[application.pk])),
+            "Programar entrevista",
+        )
+        transition_application(application.pk, "PRESELECCIONADA", self.hr_user)
+        self.assertContains(
+            self.client.get(reverse("detalle_postulacion", args=[application.pk])),
+            "Programar entrevista",
+        )
+
+    def test_invalid_interview_form_preserves_errors_and_submitted_data(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        transition_application(application.pk, "EN_REVISION", self.hr_user)
+        transition_application(application.pk, "PRESELECCIONADA", self.hr_user)
+        self.client.force_login(self.hr_user)
+        start = timezone.now() + timezone.timedelta(days=2)
+        payload = {
+            "inicia_en": start.strftime("%Y-%m-%dT%H:%M"),
+            "termina_en": (start + timezone.timedelta(hours=1)).strftime(
+                "%Y-%m-%dT%H:%M"
+            ),
+            "zona_horaria": "America/Guatemala",
+            "notas": "Traer documento de identidad.",
+        }
+
+        response = self.client.post(
+            reverse("programar_entrevista", args=[application.pk]),
+            payload,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        form = response.context["interview_form"]
+        self.assertTrue(form.is_bound)
+        self.assertEqual(form.data["notas"], payload["notas"])
+        self.assertIn("Indica una ubicación o un enlace", response.content.decode())
+        self.assertFalse(Entrevista.objects.exists())
+
+    def test_interview_form_validates_future_date_and_timezone(self):
+        future = "2035-01-15T09:00"
+        valid = FormularioEntrevista(
+            data={
+                "inicia_en": future,
+                "termina_en": "2035-01-15T10:00",
+                "zona_horaria": "America/Guatemala",
+                "detalle_ubicacion": "Oficina central",
+            }
+        )
+        self.assertTrue(valid.is_valid(), valid.errors)
+        start = valid.cleaned_data["inicia_en"]
+        self.assertEqual(start.tzinfo.key, "America/Guatemala")
+        self.assertEqual(start.replace(tzinfo=None), datetime(2035, 1, 15, 9))
+
+        past = FormularioEntrevista(
+            data={
+                "inicia_en": "2020-01-15T09:00",
+                "termina_en": "2020-01-15T10:00",
+                "zona_horaria": "America/Guatemala",
+                "detalle_ubicacion": "Oficina central",
+            }
+        )
+        self.assertFalse(past.is_valid())
+        self.assertIn("futuro", past.errors["inicia_en"][0])
+
+        invalid_timezone = FormularioEntrevista(
+            data={
+                "inicia_en": future,
+                "termina_en": "2035-01-15T10:00",
+                "zona_horaria": "Zona/Inexistente",
+                "detalle_ubicacion": "Oficina central",
+            }
+        )
+        self.assertFalse(invalid_timezone.is_valid())
+        self.assertIn("IANA", invalid_timezone.errors["zona_horaria"][0])
+
+    def test_rejecting_application_cancels_active_interviews(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        transition_application(application.pk, "EN_REVISION", self.hr_user)
+        transition_application(application.pk, "PRESELECCIONADA", self.hr_user)
+        transition_application(application.pk, "ENTREVISTA", self.hr_user)
+        scheduled = self._interview(application)
+        confirmed = self._interview(application, "CONFIRMADA")
+        completed = self._interview(application, "COMPLETADA")
+
+        transition_application(application.pk, "RECHAZADA", self.hr_user)
+
+        scheduled.refresh_from_db()
+        confirmed.refresh_from_db()
+        completed.refresh_from_db()
+        self.assertEqual(scheduled.estado_id, "CANCELADA")
+        self.assertEqual(confirmed.estado_id, "CANCELADA")
+        self.assertEqual(completed.estado_id, "COMPLETADA")
+
+    def test_withdrawing_application_cancels_active_interviews(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        transition_application(application.pk, "EN_REVISION", self.hr_user)
+        transition_application(application.pk, "PRESELECCIONADA", self.hr_user)
+        transition_application(application.pk, "ENTREVISTA", self.hr_user)
+        interview = self._interview(application)
+
+        transition_application(application.pk, "RETIRADA", self.applicant)
+
+        interview.refresh_from_db()
+        self.assertEqual(interview.estado_id, "CANCELADA")
+
+    def test_hiring_application_cancels_active_interviews(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        for target in (
+            "EN_REVISION",
+            "PRESELECCIONADA",
+            "ENTREVISTA",
+            "OFERTA_ENVIADA",
+        ):
+            transition_application(application.pk, target, self.hr_user)
+        interview = self._interview(application, "CONFIRMADA")
+
+        transition_application(application.pk, "CONTRATADA", self.hr_user)
+
+        interview.refresh_from_db()
+        self.assertEqual(interview.estado_id, "CANCELADA")
+
+    def test_application_must_have_offer_before_hiring(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
+            transition_application(application.pk, target, self.hr_user)
+
+        with self.assertRaisesRegex(ValidationError, "oferta enviada"):
+            transition_application(application.pk, "CONTRATADA", self.hr_user)
+
+        application.refresh_from_db()
+        self.assertEqual(application.estado_id, "ENTREVISTA")
+        transition_application(application.pk, "OFERTA_ENVIADA", self.hr_user)
+        transition_application(application.pk, "CONTRATADA", self.hr_user)
+        application.refresh_from_db()
+        self.assertEqual(application.estado_id, "CONTRATADA")
 
     def test_applicant_and_hr_pages_render_real_data(self):
         application = create_application(self.vacancy.pk, self.profile)

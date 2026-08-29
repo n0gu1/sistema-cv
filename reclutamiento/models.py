@@ -1,6 +1,7 @@
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.db import models
 from django.utils import timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 class ModeloExistente(models.Model):
@@ -1182,6 +1183,23 @@ class Entrevista(ModeloExistente):
 
     class Meta(ModeloExistente.Meta):
         db_table = "entrevistas"
+
+    def _in_scheduled_timezone(self, value):
+        if timezone.is_naive(value):
+            value = timezone.make_aware(value)
+        try:
+            zone = ZoneInfo(self.zona_horaria)
+        except (ZoneInfoNotFoundError, ValueError):
+            return timezone.localtime(value)
+        return timezone.localtime(value, zone)
+
+    @property
+    def inicia_en_local(self):
+        return self._in_scheduled_timezone(self.inicia_en)
+
+    @property
+    def termina_en_local(self):
+        return self._in_scheduled_timezone(self.termina_en)
 
 
 class TipoNotificacion(ModeloExistente):

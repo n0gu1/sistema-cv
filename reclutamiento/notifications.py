@@ -172,7 +172,7 @@ def notify_application_status_changed(
 
 def notify_interview_scheduled(interview):
     application = interview.postulacion
-    start = timezone.localtime(interview.inicia_en).strftime("%d/%m/%Y %H:%M")
+    start = interview.inicia_en_local.strftime("%d/%m/%Y %H:%M")
     location = interview.detalle_ubicacion or "Reunión virtual"
     meeting_url = f" Enlace: {interview.url_reunion}" if interview.url_reunion else ""
     return create_notification(

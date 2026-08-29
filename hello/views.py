@@ -316,13 +316,17 @@ def _recent_dashboard_activity():
 
 @roles_required("RRHH", "ADMINISTRADOR")
 def dashboard(request):
+    now = timezone.now()
     vacancy_counts = dict(
         Plaza.objects.values("estado_id")
         .annotate(total=Count("id"))
         .values_list("estado_id", "total")
     )
+    active_vacancy_query = Q(estado_id="PUBLICADA") & (
+        Q(cierra_en__isnull=True) | Q(cierra_en__gt=now)
+    )
     priority_vacancies = list(
-        Plaza.objects.filter(estado_id__in=("PUBLICADA", "PAUSADA"))
+        Plaza.objects.filter(Q(estado_id="PAUSADA") | active_vacancy_query)
         .select_related("departamento", "modalidad_trabajo")
         .annotate(applicant_count=Count("postulacion", distinct=True))
         .order_by("cierra_en", "-actualizado_en")[:3]
@@ -349,7 +353,7 @@ def dashboard(request):
         "dashboard.html",
         {
             "vacancy_counts": vacancy_counts,
-            "active_vacancies": vacancy_counts.get("PUBLICADA", 0),
+            "active_vacancies": Plaza.objects.filter(active_vacancy_query).count(),
             "pending_vacancies": vacancy_counts.get("BORRADOR", 0)
             + vacancy_counts.get("PAUSADA", 0),
             "closed_vacancies": vacancy_counts.get("CERRADA", 0),
@@ -661,19 +665,7 @@ def postulaciones(request):
     )
 
 
-@roles_required("RRHH", "ADMINISTRADOR")
-def detalle_postulacion(request, postulacion_id):
-    application = get_object_or_404(
-        Postulacion.objects.select_related(
-            "aspirante__usuario",
-            "aspirante__profesion",
-            "aspirante__ciudad",
-            "plaza",
-            "curriculo",
-            "estado",
-        ),
-        pk=postulacion_id,
-    )
+def _postulacion_detail_context(application, interview_form=None):
     history = HistorialEstadoPostulacion.objects.filter(
         postulacion=application
     ).select_related("cambiado_por").order_by("-cambiado_en")
@@ -694,18 +686,37 @@ def detalle_postulacion(request, postulacion_id):
             codigo__in=transitions
         )
     ]
+    return {
+        "postulacion": application,
+        "history": history,
+        "interviews": interviews,
+        "state_form": FormularioCambioEstadoPostulacion(estados=status_choices),
+        "has_state_transitions": bool(status_choices),
+        "interview_form": (
+            interview_form if interview_form is not None else FormularioEntrevista()
+        ),
+        "can_schedule_interview": application.estado_id in {"PRESELECCIONADA", "ENTREVISTA"},
+        "evaluacion": evaluation,
+    }
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
+def detalle_postulacion(request, postulacion_id):
+    application = get_object_or_404(
+        Postulacion.objects.select_related(
+            "aspirante__usuario",
+            "aspirante__profesion",
+            "aspirante__ciudad",
+            "plaza",
+            "curriculo",
+            "estado",
+        ),
+        pk=postulacion_id,
+    )
     return render(
         request,
         "detalle_postulacion.html",
-        {
-            "postulacion": application,
-            "history": history,
-            "interviews": interviews,
-            "state_form": FormularioCambioEstadoPostulacion(estados=status_choices),
-            "has_state_transitions": bool(status_choices),
-            "interview_form": FormularioEntrevista(),
-            "evaluacion": evaluation,
-        },
+        _postulacion_detail_context(application),
     )
 
 
@@ -745,18 +756,24 @@ def cambiar_estado_postulacion(request, postulacion_id):
 def programar_entrevista(request, postulacion_id):
     if request.method != "POST":
         return redirect("detalle_postulacion", postulacion_id=postulacion_id)
+    application = get_object_or_404(
+        Postulacion.objects.select_related("estado"),
+        pk=postulacion_id,
+    )
     form = FormularioEntrevista(request.POST)
     if form.is_valid():
         try:
-            schedule_interview(form, postulacion_id, request.user)
-        except (ValidationError, Postulacion.DoesNotExist) as error:
-            message = error.message if isinstance(error, ValidationError) else "La postulación no existe."
-            messages.error(request, message)
+            schedule_interview(form, application.pk, request.user)
+        except ValidationError as error:
+            form.add_error(None, error.message)
         else:
             messages.success(request, "La entrevista fue programada.")
-    else:
-        messages.error(request, "Revisa los datos de la entrevista.")
-    return redirect("detalle_postulacion", postulacion_id=postulacion_id)
+            return redirect("detalle_postulacion", postulacion_id=application.pk)
+    return render(
+        request,
+        "detalle_postulacion.html",
+        _postulacion_detail_context(application, interview_form=form),
+    )
 
 
 @roles_required("RRHH", "ADMINISTRADOR")
@@ -1299,13 +1316,13 @@ def mi_postulacion(request, postulacion_id):
     history = HistorialEstadoPostulacion.objects.filter(
         postulacion=application
     ).order_by("-cambiado_en")
-    interviews = Entrevista.objects.filter(postulacion=application).select_related(
+    entrevistas = Entrevista.objects.filter(postulacion=application).select_related(
         "estado"
     ).order_by("-inicia_en")
     return render(
         request,
         "mi_postulacion.html",
-        {"postulacion": application, "history": history, "interviews": interviews},
+        {"postulacion": application, "history": history, "entrevistas": entrevistas},
     )
 
 
