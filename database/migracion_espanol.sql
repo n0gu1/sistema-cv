@@ -251,6 +251,7 @@ END;
 UPDATE proveedores_almacenamiento SET codigo = CASE codigo
     WHEN 'S3' THEN 'AMAZON_S3'
     WHEN 'AZURE_BLOB' THEN 'BLOB_AZURE'
+    ELSE codigo
 END;
 UPDATE niveles_habilidad SET codigo = CASE codigo
     WHEN 'BASIC' THEN 'BASICO'

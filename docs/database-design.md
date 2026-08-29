@@ -12,7 +12,7 @@ Los nombres actuales incluyen `usuarios`, `perfiles_aspirantes`, `plazas`, `requ
 
 - Un `user` contiene identidad y autenticacion. Los datos exclusivos se separan en `candidate_profiles` y `staff_profiles`.
 - Un aspirante puede tener varios roles, experiencias, estudios, habilidades, idiomas, certificaciones y curriculum vitae.
-- Los archivos PDF no se guardan en PostgreSQL. `curricula` conserva la clave de S3 o Azure, metadatos y el hash SHA-256.
+- Los archivos PDF no se guardan en PostgreSQL. `curricula` conserva la clave del objeto de Backblaze B2, los metadatos y el hash SHA-256.
 - Un analisis de CV estructura lo extraido del PDF. No reemplaza automaticamente la informacion declarada por el aspirante.
 - Una postulacion usa un CV concreto. Asi el resultado sigue siendo reproducible aunque el aspirante cargue otro CV despues.
 - El analisis de un CV y la evaluacion contra una plaza son procesos distintos. Un mismo CV puede utilizarse para varias plazas sin volver a extraer todo el documento.
@@ -170,7 +170,7 @@ Los conteos del dashboard, como cantidad de aspirantes por plaza, deben calcular
 
 - `password_hash` debe contener exclusivamente hashes generados por Django; nunca contrasenas en texto plano.
 - Telefonos, direcciones, texto extraido y CV requieren controles de acceso y cifrado en transito y reposo.
-- La clave de S3 o Azure no debe ser una URL publica. La API debe generar URLs firmadas de corta duracion.
+- La clave de Backblaze B2 no debe ser una URL publica. La aplicación genera URLs firmadas de corta duración.
 - Los resultados de IA deben conservar la version del motor y permitir revision humana; no deben ser la unica base para rechazar automaticamente a una persona.
 
 ## Uso del DDL

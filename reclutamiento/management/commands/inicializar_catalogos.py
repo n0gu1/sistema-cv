@@ -80,10 +80,14 @@ class Command(BaseCommand):
                     organizacion_emisora=organization,
                 )
         if self._has_table(ProveedorAlmacenamiento):
-            ProveedorAlmacenamiento.objects.update_or_create(
-                codigo="LOCAL_PRIVADO",
-                defaults={"nombre": "Almacenamiento privado local"},
-            )
+            for code, name in (
+                ("LOCAL_PRIVADO", "Almacenamiento privado local"),
+                ("BACKBLAZE_B2", "Almacenamiento privado Backblaze B2"),
+            ):
+                ProveedorAlmacenamiento.objects.update_or_create(
+                    codigo=code,
+                    defaults={"nombre": name},
+                )
         self.stdout.write(self.style.SUCCESS("Catálogos del sistema inicializados."))
 
     def _has_table(self, model):

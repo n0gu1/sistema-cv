@@ -62,9 +62,9 @@ Convenciones:
 
 5. CURRICULUMS
 [x] Carga privada local y validacion de firma, MIME y tamano del PDF.
-[ ] Almacenamiento privado en S3 o Azure Blob.
+[x] Almacenamiento privado en Backblaze B2 mediante su API compatible con S3.
 [x] Generacion de suma SHA-256 y deteccion de duplicados.
-[ ] URLs firmadas y temporales para consultar documentos.
+[x] URLs firmadas y temporales para consultar documentos.
 
 6. ANALISIS INTELIGENTE
 [ ] Extraccion de texto con pypdf.

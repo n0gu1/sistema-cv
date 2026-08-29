@@ -85,6 +85,7 @@ from reclutamiento.candidates import (
 )
 from reclutamiento.emails import send_verification_email
 from reclutamiento.services import register_applicant
+from reclutamiento.storage import B2_PROVIDER_CODE, backblaze_download_url
 from reclutamiento.tokens import email_verification_token
 from reclutamiento.vacancies import (
     ALLOWED_TRANSITIONS,
@@ -829,6 +830,15 @@ def descargar_curriculo(request, curriculo_id):
     if not is_owner and not request.user.has_role("RRHH", "ADMINISTRADOR"):
         raise Http404
     try:
+        if curriculum.proveedor_almacenamiento.codigo == B2_PROVIDER_CODE:
+            response = redirect(
+                backblaze_download_url(
+                    curriculum.clave_objeto,
+                    curriculum.nombre_archivo_original,
+                )
+            )
+            response["Cache-Control"] = "private, no-store"
+            return response
         path = curriculum_path(curriculum)
     except ValidationError as error:
         raise Http404(error.message) from error

@@ -110,6 +110,16 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 PRIVATE_UPLOAD_ROOT = Path(
     os.environ.get("PRIVATE_UPLOAD_ROOT", BASE_DIR / "private_uploads")
 )
+BACKBLAZE_ENABLED = os.environ.get("BACKBLAZE_ENABLED", "False").lower() == "true"
+BACKBLAZE_APPLICATION_KEY_ID = os.environ.get("BACKBLAZE_APPLICATION_KEY_ID", "")
+BACKBLAZE_APPLICATION_KEY = os.environ.get("BACKBLAZE_APPLICATION_KEY", "")
+BACKBLAZE_BUCKET_NAME = os.environ.get("BACKBLAZE_BUCKET_NAME", "")
+BACKBLAZE_ENDPOINT_URL = os.environ.get("BACKBLAZE_ENDPOINT_URL", "")
+BACKBLAZE_REGION = os.environ.get("BACKBLAZE_REGION", "")
+BACKBLAZE_OBJECT_PREFIX = os.environ.get("BACKBLAZE_OBJECT_PREFIX", "curriculos")
+BACKBLAZE_PRESIGNED_URL_EXPIRY = int(
+    os.environ.get("BACKBLAZE_PRESIGNED_URL_EXPIRY", "300")
+)
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",

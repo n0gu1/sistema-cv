@@ -1,5 +1,6 @@
 import shutil
 import tempfile
+from unittest.mock import patch
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
@@ -9,6 +10,7 @@ from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from reclutamiento.candidates import save_curriculum
 from reclutamiento.applications import create_application, transition_application
 from reclutamiento.models import (
     AreaEstudio,
@@ -255,6 +257,63 @@ class ApplicantWorkflowTests(TransactionTestCase):
             reverse("descargar_curriculo", args=[self.curriculum.pk])
         )
         self.assertEqual(response.status_code, 200)
+
+    def test_backblaze_is_used_when_enabled(self):
+        provider = ProveedorAlmacenamiento.objects.create(
+            codigo="BACKBLAZE_B2",
+            nombre="Almacenamiento privado Backblaze B2",
+        )
+        uploaded = SimpleUploadedFile(
+            "nuevo.pdf",
+            b"%PDF-1.4\n%%EOF",
+            content_type="application/pdf",
+        )
+        settings = {
+            "BACKBLAZE_ENABLED": True,
+            "BACKBLAZE_APPLICATION_KEY_ID": "key-id",
+            "BACKBLAZE_APPLICATION_KEY": "application-key",
+            "BACKBLAZE_BUCKET_NAME": "sistema-cv-curriculos-privados",
+            "BACKBLAZE_ENDPOINT_URL": "https://s3.eu-central-003.backblazeb2.com",
+            "BACKBLAZE_REGION": "eu-central-003",
+            "BACKBLAZE_OBJECT_PREFIX": "curriculos",
+        }
+        with override_settings(**settings), patch(
+            "reclutamiento.candidates.upload_backblaze_object"
+        ) as upload:
+            curriculum = save_curriculum(uploaded, self.profile)
+
+        self.assertEqual(curriculum.proveedor_almacenamiento, provider)
+        self.assertTrue(curriculum.clave_objeto.startswith("curriculos/"))
+        upload.assert_called_once()
+
+    def test_backblaze_download_uses_temporary_url(self):
+        provider = ProveedorAlmacenamiento.objects.create(
+            codigo="BACKBLAZE_B2",
+            nombre="Almacenamiento privado Backblaze B2",
+        )
+        curriculum = Curriculo.objects.create(
+            aspirante=self.profile,
+            proveedor_almacenamiento=provider,
+            clave_objeto="curriculos/1/archivo.pdf",
+            nombre_archivo_original="archivo.pdf",
+            tamano_bytes=14,
+            suma_sha256="a" * 64,
+            cargado_en=timezone.now(),
+            activo=True,
+        )
+        self.client.force_login(self.hr_user)
+        with patch(
+            "hello.views.backblaze_download_url",
+            return_value="https://signed.example/curriculo",
+        ) as download_url:
+            response = self.client.get(
+                reverse("descargar_curriculo", args=[curriculum.pk])
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "https://signed.example/curriculo")
+        self.assertEqual(response["Cache-Control"], "private, no-store")
+        download_url.assert_called_once_with("curriculos/1/archivo.pdf", "archivo.pdf")
 
     def test_hr_can_view_reports(self):
         create_application(self.vacancy.pk, self.profile)

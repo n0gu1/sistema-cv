@@ -51,16 +51,33 @@ plazas publicadas vigentes se muestran en una bolsa de empleo y cada
 postulación conserva su estado e historial. Recursos Humanos puede avanzar el
 proceso y programar entrevistas.
 
-Los currículums se validan como PDF, se identifican con SHA-256 y se guardan en
-un directorio privado durante desarrollo. Configura `PRIVATE_UPLOAD_ROOT` para
-elegir su ubicación. Antes de usar estos módulos ejecuta:
+Los currículums se validan como PDF y se identifican con SHA-256. Durante el
+desarrollo se guardan en un directorio privado local. Configura
+`PRIVATE_UPLOAD_ROOT` para elegir su ubicación. En producción se pueden guardar
+en un bucket privado de Backblaze B2 mediante su API compatible con S3.
+Antes de usar estos módulos ejecuta:
 
 ```powershell
 python manage.py inicializar_catalogos
 ```
 
-El paso pendiente para producción es sustituir el almacenamiento privado local
-por S3 o Azure Blob y entregar los documentos mediante URLs temporales.
+Para activar Backblaze en producción configura `BACKBLAZE_ENABLED=True`, las
+credenciales de la aplicación, el nombre del bucket, su endpoint regional y
+`BACKBLAZE_PRESIGNED_URL_EXPIRY`. Las descargas se entregan mediante URLs
+firmadas y temporales; las credenciales nunca se guardan en PostgreSQL.
+
+Configuración de ejemplo para el entorno de producción:
+
+```text
+BACKBLAZE_ENABLED=True
+BACKBLAZE_APPLICATION_KEY_ID=...
+BACKBLAZE_APPLICATION_KEY=...
+BACKBLAZE_BUCKET_NAME=sistema-cv-curriculos-privados
+BACKBLAZE_ENDPOINT_URL=https://s3.REGION.backblazeb2.com
+BACKBLAZE_REGION=REGION
+BACKBLAZE_OBJECT_PREFIX=curriculos
+BACKBLAZE_PRESIGNED_URL_EXPIRY=300
+```
 
 ## Pruebas
 

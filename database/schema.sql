@@ -638,7 +638,8 @@ INSERT INTO delivery_statuses (code, name, is_terminal) VALUES
 
 INSERT INTO storage_providers (code, name) VALUES
     ('S3', 'Amazon S3'),
-    ('AZURE_BLOB', 'Azure Blob Storage');
+    ('AZURE_BLOB', 'Azure Blob Storage'),
+    ('BACKBLAZE_B2', 'Backblaze B2 privado');
 
 INSERT INTO skill_levels (code, name, rank_order) VALUES
     ('BASIC', 'Basico', 1),
