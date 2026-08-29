@@ -80,9 +80,9 @@ Convenciones:
 [x] Progreso visible en la interfaz con consulta automática del estado.
 
 8. API REST
-[ ] Django REST Framework.
-[ ] Serializers, permisos, filtros y paginacion.
-[ ] Documentacion OpenAPI/Swagger.
+[x] Django REST Framework.
+[x] Serializers, permisos por rol, filtros y paginacion.
+[x] Documentacion OpenAPI/Swagger en schema, Swagger UI y ReDoc.
 
 9. NOTIFICACIONES
 [-] Backend de correo configurable por entorno.

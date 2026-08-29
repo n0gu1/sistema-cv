@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 
 from hello.views import (
     analisis,
@@ -45,6 +45,7 @@ from hello.views import (
 )
 
 urlpatterns = [
+    path("api/v1/", include("reclutamiento.api_urls")),
     path("", index, name="index"),
     path("dashboard/", dashboard, name="dashboard"),
     path("plazas/", plazas, name="plazas"),

@@ -9,6 +9,7 @@ from django.db import connection
 from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from reclutamiento.candidates import save_curriculum
 from reclutamiento.applications import create_application, transition_application
@@ -498,6 +499,133 @@ class ApplicantWorkflowTests(TransactionTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Aún no hay un análisis")
+
+    def test_public_api_filters_and_paginates_vacancies(self):
+        client = APIClient()
+
+        response = client.get(
+            reverse("api-plaza-list"),
+            {"q": "Python", "abierta": "true", "page_size": 1},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["titulo"], "Desarrollador Python")
+        self.assertIn("next", response.data)
+
+        response = client.get(reverse("api-plaza-list"), {"q": "no-existe"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
+
+    def test_api_permissions_scope_applicant_data_by_role(self):
+        client = APIClient()
+
+        self.assertEqual(
+            client.get(reverse("api-aspirante-list")).status_code,
+            403,
+        )
+
+        client.force_authenticate(user=self.applicant)
+        response = client.get(reverse("api-aspirante-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        self.assertEqual(response.data["results"][0]["id"], self.profile.pk)
+        self.assertEqual(
+            client.get(
+                reverse("api-aspirante-detail", args=[self.other_profile.pk])
+            ).status_code,
+            404,
+        )
+
+        client.force_authenticate(user=self.hr_user)
+        response = client.get(reverse("api-aspirante-list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 2)
+
+    def test_applicant_can_create_and_track_application_via_api(self):
+        client = APIClient()
+        client.force_authenticate(user=self.applicant)
+
+        response = client.post(
+            reverse("api-postulacion-list"),
+            {
+                "plaza_id": self.vacancy.pk,
+                "carta_presentacion": "Me interesa la oportunidad.",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        application = Postulacion.objects.get()
+        self.assertEqual(response.data["id"], application.pk)
+        self.assertEqual(response.data["plaza"]["titulo"], "Desarrollador Python")
+        self.assertEqual(response.data["estado"]["codigo"], "ENVIADA")
+
+        duplicate = client.post(
+            reverse("api-postulacion-list"),
+            {"plaza_id": self.vacancy.pk},
+            format="json",
+        )
+        self.assertEqual(duplicate.status_code, 400)
+
+    def test_hr_can_transition_and_queue_analysis_via_api(self):
+        for code, name, final in (
+            ("PENDIENTE", "Pendiente", False),
+            ("PROCESANDO", "Procesando", False),
+            ("COMPLETADO", "Completado", True),
+            ("FALLIDO", "Fallido", True),
+        ):
+            EstadoProcesamiento.objects.create(codigo=code, nombre=name, es_final=final)
+        application = create_application(self.vacancy.pk, self.profile)
+        client = APIClient()
+        client.force_authenticate(user=self.hr_user)
+
+        response = client.post(
+            reverse("api-postulacion-estado", args=[application.pk]),
+            {"estado": "EN_REVISION", "motivo": "Revisión inicial."},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["estado"]["codigo"], "EN_REVISION")
+
+        with override_settings(
+            GROQ_API_KEY="test-key",
+            ANALYSIS_ASYNC_ENABLED=True,
+            CELERY_BROKER_URL="redis://127.0.0.1:6379/0",
+        ), patch(
+            "reclutamiento.tasks.process_application_analysis.delay",
+            return_value=Mock(id="api-task-123"),
+        ) as dispatch:
+            response = client.post(
+                reverse("api-postulacion-analisis", args=[application.pk]),
+                {},
+                format="json",
+            )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(response.data["state"], "PENDIENTE")
+        self.assertEqual(response.data["task_id"], "api-task-123")
+        dispatch.assert_called_once_with(
+            AnalisisCV.objects.get().pk,
+            EvaluacionPostulacion.objects.get().pk,
+        )
+
+        response = client.get(
+            reverse("api-postulacion-analisis", args=[application.pk])
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "PENDIENTE")
+        self.assertEqual(response.data["evaluation"]["estado"]["codigo"], "PENDIENTE")
+
+    def test_api_schema_and_swagger_endpoints_are_available(self):
+        client = APIClient()
+
+        schema = client.get(reverse("api-schema"))
+        self.assertEqual(schema.status_code, 200)
+        self.assertIn("/api/v1/plazas/", schema.content.decode())
+        self.assertIn("Nexo Talento API", schema.content.decode())
+        self.assertEqual(client.get(reverse("api-docs")).status_code, 200)
 
     def test_analysis_job_is_queued_once_and_status_is_visible(self):
         for code, name, final in (

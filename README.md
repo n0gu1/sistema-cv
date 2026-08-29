@@ -130,6 +130,29 @@ servidor usa un respaldo síncrono local; si la cola no está disponible, el
 análisis queda como `FALLIDO` y Recursos Humanos puede pulsar `Reintentar
 análisis` sin crear duplicados.
 
+### API REST
+
+La API versionada está disponible bajo `/api/v1/` y usa autenticación de sesión
+de Django. Las plazas publicadas pueden consultarse sin iniciar sesión; los
+perfiles y postulaciones se filtran según el rol del usuario. Un aspirante puede
+crear una postulación y consultar sus propios datos, mientras que RRHH y
+Administración pueden consultar el proceso completo, cambiar estados y poner
+análisis en cola.
+
+Operaciones principales:
+
+- `GET /api/v1/plazas/`: plazas publicadas, con `q`, `estado`, `departamento`,
+  `ciudad`, `modalidad`, `tipo_empleo`, `abierta` y `ordering`.
+- `GET /api/v1/aspirantes/`: perfiles visibles para RRHH o el propio aspirante.
+- `GET|POST /api/v1/postulaciones/`: listar o crear postulaciones.
+- `POST /api/v1/postulaciones/{id}/estado/`: solicitar un cambio de estado.
+- `GET|POST /api/v1/postulaciones/{id}/analisis/`: consultar o iniciar un análisis.
+- `GET /api/v1/catalogos/{catalogo}/`: catálogos usados por filtros y formularios.
+
+Las listas usan `page` y `page_size` (máximo 100). La especificación OpenAPI y
+las interfaces de consulta están disponibles en `/api/v1/schema/`,
+`/api/v1/docs/` y `/api/v1/redoc/`.
+
 Configuración de ejemplo para el entorno de producción:
 
 ```text

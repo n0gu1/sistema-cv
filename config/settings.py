@@ -24,6 +24,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.sessions",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "django_filters",
+    "drf_spectacular",
     "hello",
     "reclutamiento",
 ]
@@ -175,6 +178,36 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = "Lax"
 SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework.authentication.SessionAuthentication",
+    ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    "DEFAULT_FILTER_BACKENDS": (
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ),
+    "DEFAULT_PAGINATION_CLASS": "reclutamiento.api_pagination.ApiPagination",
+    "PAGE_SIZE": 20,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Nexo Talento API",
+    "DESCRIPTION": "API para plazas, aspirantes, postulaciones y análisis de currículos.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "TAGS": [
+        {"name": "Plazas", "description": "Consulta de oportunidades laborales."},
+        {"name": "Aspirantes", "description": "Perfiles visibles para RRHH."},
+        {"name": "Postulaciones", "description": "Seguimiento y acciones del proceso."},
+        {"name": "Catálogos", "description": "Valores de referencia del dominio."},
+    ],
+}
 
 EMAIL_BACKEND = os.environ.get(
     "EMAIL_BACKEND",
