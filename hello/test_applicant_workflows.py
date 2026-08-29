@@ -417,6 +417,137 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertContains(response, "Estado de las postulaciones")
         self.assertContains(response, "Plazas con mayor actividad")
 
+    def test_hr_can_view_complete_applicant_profile(self):
+        profession = Profesion.objects.create(nombre="Ingeniería de software")
+        self.profile.profesion = profession
+        self.profile.telefono = "5555-0101"
+        self.profile.resumen_profesional = "Desarrolladora con experiencia web."
+        self.profile.save(
+            update_fields=("profesion", "telefono", "resumen_profesional")
+        )
+        ExperienciaLaboral.objects.create(
+            aspirante=self.profile,
+            profesion=profession,
+            empresa="Empresa de prueba",
+            puesto="Desarrolladora backend",
+            fecha_inicio=timezone.localdate(),
+            descripcion="Construcción de APIs.",
+        )
+        institution = Institucion.objects.create(nombre="Universidad de prueba")
+        education_level = NivelEducativo.objects.create(
+            codigo="LICENCIATURA",
+            nombre="Licenciatura",
+            orden_nivel=1,
+        )
+        FormacionAcademica.objects.create(
+            aspirante=self.profile,
+            institucion=institution,
+            nivel_educativo=education_level,
+            titulo_obtenido="Ingeniera de software",
+        )
+        skill = Habilidad.objects.create(nombre="Django", activo=True)
+        skill_level = NivelHabilidad.objects.create(
+            codigo="AVANZADO",
+            nombre="Avanzado",
+            orden_nivel=1,
+        )
+        HabilidadAspirante.objects.create(
+            aspirante=self.profile,
+            habilidad=skill,
+            nivel_habilidad=skill_level,
+            anios_experiencia="3.0",
+        )
+        language = Idioma.objects.create(codigo_iso="en", nombre="Inglés")
+        language_level = NivelIdioma.objects.create(
+            codigo="B2",
+            nombre="Intermedio alto",
+            orden_nivel=1,
+        )
+        IdiomaAspirante.objects.create(
+            aspirante=self.profile,
+            idioma=language,
+            nivel_idioma=language_level,
+        )
+        certification = Certificacion.objects.create(
+            nombre="Django Certified",
+            organizacion_emisora="Python Institute",
+        )
+        CertificacionAspirante.objects.create(
+            aspirante=self.profile,
+            certificacion=certification,
+            codigo_credencial="CERT-001",
+        )
+
+        self.client.force_login(self.hr_user)
+        response = self.client.get(
+            reverse("detalle_aspirante", args=[self.profile.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["profile_percentage"], 100)
+        for content in (
+            "Nombre Prueba",
+            "Ingeniería de software",
+            "Desarrolladora backend",
+            "Universidad de prueba",
+            "Django",
+            "Inglés",
+            "Django Certified",
+            "curriculo.pdf",
+        ):
+            with self.subTest(content=content):
+                self.assertContains(response, content)
+        self.assertContains(
+            self.client.get(reverse("aspirantes")),
+            reverse("detalle_aspirante", args=[self.profile.pk]),
+        )
+
+        self.client.force_login(self.applicant)
+        self.assertEqual(
+            self.client.get(
+                reverse("detalle_aspirante", args=[self.profile.pk])
+            ).status_code,
+            403,
+        )
+
+    def test_portal_lists_all_pending_profile_sections(self):
+        self.client.force_login(self.applicant)
+
+        response = self.client.get(reverse("portal"))
+
+        pending_keys = {
+            section["key"] for section in response.context["pending_profile_sections"]
+        }
+        self.assertEqual(
+            pending_keys,
+            {
+                "datos",
+                "experiencia",
+                "formacion",
+                "habilidades",
+                "idiomas",
+                "certificaciones",
+            },
+        )
+        self.assertNotIn(
+            "curriculo",
+            pending_keys,
+        )
+        for label in (
+            "Datos personales",
+            "Experiencia laboral",
+            "Formación académica",
+            "Habilidades",
+            "Idiomas",
+            "Certificaciones",
+        ):
+            with self.subTest(label=label):
+                self.assertContains(response, label)
+        self.assertContains(
+            response,
+            reverse("nuevo_registro_perfil", args=["formacion"]),
+        )
+
     def test_hr_can_export_report_as_csv(self):
         create_application(self.vacancy.pk, self.profile)
         self.client.force_login(self.hr_user)

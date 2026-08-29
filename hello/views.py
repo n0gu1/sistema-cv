@@ -85,6 +85,7 @@ from reclutamiento.applications import (
     vacancy_accepts_applications,
 )
 from reclutamiento.candidates import (
+    PROFILE_SECTIONS,
     curriculum_path,
     get_applicant_profile,
     profile_completion,
@@ -110,6 +111,37 @@ from reclutamiento.vacancies import (
 
 
 logger = logging.getLogger(__name__)
+
+PROFILE_SECTION_LABELS = {
+    "datos": "Datos personales",
+    "experiencia": "Experiencia laboral",
+    "formacion": "Formación académica",
+    "habilidades": "Habilidades",
+    "idiomas": "Idiomas",
+    "certificaciones": "Certificaciones",
+    "curriculo": "Currículum",
+}
+
+
+def _profile_checklist(completed):
+    actions = {
+        "datos": reverse("perfil_aspirante"),
+        "experiencia": reverse("nuevo_registro_perfil", args=["experiencia"]),
+        "formacion": reverse("nuevo_registro_perfil", args=["formacion"]),
+        "habilidades": reverse("agregar_habilidad"),
+        "idiomas": reverse("agregar_idioma"),
+        "certificaciones": reverse("nuevo_registro_perfil", args=["certificacion"]),
+        "curriculo": reverse("cargar_curriculo"),
+    }
+    return [
+        {
+            "key": key,
+            "label": PROFILE_SECTION_LABELS[key],
+            "completed": completed[key],
+            "url": actions[key],
+        }
+        for key in PROFILE_SECTIONS
+    ]
 
 
 def _home_for(user):
@@ -608,6 +640,42 @@ def aspirantes(request):
 
 
 @roles_required("RRHH", "ADMINISTRADOR")
+def detalle_aspirante(request, aspirante_id):
+    profile = get_object_or_404(
+        PerfilAspirante.objects.select_related("usuario", "profesion", "ciudad"),
+        pk=aspirante_id,
+    )
+    percentage, completed = profile_completion(profile)
+    return render(
+        request,
+        "detalle_aspirante.html",
+        {
+            "perfil": profile,
+            "profile_percentage": percentage,
+            "profile_sections": completed,
+            "experiences": profile.experiencialaboral_set.select_related(
+                "profesion", "ciudad"
+            ).order_by("-fecha_inicio"),
+            "education": profile.formacionacademica_set.select_related(
+                "institucion", "nivel_educativo", "area_estudio"
+            ).order_by("-fecha_fin", "-fecha_inicio"),
+            "skills": profile.habilidadaspirante_set.select_related(
+                "habilidad", "nivel_habilidad"
+            ).order_by("habilidad__nombre"),
+            "languages": profile.idiomaaspirante_set.select_related(
+                "idioma", "nivel_idioma"
+            ).order_by("idioma__nombre"),
+            "certifications": profile.certificacionaspirante_set.select_related(
+                "certificacion"
+            ).order_by("-emitida_en"),
+            "curriculum": profile.curriculo_set.filter(activo=True).order_by(
+                "-cargado_en"
+            ).first(),
+        },
+    )
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
 def postulaciones(request):
     current_compatibility = (
         EvaluacionPostulacion.objects.filter(
@@ -982,6 +1050,7 @@ def estado_analisis(request, postulacion_id):
 def portal(request):
     profile = get_applicant_profile(request.user)
     percentage, completed = profile_completion(profile)
+    profile_checklist = _profile_checklist(completed)
     applications = Postulacion.objects.filter(aspirante=profile).select_related(
         "plaza__departamento", "plaza__modalidad_trabajo", "estado"
     ).order_by("-actualizado_en")[:4]
@@ -996,6 +1065,10 @@ def portal(request):
             "perfil": profile,
             "profile_percentage": percentage,
             "profile_sections": completed,
+            "profile_checklist": profile_checklist,
+            "pending_profile_sections": [
+                section for section in profile_checklist if not section["completed"]
+            ],
             "applications": applications,
             "vacancies": vacancies,
             "curriculum": curriculum,

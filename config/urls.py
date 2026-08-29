@@ -15,6 +15,7 @@ from hello.views import (
     dashboard,
     descargar_curriculo,
     detalle_oportunidad,
+    detalle_aspirante,
     detalle_postulacion,
     detalle_plaza,
     estado_analisis,
@@ -61,6 +62,11 @@ urlpatterns = [
         name="cambiar_estado_plaza",
     ),
     path("aspirantes/", aspirantes, name="aspirantes"),
+    path(
+        "aspirantes/<int:aspirante_id>/",
+        detalle_aspirante,
+        name="detalle_aspirante",
+    ),
     path("postulaciones/", postulaciones, name="postulaciones"),
     path(
         "postulaciones/<int:postulacion_id>/",

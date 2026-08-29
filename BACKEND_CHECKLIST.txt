@@ -57,8 +57,8 @@ Convenciones:
 [x] Experiencia, educacion, habilidades, idiomas y certificaciones.
 [x] Porcentaje de completitud calculado con datos reales.
 [x] Busqueda y paginacion real para Recursos Humanos.
-[ ] Permitir que RRHH consulte el perfil profesional completo de un aspirante.
-[ ] Mostrar en el portal todas las secciones pendientes que reducen la completitud.
+[x] Permitir que RRHH consulte el perfil profesional completo de un aspirante.
+[x] Mostrar en el portal todas las secciones pendientes que reducen la completitud.
 
 4. POSTULACIONES
 [x] Explorar y consultar plazas publicadas vigentes.
