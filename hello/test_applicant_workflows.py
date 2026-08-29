@@ -1241,6 +1241,10 @@ class ApplicantWorkflowTests(TransactionTestCase):
             codigo="HABILIDAD", nombre="Habilidad"
         )
         skill = Habilidad.objects.create(nombre="Python", activo=True)
+        certification = Certificacion.objects.create(
+            nombre="Python Professional",
+            organizacion_emisora="Python Institute",
+        )
         requirement = RequisitoPlaza.objects.create(
             plaza=self.vacancy,
             tipo=requirement_type,
@@ -1268,7 +1272,26 @@ class ApplicantWorkflowTests(TransactionTestCase):
             },
             "professional_summary": "Desarrollador con experiencia en Python.",
             "calculated_experience_months": 36,
-            "experiences": [],
+            "experiences": [
+                {
+                    "company": "Empresa de prueba",
+                    "occupation": "Ingeniería de software",
+                    "position": "Desarrollador backend",
+                    "start_date": "2020-01-01",
+                    "end_date": "2021-01-01",
+                    "description": "Construcción de APIs.",
+                    "confidence": 0.95,
+                },
+                {
+                    "company": "Empresa de prueba",
+                    "occupation": "Ingeniería de software",
+                    "position": "Desarrollador backend",
+                    "start_date": "2020-06-01",
+                    "end_date": "2020-12-01",
+                    "description": "Periodo duplicado por solapamiento.",
+                    "confidence": 0.90,
+                },
+            ],
             "educations": [],
             "skills": [
                 {
@@ -1278,7 +1301,14 @@ class ApplicantWorkflowTests(TransactionTestCase):
                 }
             ],
             "languages": [],
-            "certifications": [],
+            "certifications": [
+                {
+                    "name": certification.nombre,
+                    "issued_on": "2024-01-15",
+                    "expires_on": None,
+                    "confidence": 0.96,
+                }
+            ],
         }
         with override_settings(
             GROQ_API_KEY="test-key",
@@ -1293,11 +1323,16 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(analysis.estado_id, "COMPLETADO")
         self.assertTrue(analysis.vigente)
         self.assertEqual(analysis.resumen_profesional, payload["professional_summary"])
+        self.assertEqual(analysis.meses_experiencia_calculados, 12)
+        self.assertEqual(ExperienciaAnalisisCV.objects.filter(analisis=analysis).count(), 2)
         self.assertEqual(
             DatosPersonalesAnalisisCV.objects.get(analisis=analysis).correo,
             "nombre@example.com",
         )
         self.assertEqual(HabilidadAnalisisCV.objects.get(analisis=analysis).habilidad, skill)
+        extracted_certification = CertificacionAnalisisCV.objects.get(analisis=analysis)
+        self.assertEqual(extracted_certification.certificacion, certification)
+        self.assertEqual(extracted_certification.nombre_detectado, certification.nombre)
         self.assertEqual(evaluation.pk, repeated.pk)
         self.assertEqual(evaluation.estado_id, "COMPLETADO")
         self.assertEqual(evaluation.porcentaje_compatibilidad, 100)
@@ -1314,6 +1349,7 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Desarrollador con experiencia en Python.")
         self.assertContains(response, "Dominio de Python")
+        self.assertContains(response, "Python Professional")
         self.assertContains(response, "100%")
         self.assertContains(
             self.client.get(reverse("postulaciones")),

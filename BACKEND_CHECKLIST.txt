@@ -87,9 +87,9 @@ Convenciones:
 [x] Respuestas estructuradas y validadas antes de persistirlas.
 [x] Calculo reproducible de compatibilidad ponderada por requisito.
 [x] Evidencia, fortalezas, brechas y recomendaciones para revision humana.
-[ ] Instalar Tesseract y los idiomas spa/eng en los entornos que usen OCR.
-[ ] Mostrar las certificaciones extraidas en la pantalla de analisis.
-[ ] Calcular experiencia solo para la profesion requerida y evitar periodos duplicados.
+[x] Instalar Tesseract y los idiomas spa/eng en los entornos que usen OCR.
+[x] Mostrar las certificaciones extraidas en la pantalla de analisis.
+[x] Calcular experiencia solo para la profesion requerida y evitar periodos duplicados.
 
 7. PROCESAMIENTO EN SEGUNDO PLANO
 [x] Configurar Celery y Redis mediante variables de entorno y una cola dedicada.

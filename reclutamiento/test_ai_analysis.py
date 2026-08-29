@@ -1,4 +1,6 @@
 import json
+from datetime import date
+from types import SimpleNamespace
 from urllib.error import HTTPError
 from unittest.mock import MagicMock, patch
 
@@ -9,6 +11,8 @@ from reclutamiento.ai_analysis import (
     InvalidAnalysisResponse,
     RetryableAnalysisError,
     call_groq,
+    _experience_result,
+    _months_from_experiences,
     validate_analysis_response,
 )
 
@@ -157,3 +161,61 @@ class GroqClientTests(SimpleTestCase):
 
         self.assertIsNone(result["personal_data"]["email"])
         self.assertEqual(result["skills"][0]["confidence"], 2)
+
+
+class ExperienceCalculationTests(SimpleTestCase):
+    def test_months_merge_overlapping_experience_periods(self):
+        experiences = [
+            {"start_date": "2020-01-01", "end_date": "2021-01-01"},
+            {"start_date": "2020-06-01", "end_date": "2020-12-01"},
+            {"start_date": "2021-01-01", "end_date": "2021-06-01"},
+        ]
+
+        self.assertEqual(_months_from_experiences(experiences), 17)
+
+    def test_experience_uses_required_profession_and_deduplicates_sources(self):
+        profession = SimpleNamespace(nombre="Ingeniería de software")
+        detail = SimpleNamespace(
+            profesion_id=7,
+            profesion=profession,
+            meses_minimos=12,
+        )
+        requirement = SimpleNamespace(descripcion="Experiencia en ingeniería de software")
+        analysis = SimpleNamespace(meses_experiencia_calculados=99)
+        required_cv_record = SimpleNamespace(
+            profesion_id=7,
+            puesto="Desarrolladora backend",
+            fecha_inicio=date(2020, 1, 1),
+            fecha_fin=date(2021, 1, 1),
+        )
+        unrelated_cv_record = SimpleNamespace(
+            profesion_id=11,
+            puesto="Diseñadora gráfica",
+            fecha_inicio=date(2015, 1, 1),
+            fecha_fin=date(2025, 1, 1),
+        )
+        duplicate_profile_record = SimpleNamespace(
+            profesion_id=7,
+            puesto="Desarrolladora backend",
+            fecha_inicio=date(2020, 1, 1),
+            fecha_fin=date(2021, 1, 1),
+        )
+
+        result = _experience_result(
+            requirement,
+            detail,
+            analysis,
+            {
+                "experiences": [required_cv_record, unrelated_cv_record],
+            },
+            {
+                "experiences": [duplicate_profile_record],
+            },
+        )
+
+        self.assertTrue(result[0])
+        self.assertEqual(result[1], 100)
+        self.assertEqual(
+            result[2],
+            "Se calcularon 12 meses de experiencia para Ingeniería de software.",
+        )

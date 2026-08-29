@@ -94,6 +94,24 @@ El cálculo de compatibilidad es reproducible y usa el peso de cada requisito;
 la IA aporta la extracción y la evidencia, pero el resultado no sustituye la
 revisión humana.
 
+#### Entorno OCR
+
+`pytesseract` es el adaptador de Python; el ejecutable Tesseract y sus datos de
+idioma se instalan aparte. La imagen definida en `Dockerfile` instala y valida
+`tesseract-ocr-eng` y `tesseract-ocr-spa`, y usa `spa+eng` por defecto.
+
+Para una instalación nativa basada en Debian o Ubuntu:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa
+tesseract --list-langs
+```
+
+El resultado debe incluir `eng` y `spa`. En Windows instala Tesseract con los
+datos de ambos idiomas y define `TESSERACT_CMD` con la ruta de
+`tesseract.exe`; conserva `TESSERACT_LANG=spa+eng`.
+
 ### Procesamiento en segundo plano
 
 Los análisis se preparan en una transacción y se envían a la cola `analysis` de
@@ -213,6 +231,11 @@ crearlas ni eliminarlas mediante migraciones.
 - Build command: `pip install -r requirements.txt && python manage.py collectstatic --noinput`
 - Start command: `gunicorn config.wsgi:application`
 - Variables: `DEBUG=False` y `SECRET_KEY` con un valor seguro
+
+Para un servicio Render que utilice OCR, selecciona el runtime Docker para que
+se construya con el `Dockerfile` del repositorio. Esa imagen instala Tesseract
+y los idiomas `spa` y `eng` durante el build; el runtime nativo debe instalar
+los mismos paquetes del sistema antes de iniciar la aplicación.
 
 ### Configurar Backblaze en Render
 

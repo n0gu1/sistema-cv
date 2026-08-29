@@ -504,14 +504,57 @@ def _mark_analysis_failed(analysis, error):
 
 
 def _months_from_experiences(experiences):
-    total = 0
+    intervals = []
     today = timezone.localdate()
     for item in experiences:
-        start = _date_value(item.get("start_date"))
-        end = _date_value(item.get("end_date")) or today
-        if start and end >= start:
-            total += (end.year - start.year) * 12 + end.month - start.month
+        if isinstance(item, dict):
+            start = item.get("start_date")
+            end = item.get("end_date")
+        else:
+            start = getattr(item, "fecha_inicio", None)
+            end = getattr(item, "fecha_fin", None)
+        start = start if isinstance(start, date) else _date_value(start)
+        end = end if isinstance(end, date) else _date_value(end)
+        end = end or today
+        if not start or end < start:
+            continue
+        intervals.append(
+            (
+                start.year * 12 + start.month,
+                end.year * 12 + end.month,
+            )
+        )
+
+    if not intervals:
+        return 0
+
+    intervals.sort()
+    merged_start, merged_end = intervals[0]
+    total = 0
+    for start, end in intervals[1:]:
+        if start <= merged_end:
+            merged_end = max(merged_end, end)
+            continue
+        total += merged_end - merged_start
+        merged_start, merged_end = start, end
+    total += merged_end - merged_start
     return max(0, total)
+
+
+def _experience_matches_profession(record, profession_id, profession_name):
+    if isinstance(record, dict):
+        record_profession_id = record.get("profession_id") or record.get("profesion_id")
+        occupation = record.get("occupation") or record.get("profession")
+    else:
+        record_profession_id = getattr(record, "profesion_id", None)
+        occupation = (
+            getattr(record, "profesion_texto", None)
+            or getattr(record, "occupation", None)
+            or getattr(record, "puesto", None)
+        )
+    if record_profession_id is not None:
+        return record_profession_id == profession_id
+    return _normalise_name(occupation) == _normalise_name(profession_name)
 
 
 def _persist_cv_analysis(analysis, extracted_text, payload):
@@ -523,11 +566,8 @@ def _persist_cv_analysis(analysis, extracted_text, payload):
     language_levels = _catalog_index(NivelIdioma)
     certifications = _catalog_index(Certificacion)
 
-    months = payload["calculated_experience_months"]
-    if months is None:
-        months = _months_from_experiences(payload["experiences"])
-    elif months == 0 and payload["experiences"]:
-        months = max(months, _months_from_experiences(payload["experiences"]))
+    # The total must come from dated intervals, not from an untrusted model total.
+    months = _months_from_experiences(payload["experiences"])
 
     completed_at = timezone.now()
     with transaction.atomic():
@@ -864,26 +904,25 @@ def _education_result(requirement, detail, analysis_data, profile_data):
 
 
 def _experience_result(requirement, detail, analysis, analysis_data, profile_data):
-    months = analysis.meses_experiencia_calculados or 0
-    if not months:
-        for record in profile_data["experiences"]:
-            start = record.fecha_inicio
-            end = record.fecha_fin or timezone.localdate()
-            months += max(0, (end.year - start.year) * 12 + end.month - start.month)
+    experiences = list(analysis_data["experiences"]) + list(profile_data["experiences"])
     required_months = detail.meses_minimos if detail else 0
-    duration_ok = months >= required_months
-    profession_ok = True
     if detail and detail.profesion_id:
-        target_name = detail.profesion.nombre
-        profession_ok = any(
-            record.profesion_id == detail.profesion_id
-            or _normalise_name(record.puesto) == _normalise_name(target_name)
-            for record in analysis_data["experiences"]
-        ) or any(
-            record.profesion_id == detail.profesion_id
-            or _normalise_name(record.puesto) == _normalise_name(target_name)
-            for record in profile_data["experiences"]
-        )
+        experiences = [
+            record
+            for record in experiences
+            if _experience_matches_profession(
+                record,
+                detail.profesion_id,
+                detail.profesion.nombre,
+            )
+        ]
+        months = _months_from_experiences(experiences)
+        profession_ok = bool(experiences)
+    else:
+        derived_months = _months_from_experiences(experiences)
+        months = derived_months or (analysis.meses_experiencia_calculados or 0)
+        profession_ok = True
+    duration_ok = months >= required_months
     met = duration_ok and profession_ok
     if required_months:
         score = min(Decimal("100.00"), (Decimal(months) * Decimal("100.00")) / Decimal(required_months))
@@ -891,7 +930,10 @@ def _experience_result(requirement, detail, analysis, analysis_data, profile_dat
         score = Decimal("100.00") if months else Decimal("0.00")
     if not profession_ok:
         score = min(score, Decimal("50.00"))
-    evidence = f"Se calcularon {months} meses de experiencia."
+    evidence = f"Se calcularon {months} meses de experiencia"
+    if detail and detail.profesion_id:
+        evidence += f" para {detail.profesion.nombre}"
+    evidence += "."
     explanation = "Cumple la experiencia requerida." if met else "La experiencia o la profesion relacionada requiere validacion."
     return met, score.quantize(Decimal("0.01")), evidence, explanation
 
