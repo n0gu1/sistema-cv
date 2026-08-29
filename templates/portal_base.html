@@ -22,6 +22,7 @@
             <a class="{% if request.resolver_match.url_name == 'oportunidades' or request.resolver_match.url_name == 'detalle_oportunidad' %}active{% endif %}" href="{% url 'oportunidades' %}">Explorar plazas</a>
             <a class="{% if request.resolver_match.url_name == 'mis_postulaciones' or request.resolver_match.url_name == 'mi_postulacion' %}active{% endif %}" href="{% url 'mis_postulaciones' %}">Mis solicitudes</a>
             <a class="{% if 'perfil' in request.resolver_match.url_name or request.resolver_match.url_name == 'cargar_curriculo' %}active{% endif %}" href="{% url 'perfil_aspirante' %}">Mi perfil</a>
+            <a class="{% if request.resolver_match.url_name == 'notificaciones' %}active{% endif %}" href="{% url 'notificaciones' %}">Notificaciones{% if unread_notification_count %} <span class="notification-count">{{ unread_notification_count }}</span>{% endif %}</a>
         </nav>
         <div class="portal-actions"><div class="avatar avatar-sm coral">{{ request.user.first_name|first }}{{ request.user.last_name|first }}</div><span class="d-none d-lg-block"><strong>{{ request.user.get_full_name }}</strong><small>Aspirante</small></span><button class="icon-button d-md-none" data-bs-toggle="offcanvas" data-bs-target="#portalMenu" aria-label="Abrir menú"><i class="bi bi-list"></i></button></div>
     </div>
@@ -30,7 +31,7 @@
     {% if messages %}<div class="page-messages">{% for message in messages %}<div class="auth-alert {% if message.tags == 'error' %}error{% else %}success{% endif %}"><i class="bi bi-info-circle"></i>{{ message }}</div>{% endfor %}</div>{% endif %}
     {% block content %}{% endblock %}
 </main>
-<div class="offcanvas offcanvas-end" tabindex="-1" id="portalMenu"><div class="offcanvas-header"><h2 class="offcanvas-title">Menú</h2><button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div><div class="offcanvas-body portal-mobile-nav"><a href="{% url 'portal' %}">Mi espacio</a><a href="{% url 'oportunidades' %}">Explorar plazas</a><a href="{% url 'mis_postulaciones' %}">Mis solicitudes</a><a href="{% url 'perfil_aspirante' %}">Mi perfil</a><a href="{% url 'cambiar_contrasena' %}">Cambiar contraseña</a><form method="post" action="{% url 'cerrar_sesion' %}">{% csrf_token %}<button class="btn btn-outline-danger w-100" type="submit">Cerrar sesión</button></form></div></div>
+<div class="offcanvas offcanvas-end" tabindex="-1" id="portalMenu"><div class="offcanvas-header"><h2 class="offcanvas-title">Menú</h2><button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button></div><div class="offcanvas-body portal-mobile-nav"><a href="{% url 'portal' %}">Mi espacio</a><a href="{% url 'oportunidades' %}">Explorar plazas</a><a href="{% url 'mis_postulaciones' %}">Mis solicitudes</a><a href="{% url 'notificaciones' %}">Notificaciones{% if unread_notification_count %} ({{ unread_notification_count }}){% endif %}</a><a href="{% url 'perfil_aspirante' %}">Mi perfil</a><a href="{% url 'cambiar_contrasena' %}">Cambiar contraseña</a><form method="post" action="{% url 'cerrar_sesion' %}">{% csrf_token %}<button class="btn btn-outline-danger w-100" type="submit">Cerrar sesión</button></form></div></div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

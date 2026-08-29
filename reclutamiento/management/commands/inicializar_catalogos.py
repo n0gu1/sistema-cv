@@ -3,10 +3,12 @@ from django.db import connection, transaction
 
 from reclutamiento.models import (
     AreaEstudio,
+    CanalNotificacion,
     Certificacion,
     Ciudad,
     Departamento,
     EstadoEntrevista,
+    EstadoEntrega,
     EstadoPlaza,
     EstadoPostulacion,
     EstadoProcesamiento,
@@ -23,6 +25,7 @@ from reclutamiento.models import (
     ProveedorAlmacenamiento,
     Region,
     TipoEmpleo,
+    TipoNotificacion,
     TipoRequisito,
 )
 
@@ -40,6 +43,12 @@ class Command(BaseCommand):
             self._code_catalog(EstadoEntrevista, (("PROGRAMADA", "Programada", {"es_final": False}), ("CONFIRMADA", "Confirmada", {"es_final": False}), ("COMPLETADA", "Completada", {"es_final": True}), ("CANCELADA", "Cancelada", {"es_final": True}), ("NO_ASISTIO", "No asistió", {"es_final": True})))
         if self._has_table(EstadoProcesamiento):
             self._code_catalog(EstadoProcesamiento, (("PENDIENTE", "Pendiente", {"es_final": False}), ("PROCESANDO", "Procesando", {"es_final": False}), ("COMPLETADO", "Completado", {"es_final": True}), ("FALLIDO", "Fallido", {"es_final": True})))
+        if self._has_table(TipoNotificacion):
+            self._code_catalog(TipoNotificacion, (("CONFIRMACION_POSTULACION", "Confirmación de postulación", {}), ("CAMBIO_ESTADO", "Cambio de estado", {}), ("INVITACION_ENTREVISTA", "Invitación a entrevista", {})))
+        if self._has_table(CanalNotificacion):
+            self._code_catalog(CanalNotificacion, (("APLICACION", "Aplicación", {}), ("CORREO", "Correo electrónico", {})))
+        if self._has_table(EstadoEntrega):
+            self._code_catalog(EstadoEntrega, (("PENDIENTE", "Pendiente", {"es_final": False}), ("PROCESANDO", "Procesando", {"es_final": False}), ("ENVIADO", "Enviado", {"es_final": True}), ("FALLIDO", "Fallido", {"es_final": True})))
         self._code_catalog(TipoRequisito, (("HABILIDAD", "Habilidad", {}), ("IDIOMA", "Idioma", {}), ("CERTIFICACION", "Certificación", {}), ("EDUCACION", "Educación", {}), ("EXPERIENCIA", "Experiencia", {}), ("DISPONIBILIDAD", "Disponibilidad", {})))
         self._code_catalog(TipoEmpleo, (("TIEMPO_COMPLETO", "Tiempo completo", {}), ("MEDIO_TIEMPO", "Medio tiempo", {}), ("CONTRATO", "Por contrato", {}), ("TEMPORAL", "Temporal", {})))
         self._code_catalog(ModalidadTrabajo, (("REMOTO", "Remoto", {}), ("HIBRIDO", "Híbrido", {}), ("PRESENCIAL", "Presencial", {})))

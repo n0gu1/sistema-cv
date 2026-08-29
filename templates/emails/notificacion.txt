@@ -1,0 +1,16 @@
+Hola {{ notification.usuario_destinatario.first_name }},
+
+{{ notification.titulo }}
+
+{{ notification.mensaje }}
+{% if notification.entrevista %}
+Detalles de la entrevista:
+Fecha: {{ notification.entrevista.inicia_en|date:"d/m/Y H:i" }}
+Zona horaria: {{ notification.entrevista.zona_horaria }}
+{% if notification.entrevista.detalle_ubicacion %}Lugar: {{ notification.entrevista.detalle_ubicacion }}
+{% endif %}{% if notification.entrevista.url_reunion %}Enlace: {{ notification.entrevista.url_reunion }}
+{% endif %}{% endif %}
+
+Puedes consultar el detalle desde tu espacio en Nexo Talento.
+
+Equipo Nexo Talento

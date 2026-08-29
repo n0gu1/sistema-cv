@@ -61,6 +61,7 @@ from reclutamiento.models import (
     IdiomaAspirante,
     IdiomaAnalisisCV,
     ModalidadTrabajo,
+    Notificacion,
     PerfilAspirante,
     PerfilPersonal,
     Plaza,
@@ -880,6 +881,53 @@ def portal(request):
             "curriculum": curriculum,
         },
     )
+
+
+@login_required
+def notificaciones(request):
+    notifications = (
+        Notificacion.objects.filter(usuario_destinatario=request.user)
+        .select_related(
+            "tipo",
+            "postulacion__plaza",
+            "entrevista",
+        )
+        .order_by("-creado_en", "-pk")
+    )
+    is_portal = request.user.has_role("ASPIRANTE") and not request.user.has_role(
+        "RRHH", "ADMINISTRADOR"
+    )
+    return render(
+        request,
+        "notificaciones.html",
+        {
+            "base_template": "portal_base.html" if is_portal else "base.html",
+            "is_portal": is_portal,
+            "notificaciones": notifications,
+            "unread_count": notifications.filter(leido_en__isnull=True).count(),
+        },
+    )
+
+
+@login_required
+def marcar_notificacion_leida(request, notificacion_id):
+    if request.method == "POST":
+        Notificacion.objects.filter(
+            pk=notificacion_id,
+            usuario_destinatario=request.user,
+            leido_en__isnull=True,
+        ).update(leido_en=timezone.now())
+    return redirect("notificaciones")
+
+
+@login_required
+def marcar_notificaciones_leidas(request):
+    if request.method == "POST":
+        Notificacion.objects.filter(
+            usuario_destinatario=request.user,
+            leido_en__isnull=True,
+        ).update(leido_en=timezone.now())
+    return redirect("notificaciones")
 
 
 def _available_vacancies():

@@ -10,6 +10,12 @@ from reclutamiento.models import (
     Plaza,
     Postulacion,
 )
+from reclutamiento.notifications import (
+    notify_application_created,
+    notify_application_status_changed,
+    notify_interview_scheduled,
+    notify_interview_status_changed,
+)
 
 
 ALLOWED_APPLICATION_TRANSITIONS = {
@@ -76,6 +82,7 @@ def create_application(vacancy_id, profile, cover_letter=None):
         motivo="Postulación enviada por el aspirante.",
         cambiado_en=now,
     )
+    notify_application_created(application)
     return application
 
 
@@ -108,6 +115,7 @@ def transition_application(application_id, target_code, user, reason=None):
         motivo=(reason or "").strip() or None,
         cambiado_en=now,
     )
+    notify_application_status_changed(application, current_code, target_code, user)
     return application
 
 
@@ -133,6 +141,7 @@ def schedule_interview(form, application_id, user):
     interview.estado = EstadoEntrevista.objects.get(codigo="PROGRAMADA")
     interview.creado_en = timezone.now()
     interview.save()
+    notify_interview_scheduled(interview)
     return interview
 
 
@@ -149,4 +158,5 @@ def transition_interview(interview_id, target_code):
         )
     interview.estado = EstadoEntrevista.objects.get(codigo=target_code)
     interview.save(update_fields=("estado",))
+    notify_interview_status_changed(interview, current_code, target_code)
     return interview

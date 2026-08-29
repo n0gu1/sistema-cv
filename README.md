@@ -153,6 +153,20 @@ Las listas usan `page` y `page_size` (máximo 100). La especificación OpenAPI y
 las interfaces de consulta están disponibles en `/api/v1/schema/`,
 `/api/v1/docs/` y `/api/v1/redoc/`.
 
+### Notificaciones
+
+Las postulaciones generan una confirmación, los cambios de estado generan una
+actualización y al programar una entrevista se crea una invitación. Cada evento
+se guarda como notificación interna y se registra su entrega por aplicación y
+por correo en `entregas_notificacion`; los intentos y errores quedan en
+`intentos_entrega_notificacion`.
+
+El correo usa el backend configurable mediante `EMAIL_BACKEND`, `EMAIL_HOST`,
+`EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_TIMEOUT`, `EMAIL_HOST_USER`,
+`EMAIL_HOST_PASSWORD` y `DEFAULT_FROM_EMAIL`. Los mensajes incluyen versiones
+HTML y texto plano. Las notificaciones se consultan en `/notificaciones/` y
+pueden marcarse individualmente o todas a la vez como leídas.
+
 Configuración de ejemplo para el entorno de producción:
 
 ```text

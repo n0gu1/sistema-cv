@@ -85,10 +85,10 @@ Convenciones:
 [x] Documentacion OpenAPI/Swagger en schema, Swagger UI y ReDoc.
 
 9. NOTIFICACIONES
-[-] Backend de correo configurable por entorno.
-[ ] Plantillas HTML y texto.
-[ ] Confirmaciones, cambios de estado e invitaciones.
-[ ] Notificaciones internas y marcado como leidas.
+[x] Backend de correo configurable por entorno.
+[x] Plantillas HTML y texto.
+[x] Confirmaciones, cambios de estado e invitaciones.
+[x] Notificaciones internas y marcado como leidas.
 
 10. SEGURIDAD Y CALIDAD
 [x] CSRF activo en formularios y cierre de sesion.

@@ -3,6 +3,7 @@ import tempfile
 from unittest.mock import Mock, patch
 from pathlib import Path
 
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
@@ -18,6 +19,7 @@ from reclutamiento.tasks import process_application_analysis
 from reclutamiento.models import (
     AnalisisCV,
     AreaEstudio,
+    CanalNotificacion,
     CategoriaHabilidad,
     Certificacion,
     CertificacionAspirante,
@@ -29,6 +31,7 @@ from reclutamiento.models import (
     EducacionAnalisisCV,
     Entrevista,
     EstadoEntrevista,
+    EstadoEntrega,
     EstadoPlaza,
     EstadoPostulacion,
     EstadoProcesamiento,
@@ -50,6 +53,7 @@ from reclutamiento.models import (
     NivelEducativo,
     NivelHabilidad,
     NivelIdioma,
+    Notificacion,
     Pais,
     PerfilAspirante,
     PerfilPersonal,
@@ -69,9 +73,12 @@ from reclutamiento.models import (
     ResultadoRequisitoEvaluacion,
     RolUsuario,
     TipoEmpleo,
+    TipoNotificacion,
     TipoRequisito,
     Usuario,
     UsuarioRol,
+    EntregaNotificacion,
+    IntentoEntregaNotificacion,
 )
 
 
@@ -133,6 +140,12 @@ class ApplicantWorkflowTests(TransactionTestCase):
         EvaluacionPostulacion,
         ResultadoRequisitoEvaluacion,
         Entrevista,
+        TipoNotificacion,
+        CanalNotificacion,
+        EstadoEntrega,
+        Notificacion,
+        EntregaNotificacion,
+        IntentoEntregaNotificacion,
     )
 
     @classmethod
@@ -201,6 +214,24 @@ class ApplicantWorkflowTests(TransactionTestCase):
             ("NO_ASISTIO", "No asistió", True),
         ):
             EstadoEntrevista.objects.create(codigo=code, nombre=name, es_final=final)
+        for code, name in (
+            ("CONFIRMACION_POSTULACION", "Confirmación de postulación"),
+            ("CAMBIO_ESTADO", "Cambio de estado"),
+            ("INVITACION_ENTREVISTA", "Invitación a entrevista"),
+        ):
+            TipoNotificacion.objects.create(codigo=code, nombre=name)
+        for code, name in (
+            ("APLICACION", "Aplicación"),
+            ("CORREO", "Correo electrónico"),
+        ):
+            CanalNotificacion.objects.create(codigo=code, nombre=name)
+        for code, name, final in (
+            ("PENDIENTE", "Pendiente", False),
+            ("PROCESANDO", "Procesando", False),
+            ("ENVIADO", "Enviado", True),
+            ("FALLIDO", "Fallido", True),
+        ):
+            EstadoEntrega.objects.create(codigo=code, nombre=name, es_final=final)
         self.provider = ProveedorAlmacenamiento.objects.create(
             codigo="LOCAL_PRIVADO", nombre="Local privado"
         )
@@ -430,6 +461,92 @@ class ApplicantWorkflowTests(TransactionTestCase):
         with self.assertRaises(ValidationError):
             create_application(self.vacancy.pk, self.profile)
 
+    def test_application_confirmation_creates_internal_and_email_deliveries(self):
+        mail.outbox.clear()
+
+        application = create_application(self.vacancy.pk, self.profile)
+
+        notification = Notificacion.objects.get(
+            postulacion=application,
+            tipo_id="CONFIRMACION_POSTULACION",
+        )
+        deliveries = {
+            delivery.canal_id: delivery
+            for delivery in EntregaNotificacion.objects.filter(
+                notificacion=notification
+            )
+        }
+        self.assertEqual(set(deliveries), {"APLICACION", "CORREO"})
+        self.assertEqual(deliveries["APLICACION"].estado_id, "ENVIADO")
+        self.assertEqual(deliveries["CORREO"].estado_id, "ENVIADO")
+        self.assertTrue(
+            IntentoEntregaNotificacion.objects.filter(
+                entrega=deliveries["CORREO"], exitoso=True
+            ).exists()
+        )
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Postulación recibida")
+        self.assertIn("Desarrollador Python", mail.outbox[0].body)
+        self.assertIn("multipart/alternative", str(mail.outbox[0].message()))
+
+    def test_application_status_change_notifies_the_applicant(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        mail.outbox.clear()
+
+        transition_application(application.pk, "EN_REVISION", self.hr_user)
+
+        notification = Notificacion.objects.get(
+            postulacion=application,
+            tipo_id="CAMBIO_ESTADO",
+        )
+        self.assertIn("Enviada", notification.mensaje)
+        self.assertIn("En revisión", notification.mensaje)
+        self.assertEqual(notification.usuario_destinatario_id, self.applicant.pk)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, "Actualización de tu postulación")
+
+    def test_applicant_can_list_and_mark_notifications_as_read(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        notification = Notificacion.objects.get(postulacion=application)
+        self.client.force_login(self.applicant)
+
+        response = self.client.get(reverse("notificaciones"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["unread_count"], 1)
+        self.assertContains(response, "Postulación recibida")
+        response = self.client.post(
+            reverse("marcar_notificacion_leida", args=[notification.pk])
+        )
+        self.assertRedirects(response, reverse("notificaciones"))
+        notification.refresh_from_db()
+        self.assertIsNotNone(notification.leido_en)
+        self.assertEqual(
+            self.client.get(reverse("notificaciones")).context["unread_count"],
+            0,
+        )
+
+    @patch(
+        "reclutamiento.notifications.EmailMultiAlternatives.send",
+        side_effect=OSError("SMTP caído"),
+    )
+    def test_email_failure_keeps_application_and_records_failed_delivery(
+        self, send
+    ):
+        application = create_application(self.vacancy.pk, self.profile)
+        notification = Notificacion.objects.get(postulacion=application)
+        delivery = EntregaNotificacion.objects.get(
+            notificacion=notification,
+            canal_id="CORREO",
+        )
+
+        self.assertTrue(Postulacion.objects.filter(pk=application.pk).exists())
+        self.assertEqual(delivery.estado_id, "FALLIDO")
+        attempt = IntentoEntregaNotificacion.objects.get(entrega=delivery)
+        self.assertFalse(attempt.exitoso)
+        self.assertIn("SMTP caído", attempt.mensaje_error)
+        send.assert_called_once()
+
     def test_applicant_can_withdraw_but_cannot_manage_pipeline(self):
         application = create_application(self.vacancy.pk, self.profile)
         with self.assertRaises(ValidationError):
@@ -467,7 +584,33 @@ class ApplicantWorkflowTests(TransactionTestCase):
         )
         application.refresh_from_db()
         self.assertEqual(application.estado_id, "ENTREVISTA")
-        self.assertEqual(Entrevista.objects.get().estado_id, "PROGRAMADA")
+        interview = Entrevista.objects.get()
+        self.assertEqual(interview.estado_id, "PROGRAMADA")
+        invitation = Notificacion.objects.get(
+            postulacion=application,
+            entrevista=interview,
+            tipo_id="INVITACION_ENTREVISTA",
+        )
+        self.assertIn("Desarrollador Python", invitation.mensaje)
+        self.assertIn("meet.example.com/entrevista", invitation.mensaje)
+        mail.outbox.clear()
+        response = self.client.post(
+            reverse("cambiar_estado_entrevista", args=[interview.pk]),
+            {"estado": "CONFIRMADA"},
+        )
+        self.assertRedirects(
+            response,
+            reverse("detalle_postulacion", args=[application.pk]),
+        )
+        interview.refresh_from_db()
+        self.assertEqual(interview.estado_id, "CONFIRMADA")
+        interview_notification = Notificacion.objects.filter(
+            entrevista=interview,
+            tipo_id="CAMBIO_ESTADO",
+        ).latest("pk")
+        self.assertIn("Programada", interview_notification.mensaje)
+        self.assertIn("Confirmada", interview_notification.mensaje)
+        self.assertEqual(mail.outbox[0].subject, "Actualización de entrevista")
 
     def test_applicant_and_hr_pages_render_real_data(self):
         application = create_application(self.vacancy.pk, self.profile)

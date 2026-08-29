@@ -1,0 +1,22 @@
+{% extends base_template %}
+{% block title %}Notificaciones | Nexo Talento{% endblock %}
+{% block page_title %}Notificaciones{% endblock %}
+{% block content %}
+{% if is_portal %}
+<section class="portal-welcome notification-heading"><div><span class="eyebrow">Seguimiento del proceso</span><h1>Notificaciones</h1><p>Consulta las novedades de tus postulaciones y entrevistas.</p></div>{% if unread_count %}<form method="post" action="{% url 'marcar_notificaciones_leidas' %}">{% csrf_token %}<button class="btn btn-dark" type="submit">Marcar todas como leídas</button></form>{% endif %}</section>
+{% else %}
+<div class="page-heading simple-heading"><div><h1>Notificaciones</h1><p>Revisa los eventos recientes y confirma cuáles ya leíste.</p></div>{% if unread_count %}<form method="post" action="{% url 'marcar_notificaciones_leidas' %}">{% csrf_token %}<button class="btn btn-outline-primary btn-lg" type="submit"><i class="bi bi-check2-all"></i> Marcar todas como leídas</button></form>{% endif %}</div>
+{% endif %}
+<section class="{% if is_portal %}portal-card{% else %}panel{% endif %} notification-panel">
+    <div class="notification-list">
+        {% for notification in notificaciones %}
+        <article class="notification-item {% if not notification.leido_en %}unread{% endif %}">
+            <span class="notification-icon"><i class="bi bi-{% if notification.entrevista %}calendar-event{% elif notification.tipo.codigo == 'CAMBIO_ESTADO' %}arrow-repeat{% else %}send-check{% endif %}"></i></span>
+            <div class="notification-content"><div class="notification-meta"><strong>{{ notification.tipo.nombre }}</strong><small>{{ notification.creado_en|date:"d/m/Y H:i" }}</small>{% if not notification.leido_en %}<span class="notification-unread">Nueva</span>{% endif %}</div><h2>{{ notification.titulo }}</h2><p>{{ notification.mensaje }}</p><div class="notification-actions">{% if notification.postulacion %}<a href="{% if is_portal %}{% url 'mi_postulacion' notification.postulacion.pk %}{% else %}{% url 'detalle_postulacion' notification.postulacion.pk %}{% endif %}">Ver postulación <i class="bi bi-arrow-right"></i></a>{% endif %}{% if not notification.leido_en %}<form method="post" action="{% url 'marcar_notificacion_leida' notification.pk %}">{% csrf_token %}<button type="submit">Marcar como leída</button></form>{% endif %}</div></div>
+        </article>
+        {% empty %}
+        <div class="portal-empty"><i class="bi bi-bell-slash"></i><h3>No tienes notificaciones</h3><p>Las novedades de tus procesos aparecerán aquí.</p></div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

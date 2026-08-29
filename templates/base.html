@@ -37,7 +37,7 @@
             </a>
             <a class="nav-item {% if request.resolver_match.url_name == 'postulaciones' or request.resolver_match.url_name == 'detalle_postulacion' %}active{% endif %}" href="{% url 'postulaciones' %}"><i class="bi bi-send"></i><span>Postulaciones</span></a>
             <a class="nav-item {% if request.resolver_match.url_name == 'analisis' %}active{% endif %}" href="{% url 'analisis' %}"><i class="bi bi-bar-chart"></i><span>Análisis</span></a>
-            <a class="nav-item" href="#"><i class="bi bi-bell"></i><span>Notificaciones</span><span class="nav-alert-count">3</span></a>
+            <a class="nav-item {% if request.resolver_match.url_name == 'notificaciones' %}active{% endif %}" href="{% url 'notificaciones' %}"><i class="bi bi-bell"></i><span>Notificaciones</span>{% if unread_notification_count %}<span class="nav-alert-count">{{ unread_notification_count }}</span>{% endif %}</a>
             <a class="nav-item {% if request.resolver_match.url_name == 'reportes' %}active{% endif %}" href="{% url 'reportes' %}"><i class="bi bi-file-earmark-bar-graph"></i><span>Reportes</span></a>
             <a class="nav-item {% if request.resolver_match.url_name == 'configuracion' %}active{% endif %}" href="{% url 'configuracion' %}"><i class="bi bi-gear"></i><span>Configuración</span></a>
         </nav>
@@ -66,7 +66,7 @@
             </div>
             <div class="topbar-actions">
                 <button class="icon-button d-none d-sm-inline-grid" aria-label="Buscar"><i class="bi bi-search"></i></button>
-                <button class="icon-button has-alert" aria-label="Notificaciones"><i class="bi bi-bell"></i></button>
+                <a class="icon-button {% if unread_notification_count %}has-alert{% endif %}" href="{% url 'notificaciones' %}" aria-label="Notificaciones"><i class="bi bi-bell"></i></a>
                 <button class="icon-button d-none d-sm-inline-grid" aria-label="Ayuda"><i class="bi bi-question-circle"></i></button>
                 <div class="topbar-profile d-none d-md-flex">
                     <div class="avatar avatar-sm">{{ request.user.first_name|first }}{{ request.user.last_name|first }}</div>
