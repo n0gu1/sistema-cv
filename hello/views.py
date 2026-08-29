@@ -6,7 +6,7 @@ from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
-from django.db import IntegrityError, connection, transaction
+from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.core.exceptions import ValidationError
 from django.db.models import Count, DecimalField, OuterRef, Q, Subquery
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
@@ -221,6 +221,99 @@ def cerrar_sesion(request):
     return redirect(_home_for(request.user))
 
 
+def _recent_dashboard_activity():
+    available_tables = set(connection.introspection.table_names())
+    activity = []
+
+    def tables_exist(*models):
+        return all(model._meta.db_table in available_tables for model in models)
+
+    if tables_exist(HistorialEstadoPlaza, Plaza):
+        try:
+            for item in HistorialEstadoPlaza.objects.select_related("plaza").order_by(
+                "-cambiado_en"
+            )[:4]:
+                is_new_vacancy = item.codigo_estado_anterior is None
+                activity.append(
+                    {
+                        "color": "blue",
+                        "icon": "briefcase",
+                        "label": (
+                            "Plaza creada"
+                            if is_new_vacancy
+                            else "Cambio de estado en"
+                        ),
+                        "subject": item.plaza.titulo,
+                        "created_at": item.cambiado_en,
+                    }
+                )
+        except DatabaseError:
+            pass
+
+    if tables_exist(HistorialEstadoPostulacion, Postulacion, Plaza):
+        try:
+            for item in HistorialEstadoPostulacion.objects.select_related(
+                "postulacion__plaza"
+            ).order_by("-cambiado_en")[:4]:
+                is_new_application = item.codigo_estado_nuevo == "ENVIADA"
+                activity.append(
+                    {
+                        "color": "blue" if is_new_application else "green",
+                        "icon": "send-check" if is_new_application else "arrow-repeat",
+                        "label": (
+                            "Nueva postulación para"
+                            if is_new_application
+                            else "Cambio de estado en"
+                        ),
+                        "subject": item.postulacion.plaza.titulo,
+                        "created_at": item.cambiado_en,
+                    }
+                )
+        except DatabaseError:
+            pass
+
+    if tables_exist(Entrevista, Postulacion, PerfilAspirante, Usuario):
+        try:
+            for item in Entrevista.objects.select_related(
+                "postulacion__aspirante__usuario"
+            ).order_by("-creado_en")[:4]:
+                user = item.postulacion.aspirante.usuario
+                activity.append(
+                    {
+                        "color": "violet",
+                        "icon": "person",
+                        "label": "Entrevista programada con",
+                        "subject": user.get_full_name() or user.email,
+                        "created_at": item.creado_en,
+                    }
+                )
+        except DatabaseError:
+            pass
+
+    if tables_exist(EvaluacionPostulacion, Postulacion, PerfilAspirante, Usuario):
+        try:
+            for item in EvaluacionPostulacion.objects.filter(
+                estado_id="COMPLETADO",
+                completado_en__isnull=False,
+            ).select_related("postulacion__aspirante__usuario").order_by(
+                "-completado_en"
+            )[:4]:
+                user = item.postulacion.aspirante.usuario
+                activity.append(
+                    {
+                        "color": "amber",
+                        "icon": "bell",
+                        "label": "Evaluación completada para",
+                        "subject": user.get_full_name() or user.email,
+                        "created_at": item.completado_en,
+                    }
+                )
+        except DatabaseError:
+            pass
+
+    return sorted(activity, key=lambda item: item["created_at"], reverse=True)[:4]
+
+
 @roles_required("RRHH", "ADMINISTRADOR")
 def dashboard(request):
     vacancy_counts = dict(
@@ -228,12 +321,21 @@ def dashboard(request):
         .annotate(total=Count("id"))
         .values_list("estado_id", "total")
     )
-    priority_vacancies = (
+    priority_vacancies = list(
         Plaza.objects.filter(estado_id__in=("PUBLICADA", "PAUSADA"))
         .select_related("departamento", "modalidad_trabajo")
         .annotate(applicant_count=Count("postulacion", distinct=True))
         .order_by("cierra_en", "-actualizado_en")[:3]
     )
+    maximum_applicants = max(
+        (vacancy.applicant_count for vacancy in priority_vacancies), default=0
+    )
+    for vacancy in priority_vacancies:
+        vacancy.bar_width = (
+            round(vacancy.applicant_count * 100 / maximum_applicants)
+            if maximum_applicants
+            else 0
+        )
     top_evaluations = (
         EvaluacionPostulacion.objects.filter(
             vigente=True,
@@ -256,6 +358,7 @@ def dashboard(request):
             ).distinct().count(),
             "priority_vacancies": priority_vacancies,
             "top_evaluations": top_evaluations,
+            "recent_activity": _recent_dashboard_activity(),
         },
     )
 

@@ -9,8 +9,8 @@
 <form method="post" class="auth-form registration-form" novalidate>
     {% csrf_token %}
     <div class="auth-field-grid">
-        <div><label for="id_first_name">Nombres</label><input class="form-control form-control-lg" id="id_first_name" name="first_name" value="{{ form.first_name.value|default:'' }}" required autocomplete="given-name" maxlength="100" placeholder="Andrea">{% if form.first_name.errors %}<small class="auth-field-error">{{ form.first_name.errors.0 }}</small>{% endif %}</div>
-        <div><label for="id_last_name">Apellidos</label><input class="form-control form-control-lg" id="id_last_name" name="last_name" value="{{ form.last_name.value|default:'' }}" required autocomplete="family-name" maxlength="100" placeholder="Ruiz">{% if form.last_name.errors %}<small class="auth-field-error">{{ form.last_name.errors.0 }}</small>{% endif %}</div>
+        <div><label for="id_first_name">Nombres</label><input class="form-control form-control-lg" id="id_first_name" name="first_name" value="{{ form.first_name.value|default:'' }}" required autocomplete="given-name" maxlength="100">{% if form.first_name.errors %}<small class="auth-field-error">{{ form.first_name.errors.0 }}</small>{% endif %}</div>
+        <div><label for="id_last_name">Apellidos</label><input class="form-control form-control-lg" id="id_last_name" name="last_name" value="{{ form.last_name.value|default:'' }}" required autocomplete="family-name" maxlength="100">{% if form.last_name.errors %}<small class="auth-field-error">{{ form.last_name.errors.0 }}</small>{% endif %}</div>
     </div>
     <div><label for="id_email">Correo electrónico</label><input class="form-control form-control-lg" id="id_email" name="email" value="{{ form.email.value|default:'' }}" type="email" required autocomplete="email" maxlength="254" placeholder="tu.correo@email.com">{% if form.email.errors %}<small class="auth-field-error">{{ form.email.errors.0 }}</small>{% endif %}</div>
     <div class="auth-field-grid">

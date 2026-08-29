@@ -1,23 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const toastElement = document.getElementById("demoToast");
-    const showToast = () => {
-        if (toastElement && window.bootstrap) {
-            window.bootstrap.Toast.getOrCreateInstance(toastElement).show();
-        }
-    };
-
-    document.querySelectorAll(".demo-action").forEach((button) => {
-        button.addEventListener("click", showToast);
-    });
-
-    const bindDemoLink = (link) => {
-        link.addEventListener("click", (event) => {
-            event.preventDefault();
-            showToast();
-        });
-    };
-    document.querySelectorAll("[data-demo-link]").forEach(bindDemoLink);
-
     const loginRole = document.getElementById("loginRole");
     const roleButtons = document.querySelectorAll("[data-login-role]");
     const emailInput = document.getElementById("email");
@@ -32,10 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
             loginRole.value = button.dataset.loginRole;
             const applicant = button.dataset.loginRole === "aspirante";
             emailInput.placeholder = applicant ? "tu.correo@email.com" : "nombre@empresa.com";
+            registerCopy.hidden = !applicant;
             registerCopy.innerHTML = applicant
                 ? `¿Aún no tienes cuenta? <a href="${registerCopy.dataset.registerUrl}">Crear una cuenta</a>`
-                : "¿Tu empresa aún no usa Nexo? <a href=\"#\" data-demo-link>Solicitar acceso</a>";
-            if (!applicant) bindDemoLink(registerCopy.querySelector("a"));
+                : "";
         });
     });
 
@@ -87,18 +68,6 @@ document.addEventListener("DOMContentLoaded", () => {
             input.value = "";
         });
     });
-
-    const vacancyForm = document.getElementById("vacancyForm");
-    if (vacancyForm) {
-        vacancyForm.addEventListener("submit", (event) => {
-            event.preventDefault();
-            if (!vacancyForm.checkValidity()) {
-                vacancyForm.classList.add("was-validated");
-                return;
-            }
-            showToast();
-        });
-    }
 
     const jobSearch = document.getElementById("jobSearch");
     const jobCards = [...document.querySelectorAll("#jobsGrid .job-card")];

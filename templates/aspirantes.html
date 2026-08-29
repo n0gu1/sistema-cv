@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-heading simple-heading"><div><span class="eyebrow">Base de talento</span><h1>Aspirantes</h1><p>Consulta y gestiona los perfiles registrados en tus procesos.</p></div><a class="btn btn-primary btn-lg" href="{% url 'postulaciones' %}"><i class="bi bi-file-earmark-text"></i> Ver postulaciones</a></div>
 
-<div class="status-tabs wide-tabs candidate-tabs"><a class="active" href="{% url 'aspirantes' %}">Todos <span>{{ page.paginator.count }}</span></a><a href="#">Favoritos</a><a href="#">Descartados</a></div>
+<div class="status-tabs wide-tabs candidate-tabs"><a class="active" href="{% url 'aspirantes' %}">Todos <span>{{ page.paginator.count }}</span></a></div>
 <form class="list-toolbar" method="get"><label class="filter-search"><i class="bi bi-search"></i><input name="q" type="search" value="{{ query }}" placeholder="Buscar por nombre, correo o profesión..."></label><button class="btn btn-light" type="submit"><i class="bi bi-search"></i> Buscar</button></form>
 
 <section class="panel data-panel"><div class="table-responsive"><table class="table management-table candidate-management-table mb-0"><thead><tr><th>Aspirante</th><th>Correo</th><th>Profesión</th><th>Ubicación</th><th>Postulaciones</th><th>Registro</th><th>Acciones</th></tr></thead><tbody>

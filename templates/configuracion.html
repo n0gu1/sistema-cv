@@ -37,8 +37,8 @@
         </section>
 
         <section class="panel settings-card" id="sistema">
-            <div class="settings-card-header"><div><span class="settings-icon violet"><i class="bi bi-bullseye"></i></span><div><h2>Nexo Talento</h2><p>Información general de la plataforma.</p></div></div><span class="system-version">Versión 1.0</span></div>
-            <div class="system-info-grid"><div><small>Estado del servicio</small><strong><i></i> Operativo</strong></div><div><small>Tipo de cuenta</small><strong>Equipo de reclutamiento</strong></div><div><small>Soporte</small><strong>soporte@nexotalento.example</strong></div></div>
+            <div class="settings-card-header"><div><span class="settings-icon violet"><i class="bi bi-bullseye"></i></span><div><h2>Nexo Talento</h2><p>Información disponible de tu cuenta.</p></div></div></div>
+            <div class="system-info-grid"><div><small>Correo de acceso</small><strong>{{ request.user.email }}</strong></div><div><small>Último acceso</small><strong>{% if request.user.last_login %}{{ request.user.last_login|date:"d/m/Y H:i" }}{% else %}Sin registro{% endif %}</strong></div>{% if profile.cargo %}<div><small>Cargo</small><strong>{{ profile.cargo }}</strong></div>{% endif %}{% if profile.departamento %}<div><small>Departamento</small><strong>{{ profile.departamento.nombre }}</strong></div>{% endif %}</div>
         </section>
     </div>
 </div>

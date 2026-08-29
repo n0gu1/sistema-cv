@@ -128,6 +128,8 @@ class AuthenticationTests(TransactionTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Bienvenido de vuelta")
+        self.assertNotContains(response, "demoToast")
+        self.assertNotContains(response, "Función disponible próximamente")
 
     def test_credentials_are_verified_with_django_hash(self):
         self.assertTrue(self.hr_user.check_password("Clave-Segura-2026"))
@@ -763,6 +765,12 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertEqual(response.context["active_vacancies"], 1)
         self.assertEqual(response.context["pending_vacancies"], 0)
         self.assertContains(response, vacancy.titulo)
+        self.assertEqual(response.context["priority_vacancies"][0].bar_width, 0)
+        self.assertEqual(len(response.context["recent_activity"]), 2)
+        self.assertContains(response, "Cambio de estado en")
+        self.assertNotContains(response, "Ana Martínez")
+        self.assertNotContains(response, "Luis Alberto Moreno")
+        self.assertNotContains(response, "Hace 2 horas")
 
     def test_salary_and_duplicate_skill_validation(self):
         python_id = Habilidad.objects.get(nombre="Python").pk

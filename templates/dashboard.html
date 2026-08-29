@@ -16,10 +16,10 @@
 
 <section class="dashboard-panels">
     <article class="panel dashboard-panel">
-        <div class="panel-header"><h2>Aspirantes por plaza</h2><select class="form-select compact-select"><option>Este mes</option><option>Últimos 3 meses</option></select></div>
+        <div class="panel-header"><h2>Aspirantes por plaza</h2></div>
         <div class="vacancy-bars">
             {% for vacancy in priority_vacancies %}
-            <div><span title="{{ vacancy.titulo }}">{{ vacancy.titulo }}</span><div><i style="width:{% cycle '88%' '66%' '48%' %}"></i></div><strong>{{ vacancy.applicant_count }}</strong></div>
+            <div><span title="{{ vacancy.titulo }}">{{ vacancy.titulo }}</span><div><i style="width:{{ vacancy.bar_width }}%"></i></div><strong>{{ vacancy.applicant_count }}</strong></div>
             {% empty %}
             <div class="inline-empty">Publica plazas para visualizar su actividad.</div>
             {% endfor %}
@@ -38,12 +38,13 @@
     <article class="panel dashboard-panel">
         <div class="panel-header"><h2>Actividad reciente</h2></div>
         <div class="recent-list">
-            <div><span class="activity-icon blue"><i class="bi bi-briefcase"></i></span><p>Nueva postulación para<br><strong>Desarrollador Python</strong></p><small>Hace 2 horas</small></div>
-            <div><span class="activity-icon violet"><i class="bi bi-person"></i></span><p>Entrevista programada con<br><strong>Ana Martínez</strong></p><small>Hace 5 horas</small></div>
-            <div><span class="activity-icon green"><i class="bi bi-check-circle"></i></span><p>Cambio de estado en<br><strong>Analista de Datos</strong></p><small>Ayer</small></div>
-            <div><span class="activity-icon amber"><i class="bi bi-bell"></i></span><p>Evaluación completada para<br><strong>Luis Alberto Moreno</strong></p><small>Ayer</small></div>
+            {% for activity in recent_activity %}
+            <div><span class="activity-icon {{ activity.color }}"><i class="bi bi-{{ activity.icon }}"></i></span><p>{{ activity.label }}<br><strong>{{ activity.subject }}</strong></p><small>{{ activity.created_at|timesince }} atrás</small></div>
+            {% empty %}
+            <div class="inline-empty">No hay actividad reciente registrada.</div>
+            {% endfor %}
         </div>
-        <a class="panel-footer-link" href="{% url 'notificaciones' %}">Ver todas las notificaciones</a>
+        <a class="panel-footer-link" href="{% url 'notificaciones' %}">Ver notificaciones</a>
     </article>
 </section>
 {% endblock %}
