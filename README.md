@@ -112,3 +112,19 @@ crearlas ni eliminarlas mediante migraciones.
 - Build command: `pip install -r requirements.txt && python manage.py collectstatic --noinput`
 - Start command: `gunicorn config.wsgi:application`
 - Variables: `DEBUG=False` y `SECRET_KEY` con un valor seguro
+
+### Configurar Backblaze en Render
+
+El script [`configurar_backblaze_render.ps1`](configurar_backblaze_render.ps1)
+actualiza solamente las variables `BACKBLAZE_*` del servicio configurado y
+solicita el despliegue. Las credenciales se solicitan la primera vez y se
+guardan protegidas por DPAPI en el perfil local de Windows, nunca en el
+repositorio:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\configurar_backblaze_render.ps1
+```
+
+El endpoint debe ser el endpoint S3 regional del bucket privado. Para cambiar
+las credenciales guardadas ejecuta el script con `-ForgetLocalCredentials` y
+vuelve a iniciarlo. Usa `-SkipDeploy` si solo quieres actualizar las variables.
