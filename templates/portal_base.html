@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Mi espacio{% endblock %} | Nexo Talento</title>
+    <title>{% block title %}Mi espacio{% endblock %} | Sistema CV</title>
     <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +16,7 @@
 <body class="portal-body">
 <header class="portal-header">
     <div class="portal-container">
-        <a class="brand portal-brand" href="{% url 'portal' %}"><span class="brand-mark"><i class="bi bi-stars"></i></span><span><strong>Nexo</strong><small>Encuentra tu siguiente reto</small></span></a>
+        <a class="brand portal-brand" href="{% url 'portal' %}"><span class="brand-mark"><i class="bi bi-stars"></i></span><span><strong>Sistema CV</strong><small>Encuentra tu siguiente reto</small></span></a>
         <nav class="portal-nav d-none d-md-flex">
             <a class="{% if request.resolver_match.url_name == 'portal' %}active{% endif %}" href="{% url 'portal' %}">Mi espacio</a>
             <a class="{% if request.resolver_match.url_name == 'oportunidades' or request.resolver_match.url_name == 'detalle_oportunidad' %}active{% endif %}" href="{% url 'oportunidades' %}">Explorar plazas</a>

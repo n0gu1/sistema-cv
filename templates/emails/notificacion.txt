@@ -11,6 +11,6 @@ Zona horaria: {{ notification.entrevista.zona_horaria }}
 {% endif %}{% if notification.entrevista.url_reunion %}Enlace: {{ notification.entrevista.url_reunion }}
 {% endif %}{% endif %}
 
-Puedes consultar el detalle desde tu espacio en Nexo Talento.
+Puedes consultar el detalle desde tu espacio en Sistema CV.
 
-Equipo Nexo Talento
+Equipo Sistema CV

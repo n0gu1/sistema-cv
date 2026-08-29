@@ -224,7 +224,7 @@ EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL",
-    EMAIL_HOST_USER or "Nexo Talento <no-reply@example.com>",
+    EMAIL_HOST_USER or "Sistema CV <no-reply@example.com>",
 )
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

@@ -21,7 +21,7 @@ def send_verification_email(request, user):
     text_body = render_to_string("emails/verificar_correo.txt", context)
     html_body = render_to_string("emails/verificar_correo.html", context)
     message = EmailMultiAlternatives(
-        subject="Verifica tu cuenta de Nexo Talento",
+        subject="Verifica tu cuenta de Sistema CV",
         body=text_body,
         from_email=settings.DEFAULT_FROM_EMAIL,
         to=[user.email],

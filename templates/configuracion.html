@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Configuración | Nexo Talento{% endblock %}
+{% block title %}Configuración | Sistema CV{% endblock %}
 {% block page_title %}Configuración{% endblock %}
 {% block content %}
 <div class="page-heading simple-heading"><div><h1>Configuración</h1><p>Administra tu información personal, perfil laboral y seguridad de acceso.</p></div></div>
@@ -37,7 +37,7 @@
         </section>
 
         <section class="panel settings-card" id="sistema">
-            <div class="settings-card-header"><div><span class="settings-icon violet"><i class="bi bi-bullseye"></i></span><div><h2>Nexo Talento</h2><p>Información disponible de tu cuenta.</p></div></div></div>
+            <div class="settings-card-header"><div><span class="settings-icon violet"><i class="bi bi-bullseye"></i></span><div><h2>Sistema CV</h2><p>Información disponible de tu cuenta.</p></div></div></div>
             <div class="system-info-grid"><div><small>Correo de acceso</small><strong>{{ request.user.email }}</strong></div><div><small>Último acceso</small><strong>{% if request.user.last_login %}{{ request.user.last_login|date:"d/m/Y H:i" }}{% else %}Sin registro{% endif %}</strong></div>{% if profile.cargo %}<div><small>Cargo</small><strong>{{ profile.cargo }}</strong></div>{% endif %}{% if profile.departamento %}<div><small>Departamento</small><strong>{{ profile.departamento.nombre }}</strong></div>{% endif %}</div>
         </section>
     </div>

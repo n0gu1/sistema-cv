@@ -1357,7 +1357,7 @@ def solicitar_recuperacion(request):
                 )
             )
             send_mail(
-                "Restablece tu contraseña de Nexo Talento",
+                "Restablece tu contraseña de Sistema CV",
                 f"Abre este enlace para crear una nueva contraseña:\n\n{reset_url}",
                 None,
                 [user.email],

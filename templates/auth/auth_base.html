@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ title|default:"Cuenta" }} | Nexo Talento</title>
+    <title>{{ title|default:"Cuenta" }} | Sistema CV</title>
     <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
@@ -12,5 +12,5 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="{% static 'css/app.css' %}">
 </head>
-<body class="auth-page"><main class="auth-card {% block card_class %}{% endblock %}"><a class="brand auth-brand" href="{% url 'index' %}"><span class="brand-mark"><i class="bi bi-stars"></i></span><span><strong>Nexo</strong><small>Talento inteligente</small></span></a>{% block content %}{% endblock %}</main></body>
+<body class="auth-page"><main class="auth-card {% block card_class %}{% endblock %}"><a class="brand auth-brand" href="{% url 'index' %}"><span class="brand-mark"><i class="bi bi-stars"></i></span><span><strong>Sistema CV</strong><small>Talento inteligente</small></span></a>{% block content %}{% endblock %}</main></body>
 </html>

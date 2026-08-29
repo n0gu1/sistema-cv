@@ -4,8 +4,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Acceso a Nexo Talento, plataforma inteligente de reclutamiento.">
-    <title>Iniciar sesión | Nexo Talento</title>
+    <meta name="description" content="Acceso a Sistema CV, plataforma inteligente de reclutamiento.">
+    <title>Iniciar sesión | Sistema CV</title>
     <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,10 +16,10 @@
 </head>
 <body class="login-body">
 <main class="login-layout">
-    <aside class="login-rail" aria-label="Presentación de Nexo Talento">
-        <a class="brand login-brand" href="{% url 'index' %}" aria-label="Nexo Talento">
+    <aside class="login-rail" aria-label="Presentación de Sistema CV">
+        <a class="brand login-brand" href="{% url 'index' %}" aria-label="Sistema CV">
             <span class="brand-mark"><i class="bi bi-bullseye"></i></span>
-            <span><strong>NexoTalento</strong><small>Reclutamiento inteligente</small></span>
+            <span><strong>Sistema CV</strong><small>Reclutamiento inteligente</small></span>
         </a>
         <p class="login-rail-copy">Plataforma de análisis de currículos y gestión de reclutamiento.</p>
         <div class="login-benefits">
@@ -32,8 +32,8 @@
 
     <section class="login-main">
         <div class="login-card">
-            <div class="login-mobile-brand"><span class="brand-mark"><i class="bi bi-bullseye"></i></span><strong>NexoTalento</strong></div>
-            <div class="login-heading"><h1>Bienvenido de vuelta</h1><p>Inicia sesión para continuar en Nexo Talento.</p></div>
+            <div class="login-mobile-brand"><span class="brand-mark"><i class="bi bi-bullseye"></i></span><strong>Sistema CV</strong></div>
+            <div class="login-heading"><h1>Bienvenido de vuelta</h1><p>Inicia sesión para continuar en Sistema CV.</p></div>
             <form method="post" id="loginForm" class="login-form">
                 {% csrf_token %}
                 <input type="hidden" name="role" id="loginRole" value="{{ form.role.value|default:'rrhh' }}">
@@ -52,7 +52,7 @@
             </form>
             <p class="register-copy" id="registerCopy" data-register-url="{% url 'registrar_aspirante' %}" {% if form.role.value != 'aspirante' %}hidden{% endif %}>{% if form.role.value == 'aspirante' %}¿No tienes cuenta? <a href="{% url 'registrar_aspirante' %}">Regístrate</a>{% endif %}</p>
         </div>
-        <footer class="login-footer"><span>© 2026 Nexo Talento</span></footer>
+        <footer class="login-footer"><span>© 2026 Sistema CV</span></footer>
     </section>
     <aside class="login-photo" aria-label="Equipo de Recursos Humanos colaborando"><div><span>Decisiones con mejores señales</span><strong>Encuentra el talento adecuado para cada oportunidad.</strong></div></aside>
 </main>
