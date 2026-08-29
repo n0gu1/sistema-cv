@@ -7,6 +7,7 @@ from django.test import SimpleTestCase, override_settings
 from reclutamiento.ai_analysis import (
     GroqError,
     InvalidAnalysisResponse,
+    RetryableAnalysisError,
     call_groq,
     validate_analysis_response,
 )
@@ -38,6 +39,23 @@ class GroqClientTests(SimpleTestCase):
         with self.assertRaisesMessage(
             GroqError,
             "La clave GROQ_API_KEY fue rechazada",
+        ):
+            call_groq("Texto del CV")
+
+    @override_settings(GROQ_API_KEY="test-key")
+    @patch("reclutamiento.ai_analysis.urlopen")
+    def test_call_marks_rate_limit_as_retryable(self, urlopen):
+        urlopen.side_effect = HTTPError(
+            "https://api.groq.example/openai/v1/chat/completions",
+            429,
+            "Too Many Requests",
+            {},
+            None,
+        )
+
+        with self.assertRaisesMessage(
+            RetryableAnalysisError,
+            "limite de uso",
         ):
             call_groq("Texto del CV")
 

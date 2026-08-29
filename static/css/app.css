@@ -619,6 +619,11 @@ button, input, select, textarea { font: inherit; }
     .settings-card-header { align-items: flex-start; flex-direction: column; }.settings-card-header .btn { width: 100%; }.settings-form-grid { grid-template-columns: 1fr; padding-inline: 16px; }.settings-form-grid .field-span-2 { grid-column: auto; }.settings-profile-head { padding-inline: 16px; }.security-settings-list > div { grid-template-columns: auto minmax(0,1fr); padding-inline: 16px; }.security-settings-list > div > :last-child { grid-column: 2; justify-self: start; }.system-info-grid { grid-template-columns: 1fr; }.system-info-grid > div { border-right: 0; border-bottom: 1px solid var(--line); }
 }
 
+.analysis-processing { padding: 22px 24px; }
+.analysis-processing h2 { color: var(--ink); }
+.analysis-progress { height: 8px; overflow: hidden; border-radius: 8px; background: #edf0f4; }
+.analysis-progress .progress-bar { border-radius: inherit; background: linear-gradient(90deg, var(--primary), #9589ed); transition: width 300ms ease; }
+
 @media print {
     .sidebar,.topbar,.report-actions,.page-messages { display: none !important; }.main-panel { margin-left: 0 !important; }.content-area { max-width: none !important; padding: 15px !important; }.report-panel,.metric-card,.report-summary-strip,.report-table { break-inside: avoid; box-shadow: none !important; }
 }

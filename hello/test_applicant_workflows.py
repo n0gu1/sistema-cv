@@ -12,7 +12,8 @@ from django.utils import timezone
 
 from reclutamiento.candidates import save_curriculum
 from reclutamiento.applications import create_application, transition_application
-from reclutamiento.ai_analysis import analyze_application
+from reclutamiento.ai_analysis import analyze_application, enqueue_application_analysis
+from reclutamiento.tasks import process_application_analysis
 from reclutamiento.models import (
     AnalisisCV,
     AreaEstudio,
@@ -497,6 +498,96 @@ class ApplicantWorkflowTests(TransactionTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Aún no hay un análisis")
+
+    def test_analysis_job_is_queued_once_and_status_is_visible(self):
+        for code, name, final in (
+            ("PENDIENTE", "Pendiente", False),
+            ("PROCESANDO", "Procesando", False),
+            ("COMPLETADO", "Completado", True),
+            ("FALLIDO", "Fallido", True),
+        ):
+            EstadoProcesamiento.objects.create(codigo=code, nombre=name, es_final=final)
+        application = create_application(self.vacancy.pk, self.profile)
+
+        with override_settings(
+            GROQ_API_KEY="test-key",
+            ANALYSIS_ASYNC_ENABLED=True,
+            CELERY_BROKER_URL="redis://127.0.0.1:6379/0",
+        ), patch(
+            "reclutamiento.tasks.process_application_analysis.delay",
+            return_value=Mock(id="task-123"),
+        ) as dispatch:
+            first = enqueue_application_analysis(application)
+            second = enqueue_application_analysis(application)
+
+        self.assertEqual(first.state, "PENDIENTE")
+        self.assertEqual(first.task_id, "task-123")
+        self.assertTrue(second.already_queued)
+        self.assertEqual(AnalisisCV.objects.count(), 1)
+        self.assertEqual(EvaluacionPostulacion.objects.count(), 1)
+        dispatch.assert_called_once()
+
+        self.client.force_login(self.hr_user)
+        response = self.client.get(reverse("estado_analisis", args=[application.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "PENDIENTE")
+        self.assertEqual(response.json()["progress"], 10)
+        page = self.client.get(reverse("analisis", args=[application.pk]))
+        self.assertContains(page, "Procesamiento en segundo plano")
+        self.assertContains(page, "La página se actualizará automáticamente")
+
+    def test_worker_processes_prepared_analysis_job(self):
+        for code, name, final in (
+            ("PENDIENTE", "Pendiente", False),
+            ("PROCESANDO", "Procesando", False),
+            ("COMPLETADO", "Completado", True),
+            ("FALLIDO", "Fallido", True),
+        ):
+            EstadoProcesamiento.objects.create(codigo=code, nombre=name, es_final=final)
+        application = create_application(self.vacancy.pk, self.profile)
+        page = Mock()
+        page.extract_text.return_value = "Nombre Prueba\nExperiencia profesional"
+        reader = Mock()
+        reader.pages = [page]
+        payload = {
+            "personal_data": {
+                "full_name": None,
+                "email": None,
+                "phone": None,
+                "occupation": None,
+                "city": None,
+            },
+            "professional_summary": "Resumen desde la cola.",
+            "calculated_experience_months": 0,
+            "experiences": [],
+            "educations": [],
+            "skills": [],
+            "languages": [],
+            "certifications": [],
+        }
+        with override_settings(
+            GROQ_API_KEY="test-key",
+            ANALYSIS_ASYNC_ENABLED=True,
+            CELERY_BROKER_URL="redis://127.0.0.1:6379/0",
+        ), patch(
+            "reclutamiento.tasks.process_application_analysis.delay",
+            return_value=Mock(id="task-456"),
+        ):
+            job = enqueue_application_analysis(application)
+
+        with override_settings(ANALYSIS_OCR_ENABLED=False), patch(
+            "pypdf.PdfReader", return_value=reader
+        ), patch(
+            "reclutamiento.ai_analysis.call_groq", return_value=payload
+        ):
+            result = process_application_analysis.run(job.analysis_id, job.evaluation_id)
+
+        self.assertEqual(result["status"], "COMPLETADO")
+        self.assertEqual(
+            EvaluacionPostulacion.objects.get(pk=job.evaluation_id).estado_id,
+            "COMPLETADO",
+        )
 
     def test_ai_analysis_persists_cv_data_and_weighted_compatibility(self):
         for code, name, final in (

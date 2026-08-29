@@ -91,7 +91,11 @@ from reclutamiento.candidates import (
     save_profile,
     save_profile_record,
 )
-from reclutamiento.ai_analysis import AnalysisError, analyze_application, get_current_evaluation
+from reclutamiento.ai_analysis import (
+    AnalysisError,
+    enqueue_application_analysis,
+    get_current_evaluation,
+)
 from reclutamiento.emails import send_verification_email
 from reclutamiento.services import register_applicant
 from reclutamiento.storage import B2_PROVIDER_CODE, backblaze_download_url
@@ -682,11 +686,23 @@ def analisis(request, postulacion_id=None):
     )
     if request.method == "POST":
         try:
-            analyze_application(application, force=request.POST.get("force") == "1")
+            job = enqueue_application_analysis(
+                application,
+                force=request.POST.get("force") == "1",
+            )
         except AnalysisError as error:
             messages.error(request, error.messages[0] if error.messages else str(error))
         else:
-            messages.success(request, "El análisis del currículum fue completado.")
+            if job.state == "COMPLETADO":
+                messages.success(request, "El análisis del currículum ya estaba completado.")
+            elif job.already_queued:
+                messages.success(request, "El análisis ya está en proceso. Esta página mostrará su avance.")
+            elif job.state == "FALLIDO":
+                messages.error(request, "No se pudo iniciar el análisis. Usa Reintentar análisis para volver a intentarlo.")
+            elif job.synchronous:
+                messages.success(request, "El análisis del currículum fue completado.")
+            else:
+                messages.success(request, "El análisis fue enviado a segundo plano. Esta página mostrará su avance.")
         return redirect("analisis", postulacion_id=application.pk)
 
     evaluation = get_current_evaluation(application)
@@ -698,6 +714,16 @@ def analisis(request, postulacion_id=None):
     )
     if evaluation:
         analysis = evaluation.analisis_cv
+    status_record = evaluation or analysis
+    analysis_state = getattr(status_record, "estado_id", "SIN_ANALISIS")
+    analysis_progress = {
+        "PENDIENTE": 10,
+        "PROCESANDO": 55,
+        "COMPLETADO": 100,
+        "FALLIDO": 100,
+    }.get(analysis_state, 0)
+    analysis_in_progress = analysis_state in {"PENDIENTE", "PROCESANDO"}
+    analysis_error = getattr(status_record, "mensaje_error", None)
     requirements = list(
         RequisitoPlaza.objects.filter(plaza=application.plaza)
         .select_related("tipo")
@@ -721,6 +747,15 @@ def analisis(request, postulacion_id=None):
         "postulacion": application,
         "evaluacion": evaluation,
         "analisis_cv": analysis,
+        "analysis_state": analysis_state,
+        "analysis_state_label": (
+            status_record.estado.nombre if status_record else "Sin análisis"
+        ),
+        "analysis_progress": analysis_progress,
+        "analysis_in_progress": analysis_in_progress,
+        "analysis_failed": analysis_state == "FALLIDO",
+        "analysis_error": analysis_error,
+        "analysis_status_url": reverse("estado_analisis", args=[application.pk]),
         "datos_personales": personal_data,
         "experiencias": (
             ExperienciaAnalisisCV.objects.filter(analisis=analysis)
@@ -791,6 +826,35 @@ def analisis(request, postulacion_id=None):
         ),
     }
     return render(request, "analisis.html", context)
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
+def estado_analisis(request, postulacion_id):
+    application = get_object_or_404(Postulacion, pk=postulacion_id)
+    evaluation = get_current_evaluation(application)
+    analysis = (
+        AnalisisCV.objects.select_related("estado")
+        .filter(curriculo=application.curriculo, vigente=True)
+        .order_by("-creado_en")
+        .first()
+    )
+    status_record = evaluation or analysis
+    status = getattr(status_record, "estado_id", "SIN_ANALISIS")
+    return JsonResponse(
+        {
+            "status": status,
+            "label": (
+                status_record.estado.nombre if status_record else "Sin análisis"
+            ),
+            "progress": {
+                "PENDIENTE": 10,
+                "PROCESANDO": 55,
+                "COMPLETADO": 100,
+                "FALLIDO": 100,
+            }.get(status, 0),
+            "error": getattr(status_record, "mensaje_error", None),
+        }
+    )
 
 
 @roles_required("ASPIRANTE")

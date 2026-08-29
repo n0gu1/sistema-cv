@@ -132,6 +132,37 @@ ANALYSIS_OCR_MAX_PAGES = int(os.environ.get("ANALYSIS_OCR_MAX_PAGES", "5"))
 ANALYSIS_OCR_DPI = int(os.environ.get("ANALYSIS_OCR_DPI", "150"))
 TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")
 TESSERACT_LANG = os.environ.get("TESSERACT_LANG", "spa+eng")
+
+REDIS_URL = os.environ.get("REDIS_URL", "").strip()
+CELERY_BROKER_URL = (os.environ.get("CELERY_BROKER_URL") or REDIS_URL).strip()
+CELERY_RESULT_BACKEND = (
+    os.environ.get("CELERY_RESULT_BACKEND") or CELERY_BROKER_URL
+).strip()
+ANALYSIS_ASYNC_ENABLED = os.environ.get(
+    "ANALYSIS_ASYNC_ENABLED",
+    "True" if CELERY_BROKER_URL else "False",
+).lower() == "true"
+ANALYSIS_TASK_MAX_RETRIES = int(os.environ.get("ANALYSIS_TASK_MAX_RETRIES", "3"))
+ANALYSIS_TASK_LEASE_SECONDS = int(
+    os.environ.get("ANALYSIS_TASK_LEASE_SECONDS", "900")
+)
+CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_TASK_DEFAULT_QUEUE = "analysis"
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_ROUTES = {
+    "reclutamiento.tasks.process_application_analysis": {"queue": "analysis"},
+}
+CELERY_IMPORTS = ("reclutamiento.tasks",)
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TIMEZONE = "UTC"
+CELERY_RESULT_EXPIRES = 60 * 60
+CELERY_TASK_SOFT_TIME_LIMIT = 240
+CELERY_TASK_TIME_LIMIT = 300
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",

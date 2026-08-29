@@ -92,8 +92,43 @@ TESSERACT_LANG=spa+eng
 
 El cálculo de compatibilidad es reproducible y usa el peso de cada requisito;
 la IA aporta la extracción y la evidencia, pero el resultado no sustituye la
-revisión humana. El procesamiento actual es síncrono; Celery y Redis quedan
-para el módulo de procesamiento en segundo plano.
+revisión humana.
+
+### Procesamiento en segundo plano
+
+Los análisis se preparan en una transacción y se envían a la cola `analysis` de
+Celery. Los estados `PENDIENTE`, `PROCESANDO`, `COMPLETADO` y `FALLIDO` se
+guardan en las tablas existentes, por lo que no se requiere una migración de
+Django. La interfaz consulta el estado automáticamente mientras el trabajador
+procesa el currículum.
+
+Para ejecutar el trabajador localmente necesitas Redis. Por ejemplo, con
+Docker:
+
+```powershell
+docker run --name nexo-redis -p 6379:6379 -d redis:7-alpine
+$env:REDIS_URL="redis://127.0.0.1:6379/0"
+$env:ANALYSIS_ASYNC_ENABLED="True"
+celery -A config worker --loglevel=INFO --pool=solo --queues=analysis
+```
+
+En Render configura `CELERY_BROKER_URL` y `CELERY_RESULT_BACKEND` con la URL
+privada de Redis y define `ANALYSIS_ASYNC_ENABLED=True`. Crea un trabajador
+Background Worker para este repositorio con el comando:
+
+```text
+celery -A config worker --loglevel=INFO --queues=analysis
+```
+
+Render requiere un plan de cómputo de pago para mantener un Background Worker;
+la instancia web `free` actual conserva el respaldo síncrono hasta que se
+configure ese trabajador y una instancia Redis.
+
+Los fallos temporales de Groq (límites, timeouts y respuestas 5xx) se reintentan
+hasta tres veces con espera incremental. Si Celery no está habilitado, el
+servidor usa un respaldo síncrono local; si la cola no está disponible, el
+análisis queda como `FALLIDO` y Recursos Humanos puede pulsar `Reintentar
+análisis` sin crear duplicados.
 
 Configuración de ejemplo para el entorno de producción:
 

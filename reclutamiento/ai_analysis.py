@@ -2,7 +2,8 @@ import json
 import logging
 import re
 import unicodedata
-from datetime import date
+from datetime import date, timedelta
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
 from urllib.error import HTTPError, URLError
@@ -69,6 +70,10 @@ class CurriculumExtractionError(AnalysisError):
 
 class GroqError(AnalysisError):
     pass
+
+
+class RetryableAnalysisError(GroqError):
+    """Temporary provider failure that should be retried by the worker."""
 
 
 class InvalidAnalysisResponse(GroqError):
@@ -423,9 +428,14 @@ def call_groq(extracted_text):
             error.code,
             f"Groq rechazo la solicitud (HTTP {error.code}).",
         )
-        raise GroqError(message) from error
+        error_class = (
+            RetryableAnalysisError
+            if error.code == 429 or error.code == 408 or error.code >= 500
+            else GroqError
+        )
+        raise error_class(message) from error
     except (URLError, TimeoutError, OSError) as error:
-        raise GroqError("No fue posible comunicarse con Groq.") from error
+        raise RetryableAnalysisError("No fue posible comunicarse con Groq.") from error
 
     try:
         response_data = json.loads(raw.decode("utf-8"))
@@ -543,6 +553,14 @@ def _persist_cv_analysis(analysis, extracted_text, payload):
             )
         )
 
+        # Re-running the same job must not duplicate extracted detail rows.
+        DatosPersonalesAnalisisCV.objects.filter(analisis=analysis).delete()
+        ExperienciaAnalisisCV.objects.filter(analisis=analysis).delete()
+        EducacionAnalisisCV.objects.filter(analisis=analysis).delete()
+        HabilidadAnalisisCV.objects.filter(analisis=analysis).delete()
+        IdiomaAnalisisCV.objects.filter(analisis=analysis).delete()
+        CertificacionAnalisisCV.objects.filter(analisis=analysis).delete()
+
         personal = payload["personal_data"]
         DatosPersonalesAnalisisCV.objects.update_or_create(
             analisis=analysis,
@@ -645,6 +663,20 @@ def _persist_cv_analysis(analysis, extracted_text, payload):
     return analysis
 
 
+def _execute_curriculum_analysis(analysis, mark_failed=True):
+    try:
+        extracted_text = extract_curriculum_text(analysis.curriculo)
+        payload = call_groq(extracted_text)
+        return _persist_cv_analysis(analysis, extracted_text, payload)
+    except Exception as error:
+        if mark_failed:
+            _mark_analysis_failed(analysis, error)
+        if isinstance(error, AnalysisError):
+            raise
+        logger.exception("Fallo inesperado en analisis_cv=%s", analysis.pk)
+        raise AnalysisError(_error_message(error)) from error
+
+
 def analyze_curriculum(curriculum_or_id, force=False):
     curriculum = curriculum_or_id
     if not isinstance(curriculum_or_id, Curriculo):
@@ -659,26 +691,19 @@ def analyze_curriculum(curriculum_or_id, force=False):
     if not settings.GROQ_API_KEY.strip():
         raise GroqError("Configura GROQ_API_KEY antes de ejecutar un analisis.")
 
-    engine = _analysis_engine()
     started_at = timezone.now()
-    analysis = AnalisisCV.objects.create(
-        curriculo=curriculum,
-        motor_analisis=engine,
-        estado=_processing_status("PROCESANDO"),
-        iniciado_en=started_at,
-        creado_en=started_at,
-        vigente=False,
-    )
-    try:
-        extracted_text = extract_curriculum_text(curriculum)
-        payload = call_groq(extracted_text)
-        return _persist_cv_analysis(analysis, extracted_text, payload)
-    except Exception as error:
-        _mark_analysis_failed(analysis, error)
-        if isinstance(error, AnalysisError):
-            raise
-        logger.exception("Fallo inesperado en analisis_cv=%s", analysis.pk)
-        raise AnalysisError(_error_message(error)) from error
+    with transaction.atomic():
+        engine = _analysis_engine()
+        AnalisisCV.objects.filter(curriculo=curriculum, vigente=True).update(vigente=False)
+        analysis = AnalisisCV.objects.create(
+            curriculo=curriculum,
+            motor_analisis=engine,
+            estado=_processing_status("PROCESANDO"),
+            iniciado_en=started_at,
+            creado_en=started_at,
+            vigente=True,
+        )
+    return _execute_curriculum_analysis(analysis)
 
 
 def _current_evaluation(application):
@@ -1009,40 +1034,7 @@ def _mark_evaluation_failed(evaluation, error):
         )
 
 
-def evaluate_application(application_or_id, analysis=None, force=False):
-    from reclutamiento.models import Postulacion
-
-    application = application_or_id
-    if not isinstance(application_or_id, Postulacion):
-        application = Postulacion.objects.select_related("plaza", "aspirante", "curriculo").get(
-            pk=application_or_id
-        )
-    analysis = analysis or analyze_curriculum(application.curriculo, force=force)
-    if analysis.estado_id != "COMPLETADO":
-        raise AnalysisError("El analisis del curriculo no esta disponible para evaluar la postulacion.")
-    current = _current_evaluation(application)
-    if (
-        current
-        and current.estado_id == "COMPLETADO"
-        and current.analisis_cv_id == analysis.pk
-        and not force
-    ):
-        return current
-    if current and current.estado_id == "PROCESANDO":
-        raise AnalysisError("Esta postulacion ya tiene una evaluacion en proceso.")
-
-    processing = _processing_status("PROCESANDO")
-    engine = analysis.motor_analisis
-    started_at = timezone.now()
-    evaluation = EvaluacionPostulacion.objects.create(
-        postulacion=application,
-        analisis_cv=analysis,
-        motor_analisis=engine,
-        estado=processing,
-        iniciado_en=started_at,
-        creado_en=started_at,
-        vigente=False,
-    )
+def _execute_evaluation(evaluation, application, analysis, mark_failed=True):
     try:
         analysis_data, profile_data = _load_evaluation_data(analysis, application.aspirante)
         requirements = list(
@@ -1074,6 +1066,7 @@ def evaluate_application(application_or_id, analysis=None, force=False):
             EvaluacionPostulacion.objects.filter(
                 postulacion=application, vigente=True
             ).exclude(pk=evaluation.pk).update(vigente=False)
+            ResultadoRequisitoEvaluacion.objects.filter(evaluacion=evaluation).delete()
             evaluation.estado_id = "COMPLETADO"
             evaluation.porcentaje_compatibilidad = total
             evaluation.fortalezas = strengths
@@ -1103,11 +1096,51 @@ def evaluate_application(application_or_id, analysis=None, force=False):
                 )
         return evaluation
     except Exception as error:
-        _mark_evaluation_failed(evaluation, error)
+        if mark_failed:
+            _mark_evaluation_failed(evaluation, error)
         if isinstance(error, AnalysisError):
             raise
         logger.exception("Fallo inesperado en evaluacion=%s", evaluation.pk)
         raise AnalysisError(_error_message(error)) from error
+
+
+def evaluate_application(application_or_id, analysis=None, force=False):
+    from reclutamiento.models import Postulacion
+
+    application = application_or_id
+    if not isinstance(application_or_id, Postulacion):
+        application = Postulacion.objects.select_related("plaza", "aspirante", "curriculo").get(
+            pk=application_or_id
+        )
+    analysis = analysis or analyze_curriculum(application.curriculo, force=force)
+    if analysis.estado_id != "COMPLETADO":
+        raise AnalysisError("El analisis del curriculo no esta disponible para evaluar la postulacion.")
+    current = _current_evaluation(application)
+    if (
+        current
+        and current.estado_id == "COMPLETADO"
+        and current.analisis_cv_id == analysis.pk
+        and not force
+    ):
+        return current
+    if current and current.estado_id in {"PENDIENTE", "PROCESANDO"}:
+        raise AnalysisError("Esta postulacion ya tiene una evaluacion en proceso.")
+
+    started_at = timezone.now()
+    with transaction.atomic():
+        EvaluacionPostulacion.objects.filter(
+            postulacion=application, vigente=True
+        ).update(vigente=False)
+        evaluation = EvaluacionPostulacion.objects.create(
+            postulacion=application,
+            analisis_cv=analysis,
+            motor_analisis=analysis.motor_analisis,
+            estado=_processing_status("PROCESANDO"),
+            iniciado_en=started_at,
+            creado_en=started_at,
+            vigente=True,
+        )
+    return _execute_evaluation(evaluation, application, analysis)
 
 
 def analyze_application(application_or_id, force=False):
@@ -1120,3 +1153,261 @@ def analyze_application(application_or_id, force=False):
         ).get(pk=application_or_id)
     analysis = analyze_curriculum(application.curriculo, force=force)
     return evaluate_application(application, analysis=analysis, force=force)
+
+
+@dataclass(frozen=True)
+class AnalysisJob:
+    application_id: int
+    analysis_id: int
+    evaluation_id: int
+    state: str
+    queued: bool
+    already_queued: bool = False
+    synchronous: bool = False
+    task_id: str = None
+
+
+def _job_from_database(application_id, analysis_id, evaluation_id, **kwargs):
+    evaluation = EvaluacionPostulacion.objects.select_related("estado").get(
+        pk=evaluation_id
+    )
+    return AnalysisJob(
+        application_id=application_id,
+        analysis_id=analysis_id,
+        evaluation_id=evaluation_id,
+        state=evaluation.estado_id,
+        **kwargs,
+    )
+
+
+def _mark_analysis_job_failed(analysis_id, evaluation_id, error):
+    message = _error_message(error)
+    completed_at = timezone.now()
+    try:
+        with transaction.atomic():
+            AnalisisCV.objects.filter(pk=analysis_id).exclude(
+                estado_id="COMPLETADO"
+            ).update(
+                estado_id="FALLIDO",
+                completado_en=completed_at,
+                mensaje_error=message,
+            )
+            EvaluacionPostulacion.objects.filter(pk=evaluation_id).exclude(
+                estado_id="COMPLETADO"
+            ).update(
+                estado_id="FALLIDO",
+                completado_en=completed_at,
+                mensaje_error=message,
+            )
+    except Exception:
+        logger.exception(
+            "No se pudo registrar el fallo del job analisis=%s evaluacion=%s",
+            analysis_id,
+            evaluation_id,
+        )
+
+
+def _claim_analysis_job(analysis_id, evaluation_id, retrying=False):
+    with transaction.atomic():
+        analysis = AnalisisCV.objects.select_for_update().get(pk=analysis_id)
+        evaluation = EvaluacionPostulacion.objects.select_for_update().get(
+            pk=evaluation_id
+        )
+        if evaluation.analisis_cv_id != analysis.pk:
+            raise AnalysisError("El job de analisis no coincide con sus registros.")
+        if analysis.estado_id == "COMPLETADO" and evaluation.estado_id == "COMPLETADO":
+            return False
+        if analysis.estado_id == "FALLIDO" or evaluation.estado_id == "FALLIDO":
+            return False
+
+        now = timezone.now()
+        lease = timedelta(
+            seconds=max(1, int(settings.ANALYSIS_TASK_LEASE_SECONDS))
+        )
+        active_dates = [
+            started
+            for state, started in (
+                (analysis.estado_id, analysis.iniciado_en),
+                (evaluation.estado_id, evaluation.iniciado_en),
+            )
+            if state == "PROCESANDO" and started is not None
+        ]
+        if (
+            active_dates
+            and not retrying
+            and any(now - started < lease for started in active_dates)
+        ):
+            return False
+
+        if analysis.estado_id != "COMPLETADO":
+            analysis.estado_id = "PROCESANDO"
+            analysis.iniciado_en = now
+            analysis.save(update_fields=("estado", "iniciado_en"))
+        if evaluation.estado_id != "COMPLETADO":
+            evaluation.estado_id = "PROCESANDO"
+            evaluation.iniciado_en = now
+            evaluation.save(update_fields=("estado", "iniciado_en"))
+    return True
+
+
+def process_analysis_job(analysis_id, evaluation_id, retrying=False):
+    """Run one prepared job without creating duplicate analysis records."""
+    claimed = _claim_analysis_job(analysis_id, evaluation_id, retrying=retrying)
+    if not claimed:
+        evaluation = EvaluacionPostulacion.objects.get(pk=evaluation_id)
+        return {"status": evaluation.estado_id, "skipped": True}
+
+    analysis = AnalisisCV.objects.select_related(
+        "curriculo__proveedor_almacenamiento", "motor_analisis"
+    ).get(pk=analysis_id)
+    evaluation = EvaluacionPostulacion.objects.select_related(
+        "postulacion__plaza",
+        "postulacion__aspirante",
+        "postulacion__curriculo",
+    ).get(pk=evaluation_id)
+    if analysis.estado_id != "COMPLETADO":
+        analysis = _execute_curriculum_analysis(analysis, mark_failed=False)
+    if evaluation.estado_id != "COMPLETADO":
+        evaluation = _execute_evaluation(
+            evaluation,
+            evaluation.postulacion,
+            analysis,
+            mark_failed=False,
+        )
+    return {
+        "status": "COMPLETADO",
+        "analysis_id": analysis.pk,
+        "evaluation_id": evaluation.pk,
+    }
+
+
+def enqueue_application_analysis(application_or_id, force=False):
+    """Prepare an idempotent job and dispatch it after its transaction commits."""
+    from reclutamiento.models import Postulacion
+
+    application_id = (
+        application_or_id.pk
+        if isinstance(application_or_id, Postulacion)
+        else application_or_id
+    )
+    if not settings.GROQ_API_KEY.strip():
+        raise GroqError("Configura GROQ_API_KEY antes de ejecutar un analisis.")
+
+    task_id = None
+    dispatch_error = []
+    run_synchronously = False
+    with transaction.atomic():
+        application = Postulacion.objects.select_for_update().select_related(
+            "plaza", "aspirante", "curriculo", "curriculo__proveedor_almacenamiento"
+        ).get(pk=application_id)
+        current_evaluation = _current_evaluation(application)
+        current_analysis = _current_analysis(application.curriculo)
+
+        if current_evaluation and current_evaluation.estado_id in {
+            "PENDIENTE",
+            "PROCESANDO",
+        }:
+            return AnalysisJob(
+                application_id=application.pk,
+                analysis_id=current_evaluation.analisis_cv_id,
+                evaluation_id=current_evaluation.pk,
+                state=current_evaluation.estado_id,
+                queued=True,
+                already_queued=True,
+            )
+        if current_analysis and current_analysis.estado_id in {"PENDIENTE", "PROCESANDO"}:
+            raise AnalysisError("Este curriculo ya tiene un analisis en proceso.")
+        if (
+            current_evaluation
+            and current_evaluation.estado_id == "COMPLETADO"
+            and not force
+        ):
+            return AnalysisJob(
+                application_id=application.pk,
+                analysis_id=current_evaluation.analisis_cv_id,
+                evaluation_id=current_evaluation.pk,
+                state="COMPLETADO",
+                queued=False,
+            )
+
+        if current_analysis and current_analysis.estado_id == "COMPLETADO" and not force:
+            analysis = current_analysis
+        else:
+            engine = _analysis_engine()
+            AnalisisCV.objects.filter(
+                curriculo=application.curriculo, vigente=True
+            ).update(vigente=False)
+            now = timezone.now()
+            analysis = AnalisisCV.objects.create(
+                curriculo=application.curriculo,
+                motor_analisis=engine,
+                estado=_processing_status("PENDIENTE"),
+                creado_en=now,
+                vigente=True,
+            )
+
+        EvaluacionPostulacion.objects.filter(
+            postulacion=application, vigente=True
+        ).update(vigente=False)
+        now = timezone.now()
+        evaluation = EvaluacionPostulacion.objects.create(
+            postulacion=application,
+            analisis_cv=analysis,
+            motor_analisis=analysis.motor_analisis,
+            estado=_processing_status("PENDIENTE"),
+            creado_en=now,
+            vigente=True,
+        )
+
+        use_async = bool(
+            getattr(settings, "ANALYSIS_ASYNC_ENABLED", False)
+            and getattr(settings, "CELERY_BROKER_URL", "")
+        )
+        if use_async:
+            def dispatch():
+                try:
+                    from reclutamiento.tasks import process_application_analysis
+
+                    result = process_application_analysis.delay(
+                        analysis.pk,
+                        evaluation.pk,
+                    )
+                    dispatch_info["task_id"] = result.id
+                except Exception as error:
+                    logger.exception(
+                        "No se pudo enviar el job de analisis=%s a Celery",
+                        analysis.pk,
+                    )
+                    dispatch_error.append(error)
+
+            dispatch_info = {}
+            transaction.on_commit(dispatch)
+        else:
+            run_synchronously = True
+
+    if run_synchronously:
+        logger.warning(
+            "Celery no esta habilitado; se ejecutara el analisis=%s en modo de respaldo.",
+            analysis.pk,
+        )
+        try:
+            process_analysis_job(analysis.pk, evaluation.pk)
+        except Exception as error:
+            _mark_analysis_job_failed(analysis.pk, evaluation.pk, error)
+    elif dispatch_error:
+        _mark_analysis_job_failed(
+            analysis.pk,
+            evaluation.pk,
+            AnalysisError(
+                "No fue posible poner el analisis en segundo plano. Usa Reintentar analisis."
+            ),
+        )
+    task_id = dispatch_info.get("task_id") if use_async else None
+    return _job_from_database(
+        application.pk,
+        analysis.pk,
+        evaluation.pk,
+        queued=True,
+        synchronous=run_synchronously,
+        task_id=task_id,
+    )

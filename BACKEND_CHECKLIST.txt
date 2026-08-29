@@ -75,9 +75,9 @@ Convenciones:
 [x] Evidencia, fortalezas, brechas y recomendaciones para revision humana.
 
 7. PROCESAMIENTO EN SEGUNDO PLANO
-[ ] Configurar Celery y Redis.
-[ ] Estados, reintentos e idempotencia de tareas.
-[ ] Progreso visible en la interfaz.
+[x] Configurar Celery y Redis mediante variables de entorno y una cola dedicada.
+[x] Estados, reintentos limitados e idempotencia de tareas.
+[x] Progreso visible en la interfaz con consulta automática del estado.
 
 8. API REST
 [ ] Django REST Framework.
