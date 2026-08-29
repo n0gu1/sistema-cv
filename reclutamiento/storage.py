@@ -19,7 +19,6 @@ def _backblaze_client():
         "BACKBLAZE_APPLICATION_KEY": settings.BACKBLAZE_APPLICATION_KEY,
         "BACKBLAZE_BUCKET_NAME": settings.BACKBLAZE_BUCKET_NAME,
         "BACKBLAZE_ENDPOINT_URL": settings.BACKBLAZE_ENDPOINT_URL,
-        "BACKBLAZE_REGION": settings.BACKBLAZE_REGION,
     }
     missing = [name for name, value in required.items() if not value]
     if missing:
@@ -30,7 +29,6 @@ def _backblaze_client():
     return boto3.client(
         "s3",
         endpoint_url=settings.BACKBLAZE_ENDPOINT_URL.rstrip("/"),
-        region_name=settings.BACKBLAZE_REGION,
         aws_access_key_id=settings.BACKBLAZE_APPLICATION_KEY_ID,
         aws_secret_access_key=settings.BACKBLAZE_APPLICATION_KEY,
         config=Config(

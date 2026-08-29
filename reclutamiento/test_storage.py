@@ -16,7 +16,6 @@ class BackblazeStorageTests(SimpleTestCase):
         "BACKBLAZE_APPLICATION_KEY": "application-key",
         "BACKBLAZE_BUCKET_NAME": "sistema-cv-curriculos-privados",
         "BACKBLAZE_ENDPOINT_URL": "https://s3.eu-central-003.backblazeb2.com",
-        "BACKBLAZE_REGION": "eu-central-003",
         "BACKBLAZE_PRESIGNED_URL_EXPIRY": 300,
     }
 
@@ -69,7 +68,6 @@ class BackblazeStorageTests(SimpleTestCase):
         BACKBLAZE_APPLICATION_KEY="",
         BACKBLAZE_BUCKET_NAME="",
         BACKBLAZE_ENDPOINT_URL="",
-        BACKBLAZE_REGION="",
     )
     def test_rejects_missing_backblaze_configuration(self):
         with self.assertRaisesMessage(

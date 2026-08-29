@@ -274,7 +274,6 @@ class ApplicantWorkflowTests(TransactionTestCase):
             "BACKBLAZE_APPLICATION_KEY": "application-key",
             "BACKBLAZE_BUCKET_NAME": "sistema-cv-curriculos-privados",
             "BACKBLAZE_ENDPOINT_URL": "https://s3.eu-central-003.backblazeb2.com",
-            "BACKBLAZE_REGION": "eu-central-003",
             "BACKBLAZE_OBJECT_PREFIX": "curriculos",
         }
         with override_settings(**settings), patch(
