@@ -45,8 +45,8 @@ Convenciones:
 [x] Evitar edicion de plazas cerradas y requisitos con evaluaciones asociadas.
 [x] Inicializacion idempotente de catalogos base.
 [x] Validar que salario minimo y maximo no sean negativos.
-[ ] Validar que cantidad_vacantes sea mayor que cero desde el formulario.
-[ ] Impedir mas contrataciones que la cantidad_vacantes de la plaza.
+[x] Validar que cantidad_vacantes sea mayor que cero desde el formulario.
+[x] Impedir mas contrataciones que la cantidad_vacantes de la plaza.
 [ ] Cerrar o pausar postulaciones cuando se complete la cantidad de vacantes.
 [ ] Excluir plazas vencidas de las metricas de plazas activas.
 [ ] Impedir reactivar una plaza cuya fecha de cierre ya vencio.

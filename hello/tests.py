@@ -637,6 +637,17 @@ class VacancyManagementTests(TransactionTestCase):
                 self.assertFalse(form.is_valid())
                 self.assertEqual(form.errors[field_name][0], message)
 
+    def test_vacancy_count_must_be_positive(self):
+        for value in ("0", "-1"):
+            with self.subTest(value=value):
+                form = FormularioPlaza(data=self._payload(cantidad_vacantes=value))
+
+                self.assertFalse(form.is_valid())
+                self.assertEqual(
+                    form.errors["cantidad_vacantes"][0],
+                    "La cantidad de vacantes debe ser mayor que cero.",
+                )
+
     def test_create_and_publish_vacancy_with_normalized_requirements(self):
         response = self.client.post(
             reverse("nueva_plaza"),

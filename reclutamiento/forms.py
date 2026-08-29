@@ -381,6 +381,12 @@ class FormularioPlaza(forms.ModelForm):
     requiere_viajar = forms.BooleanField(required=False)
     requiere_reubicacion = forms.BooleanField(required=False)
     descripcion_horario = forms.CharField(max_length=200, required=False)
+    cantidad_vacantes = forms.IntegerField(
+        min_value=1,
+        error_messages={
+            "min_value": "La cantidad de vacantes debe ser mayor que cero."
+        },
+    )
 
     class Meta:
         model = Plaza

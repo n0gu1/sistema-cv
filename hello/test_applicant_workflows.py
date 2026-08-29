@@ -505,6 +505,44 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, "Actualización de tu postulación")
 
+    def test_hiring_respects_vacancy_limit(self):
+        first_application = create_application(self.vacancy.pk, self.profile)
+        for target in (
+            "EN_REVISION",
+            "PRESELECCIONADA",
+            "ENTREVISTA",
+            "OFERTA_ENVIADA",
+            "CONTRATADA",
+        ):
+            transition_application(first_application.pk, target, self.hr_user)
+
+        self._curriculum(self.other_profile, "otro-curriculo.pdf")
+        second_application = create_application(self.vacancy.pk, self.other_profile)
+        for target in (
+            "EN_REVISION",
+            "PRESELECCIONADA",
+            "ENTREVISTA",
+            "OFERTA_ENVIADA",
+        ):
+            transition_application(second_application.pk, target, self.hr_user)
+
+        with self.assertRaisesRegex(ValidationError, "cantidad de vacantes"):
+            transition_application(
+                second_application.pk,
+                "CONTRATADA",
+                self.hr_user,
+            )
+
+        second_application.refresh_from_db()
+        self.assertEqual(second_application.estado_id, "OFERTA_ENVIADA")
+        self.assertEqual(
+            Postulacion.objects.filter(
+                plaza=self.vacancy,
+                estado_id="CONTRATADA",
+            ).count(),
+            1,
+        )
+
     def test_applicant_can_list_and_mark_notifications_as_read(self):
         application = create_application(self.vacancy.pk, self.profile)
         notification = Notificacion.objects.get(postulacion=application)

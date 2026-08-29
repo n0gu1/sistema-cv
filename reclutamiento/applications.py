@@ -101,6 +101,16 @@ def transition_application(application_id, target_code, user, reason=None):
         raise ValidationError("Solo el aspirante puede retirar su postulación.")
     if target_code != "RETIRADA" and not user.has_role("RRHH", "ADMINISTRADOR"):
         raise ValidationError("No tienes permiso para cambiar este estado.")
+    if target_code == "CONTRATADA":
+        vacancy = Plaza.objects.select_for_update().get(pk=application.plaza_id)
+        hired_count = Postulacion.objects.filter(
+            plaza_id=vacancy.pk,
+            estado_id="CONTRATADA",
+        ).count()
+        if hired_count >= vacancy.cantidad_vacantes:
+            raise ValidationError(
+                "La plaza ya alcanzó la cantidad de vacantes disponible."
+            )
 
     now = timezone.now()
     application.estado = EstadoPostulacion.objects.get(codigo=target_code)
