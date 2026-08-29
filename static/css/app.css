@@ -853,6 +853,7 @@ button, input, select, textarea { font: inherit; }
     .top-vacancy-report > div:not(.inline-empty) > div { grid-column: 1 / -1; width: 100%; }
     .report-panel .panel-header { align-items: flex-start; flex-wrap: wrap; }
     .report-panel .panel-header > div { flex: 1 1 180px; min-width: 0; }
+    .vacancy-summary { grid-template-columns: repeat(2,minmax(0,1fr)); }
     .vacancy-summary > div { min-width: 0; }
     .portal-form-actions > * { min-width: 0; flex: 1; }
 }
