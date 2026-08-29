@@ -116,8 +116,8 @@ crearlas ni eliminarlas mediante migraciones.
 ### Configurar Backblaze en Render
 
 El script [`configurar_backblaze_render.ps1`](configurar_backblaze_render.ps1)
-actualiza solamente las variables `BACKBLAZE_*` del servicio configurado y
-solicita el despliegue. Las credenciales se solicitan la primera vez y se
+lee el `.env` local si existe, actualiza solamente las variables `BACKBLAZE_*`
+del servicio configurado y solicita el despliegue. Las credenciales se
 guardan protegidas por DPAPI en el perfil local de Windows, nunca en el
 repositorio:
 

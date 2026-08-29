@@ -39,6 +39,53 @@ $localApplicationData = [Environment]::GetFolderPath("LocalApplicationData")
 $credentialDirectory = Join-Path $localApplicationData "SistemaCV"
 $credentialPath = Join-Path $credentialDirectory "render-b2-credentials.xml"
 $apiBaseUrl = "https://api.render.com/v1"
+$dotEnvPath = Join-Path $PSScriptRoot ".env"
+
+function Read-DotEnv {
+    param([string]$Path)
+
+    $values = @{}
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return $values
+    }
+
+    foreach ($line in [System.IO.File]::ReadLines($Path)) {
+        if ($line -match '^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$') {
+            $value = $Matches[2].Trim()
+            if ($value.Length -ge 2) {
+                $first = $value[0]
+                $last = $value[$value.Length - 1]
+                if (($first -eq [char]34 -and $last -eq [char]34) -or
+                    ($first -eq [char]39 -and $last -eq [char]39)) {
+                    $value = $value.Substring(1, $value.Length - 2)
+                }
+            }
+            $values[$Matches[1]] = $value
+        }
+    }
+
+    return $values
+}
+
+$script:dotEnvValues = Read-DotEnv -Path $dotEnvPath
+
+function Get-EnvironmentValue {
+    param([string]$Name)
+
+    $processValue = [Environment]::GetEnvironmentVariable(
+        $Name,
+        [EnvironmentVariableTarget]::Process
+    )
+    if (-not [string]::IsNullOrWhiteSpace($processValue)) {
+        return $processValue
+    }
+
+    if ($script:dotEnvValues.ContainsKey($Name)) {
+        return [string]$script:dotEnvValues[$Name]
+    }
+
+    return ""
+}
 
 function ConvertTo-ProtectedString {
     param([AllowNull()][string]$Value)
@@ -175,34 +222,46 @@ if (Test-Path -LiteralPath $credentialPath) {
 }
 
 $renderApiKey = Read-SecretValue `
-    -CurrentValue $env:RENDER_API_KEY `
+    -CurrentValue (Get-EnvironmentValue "RENDER_API_KEY") `
     -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.RenderApiKey }) `
     -Prompt "Render API key"
 
 $backblazeKeyId = Read-SecretValue `
-    -CurrentValue $env:BACKBLAZE_APPLICATION_KEY_ID `
+    -CurrentValue (Get-EnvironmentValue "BACKBLAZE_APPLICATION_KEY_ID") `
     -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.BackblazeApplicationKeyId }) `
     -Prompt "Backblaze application key ID"
 
 $backblazeKey = Read-SecretValue `
-    -CurrentValue $env:BACKBLAZE_APPLICATION_KEY `
+    -CurrentValue (Get-EnvironmentValue "BACKBLAZE_APPLICATION_KEY") `
     -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.BackblazeApplicationKey }) `
     -Prompt "Backblaze application key"
 
+$bucketEnvironmentValue = Get-EnvironmentValue "BACKBLAZE_BUCKET_NAME"
+if (-not [string]::IsNullOrWhiteSpace($BucketName)) {
+    $bucketEnvironmentValue = $BucketName
+}
 $BucketName = Read-TextValue `
-    -CurrentValue $(if ($null -ne $env:BACKBLAZE_BUCKET_NAME) { $env:BACKBLAZE_BUCKET_NAME } else { $BucketName }) `
+    -CurrentValue $bucketEnvironmentValue `
     -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.BucketName }) `
     -Prompt "Backblaze bucket name" `
     -DefaultValue "sistema-cv-curriculos-privados"
 
+$endpointEnvironmentValue = Get-EnvironmentValue "BACKBLAZE_ENDPOINT_URL"
+if (-not [string]::IsNullOrWhiteSpace($EndpointUrl)) {
+    $endpointEnvironmentValue = $EndpointUrl
+}
 $EndpointUrl = Read-TextValue `
-    -CurrentValue $(if ($null -ne $env:BACKBLAZE_ENDPOINT_URL) { $env:BACKBLAZE_ENDPOINT_URL } else { $EndpointUrl }) `
+    -CurrentValue $endpointEnvironmentValue `
     -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.EndpointUrl }) `
     -Prompt "Backblaze S3 endpoint URL, por ejemplo https://s3.us-west-004.backblazeb2.com" `
     -DefaultValue "https://s3.REGION.backblazeb2.com"
 
+$prefixEnvironmentValue = Get-EnvironmentValue "BACKBLAZE_OBJECT_PREFIX"
+if (-not [string]::IsNullOrWhiteSpace($ObjectPrefix)) {
+    $prefixEnvironmentValue = $ObjectPrefix
+}
 $ObjectPrefix = Read-TextValue `
-    -CurrentValue $(if ($null -ne $env:BACKBLAZE_OBJECT_PREFIX) { $env:BACKBLAZE_OBJECT_PREFIX } else { $ObjectPrefix }) `
+    -CurrentValue $prefixEnvironmentValue `
     -StoredValue $(if ($null -ne $storedCredentials) { $storedCredentials.ObjectPrefix }) `
     -Prompt "Prefijo de objetos" `
     -DefaultValue "curriculos"
