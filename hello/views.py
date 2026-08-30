@@ -561,7 +561,16 @@ def plazas(request):
 @roles_required("RRHH", "ADMINISTRADOR")
 def nueva_plaza(request):
     form = FormularioPlaza(request.POST or None)
-    if request.method == "POST" and form.is_valid():
+    missing_catalogs = form.missing_required_catalogs()
+    catalogs_ready = not missing_catalogs
+    if request.method == "POST" and not catalogs_ready:
+        form.add_error(
+            None,
+            "No se puede guardar la plaza porque faltan catálogos obligatorios: "
+            + ", ".join(missing_catalogs)
+            + ".",
+        )
+    elif request.method == "POST" and form.is_valid():
         publish = request.POST.get("accion") == "publicar"
         try:
             vacancy = save_vacancy(form, request.user, publish=publish)
@@ -578,7 +587,8 @@ def nueva_plaza(request):
         "nueva_plaza.html",
         {
             "form": form,
-            "catalogs_ready": form.has_required_catalogs(),
+            "catalogs_ready": catalogs_ready,
+            "missing_catalogs": missing_catalogs,
             "editing": False,
         },
     )
@@ -594,7 +604,16 @@ def editar_plaza(request, plaza_id):
         request.POST or None,
         instance=vacancy,
     )
-    if request.method == "POST" and form.is_valid():
+    missing_catalogs = form.missing_required_catalogs()
+    catalogs_ready = not missing_catalogs
+    if request.method == "POST" and not catalogs_ready:
+        form.add_error(
+            None,
+            "No se puede guardar la plaza porque faltan catálogos obligatorios: "
+            + ", ".join(missing_catalogs)
+            + ".",
+        )
+    elif request.method == "POST" and form.is_valid():
         try:
             vacancy = save_vacancy(form, request.user)
         except ValidationError as error:
@@ -608,7 +627,8 @@ def editar_plaza(request, plaza_id):
         {
             "form": form,
             "plaza": vacancy,
-            "catalogs_ready": form.has_required_catalogs(),
+            "catalogs_ready": catalogs_ready,
+            "missing_catalogs": missing_catalogs,
             "editing": True,
         },
     )
@@ -810,6 +830,13 @@ def postulaciones(request):
     ).order_by("-actualizado_en")
     query = request.GET.get("q", "").strip()
     status = request.GET.get("estado", "").strip().upper()
+    vacancy_filter = request.GET.get("plaza", "").strip()
+    if not vacancy_filter.isdigit():
+        vacancy_filter = ""
+    application_scope = Postulacion.objects.all()
+    if vacancy_filter:
+        applications = applications.filter(plaza_id=vacancy_filter)
+        application_scope = application_scope.filter(plaza_id=vacancy_filter)
     if query:
         applications = applications.filter(
             Q(aspirante__usuario__first_name__icontains=query)
@@ -821,7 +848,7 @@ def postulaciones(request):
         applications = applications.filter(estado_id=status)
     page = Paginator(applications, 15).get_page(request.GET.get("pagina"))
     status_counts = dict(
-        Postulacion.objects.values_list("estado_id")
+        application_scope.values_list("estado_id")
         .annotate(total=Count("id"))
         .values_list("estado_id", "total")
     )
@@ -839,8 +866,11 @@ def postulaciones(request):
             "page": page,
             "statuses": statuses,
             "status_summary": status_summary,
-            "total_count": Postulacion.objects.count(),
-            "filters": {"q": query, "estado": status},
+            "total_count": application_scope.count(),
+            "plaza_filter": Plaza.objects.filter(pk=vacancy_filter).first()
+            if vacancy_filter
+            else None,
+            "filters": {"q": query, "estado": status, "plaza": vacancy_filter},
         },
     )
 

@@ -396,6 +396,12 @@ class FormularioReenvioVerificacion(forms.Form):
 
 
 class FormularioPlaza(forms.ModelForm):
+    required_catalogs = (
+        ("departamento", "departamentos"),
+        ("tipo_empleo", "tipos de empleo"),
+        ("modalidad_trabajo", "modalidades de trabajo"),
+    )
+
     anios_experiencia = forms.IntegerField(required=False, min_value=0, max_value=50)
     nivel_educativo = forms.ModelChoiceField(
         queryset=NivelEducativo.objects.none(),
@@ -566,11 +572,15 @@ class FormularioPlaza(forms.ModelForm):
             raise forms.ValidationError("La fecha de cierre debe estar en el futuro.")
         return closes_at
 
+    def missing_required_catalogs(self):
+        return [
+            label
+            for field_name, label in self.required_catalogs
+            if not self.fields[field_name].queryset.exists()
+        ]
+
     def has_required_catalogs(self):
-        return all(
-            self.fields[field_name].queryset.exists()
-            for field_name in ("departamento", "tipo_empleo", "modalidad_trabajo")
-        )
+        return not self.missing_required_catalogs()
 
 
 class FormularioDatosPlaza(FormularioPlaza):

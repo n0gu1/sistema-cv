@@ -942,6 +942,38 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertContains(response, "Agrega al menos un requisito")
         self.assertEqual(Plaza.objects.count(), 0)
 
+    def test_missing_required_catalogs_explain_and_block_vacancy_saves(self):
+        ModalidadTrabajo.objects.all().delete()
+
+        response = self.client.get(reverse("nueva_plaza"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["catalogs_ready"])
+        self.assertEqual(response.context["missing_catalogs"], ["modalidades de trabajo"])
+        self.assertContains(response, "Faltan los siguientes catálogos")
+        self.assertContains(response, "modalidades de trabajo")
+        self.assertContains(response, "disabled")
+
+        response = self.client.post(
+            reverse("nueva_plaza"),
+            {"accion": "borrador"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No se puede guardar la plaza")
+        self.assertEqual(Plaza.objects.count(), 0)
+
+    def test_vacancy_detail_links_to_filtered_applications(self):
+        vacancy = self._create_draft()
+
+        response = self.client.get(reverse("detalle_plaza", args=[vacancy.pk]))
+
+        self.assertContains(
+            response,
+            f"{reverse('postulaciones')}?plaza={vacancy.pk}",
+        )
+        self.assertContains(response, "Borrador")
+
     def test_list_supports_search_status_and_pagination_context(self):
         vacancy = self._create_draft()
         response = self.client.get(

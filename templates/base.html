@@ -61,13 +61,10 @@
                 <i class="bi bi-list"></i>
             </button>
             <div class="topbar-context">
-                <button class="icon-button d-none d-lg-inline-grid" type="button" aria-label="Contraer menú"><i class="bi bi-list"></i></button>
                 <strong>{% block page_title %}Panel de reclutamiento{% endblock %}</strong>
             </div>
             <div class="topbar-actions">
-                <button class="icon-button d-none d-sm-inline-grid" aria-label="Buscar"><i class="bi bi-search"></i></button>
                 <a class="icon-button {% if unread_notification_count %}has-alert{% endif %}" href="{% url 'notificaciones' %}" aria-label="Notificaciones"><i class="bi bi-bell"></i></a>
-                <button class="icon-button d-none d-sm-inline-grid" aria-label="Ayuda"><i class="bi bi-question-circle"></i></button>
                 <div class="topbar-profile d-none d-md-flex">
                     <div class="avatar avatar-sm">{{ request.user.first_name|first }}{{ request.user.last_name|first }}</div>
                     <span><strong>{{ request.user.get_full_name }}</strong><small>Recursos Humanos</small></span>

@@ -1346,6 +1346,50 @@ class ApplicantWorkflowTests(TransactionTestCase):
             self.client.get(reverse("detalle_postulacion", args=[application.pk])),
             "Historial de estados",
         )
+        dashboard_response = self.client.get(reverse("dashboard"))
+        for inactive_action in (
+            'aria-label="Contraer menú"',
+            'aria-label="Buscar"',
+            'aria-label="Ayuda"',
+        ):
+            with self.subTest(inactive_action=inactive_action):
+                self.assertNotContains(dashboard_response, inactive_action)
+
+    def test_hr_can_filter_applications_by_vacancy(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(
+            reverse("postulaciones"),
+            {"plaza": self.vacancy.pk},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["filters"]["plaza"], str(self.vacancy.pk))
+        self.assertEqual(response.context["page"].paginator.count, 1)
+        self.assertContains(response, self.vacancy.titulo)
+        self.assertContains(response, "Ver todas")
+
+    def test_state_codes_are_rendered_as_readable_labels(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
+            transition_application(application.pk, target, self.hr_user)
+        create_offer(
+            application.pk,
+            self.hr_user,
+            "Condiciones de contratación.",
+            timezone.now() + timezone.timedelta(days=2),
+        )
+        self._interview(application, "CONFIRMADA")
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(
+            reverse("detalle_postulacion", args=[application.pk])
+        )
+
+        self.assertContains(response, "En revisión")
+        self.assertContains(response, "Oferta enviada")
+        self.assertContains(response, "No asistió")
 
     def test_applicant_portal_exposes_account_actions_and_application_detail_links(self):
         application = create_application(self.vacancy.pk, self.profile)

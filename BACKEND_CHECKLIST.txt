@@ -172,10 +172,10 @@ Convenciones:
 [x] Diferenciar visualmente las plazas vencidas de las plazas publicadas activas.
 [x] Mostrar todos los detalles de disponibilidad: fecha requerida, viajes, reubicacion y horario.
 [x] Mostrar hora de finalizacion, notas, ubicacion y enlace utilizable en las entrevistas.
-[ ] Implementar o eliminar los botones inactivos de contraer menu, buscar y ayuda del encabezado administrativo.
-[ ] Agregar acceso directo desde el detalle de una plaza a sus postulaciones.
-[ ] Usar catalogs_ready para explicar catalogos faltantes y desactivar el guardado imposible de plazas.
-[ ] Mostrar nombres legibles para estados compuestos como EN_REVISION, OFERTA_ENVIADA y NO_ASISTIO.
+[x] Implementar o eliminar los botones inactivos de contraer menu, buscar y ayuda del encabezado administrativo.
+[x] Agregar acceso directo desde el detalle de una plaza a sus postulaciones.
+[x] Usar catalogs_ready para explicar catalogos faltantes y desactivar el guardado imposible de plazas.
+[x] Mostrar nombres legibles para estados compuestos como EN_REVISION, OFERTA_ENVIADA y NO_ASISTIO.
 [ ] Reemplazar o adaptar los multiselect que requieren Ctrl o Cmd para que funcionen correctamente en movil.
 [ ] Agregar filtros por departamento, modalidad, ciudad y tipo de empleo en oportunidades.
 [ ] Agregar paginacion y filtros a Mis solicitudes y Notificaciones.
@@ -187,4 +187,4 @@ Convenciones:
 [ ] Agregar nombres accesibles a botones iconograficos, filtros, paginadores y cierre del menu movil.
 [ ] Aumentar tamanos de texto y objetivos tactiles demasiado pequenos en movil.
 [ ] Renombrar Formacion y beneficios o agregar campos reales para beneficios de la plaza.
-[ ] Mostrar nombres de estado legibles en el historial de plazas en lugar de codigos tecnicos.
+[x] Mostrar nombres de estado legibles en el historial de plazas en lugar de codigos tecnicos.

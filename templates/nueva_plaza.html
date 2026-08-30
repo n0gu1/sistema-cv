@@ -4,10 +4,11 @@
 {% block content %}
 <div class="editor-heading">
     <div><a class="back-link" href="{% if plaza %}{% url 'detalle_plaza' plaza.pk %}{% else %}{% url 'plazas' %}{% endif %}"><i class="bi bi-arrow-left"></i> Volver</a><h1>{% if plaza %}Editar plaza{% else %}Crear nueva plaza{% endif %}</h1><p>Completa la información para publicar una nueva oportunidad laboral.</p></div>
-    <div class="editor-actions"><a class="btn btn-light" href="{% url 'plazas' %}">Cancelar</a>{% if not plaza %}<button class="btn btn-outline-primary" form="vacancyForm" name="accion" value="borrador" type="submit">Guardar borrador</button>{% endif %}<button class="btn btn-primary" form="vacancyForm" name="accion" value="publicar" type="submit"><i class="bi bi-send"></i> {% if plaza %}Guardar cambios{% else %}Publicar plaza{% endif %}</button></div>
+    <div class="editor-actions"><a class="btn btn-light" href="{% url 'plazas' %}">Cancelar</a>{% if not plaza %}<button class="btn btn-outline-primary" form="vacancyForm" name="accion" value="borrador" type="submit"{% if not catalogs_ready %} disabled title="Configura los catálogos requeridos antes de guardar"{% endif %}>Guardar borrador</button>{% endif %}<button class="btn btn-primary" form="vacancyForm" name="accion" value="publicar" type="submit"{% if not catalogs_ready %} disabled title="Configura los catálogos requeridos antes de guardar"{% endif %}><i class="bi bi-send"></i> {% if plaza %}Guardar cambios{% else %}Publicar plaza{% endif %}</button></div>
 </div>
 
 {% if form.errors %}<div class="auth-alert error form-alert"><i class="bi bi-exclamation-circle"></i><span>Revisa los campos señalados antes de continuar. {{ form.non_field_errors }}</span></div>{% endif %}
+{% if not catalogs_ready %}<div class="auth-alert error form-alert"><i class="bi bi-database-exclamation"></i><span>No puedes guardar esta plaza todavía. Faltan los siguientes catálogos: <strong>{% for catalog in missing_catalogs %}{{ catalog }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong>.</span></div>{% endif %}
 
 <form method="post" class="vacancy-form" id="vacancyForm">
     {% csrf_token %}
@@ -55,6 +56,6 @@
         </div>
     </section>{% endif %}
 
-    <div class="mobile-editor-actions {% if plaza %}editing{% endif %}"><a class="btn btn-light" href="{% url 'plazas' %}">Cancelar</a>{% if not plaza %}<button class="btn btn-outline-primary" name="accion" value="borrador" type="submit">Guardar borrador</button>{% endif %}<button class="btn btn-primary" name="accion" value="publicar" type="submit">{% if plaza %}Guardar cambios{% else %}Publicar plaza{% endif %}</button></div>
+    <div class="mobile-editor-actions {% if plaza %}editing{% endif %}"><a class="btn btn-light" href="{% url 'plazas' %}">Cancelar</a>{% if not plaza %}<button class="btn btn-outline-primary" name="accion" value="borrador" type="submit"{% if not catalogs_ready %} disabled title="Configura los catálogos requeridos antes de guardar"{% endif %}>Guardar borrador</button>{% endif %}<button class="btn btn-primary" name="accion" value="publicar" type="submit"{% if not catalogs_ready %} disabled title="Configura los catálogos requeridos antes de guardar"{% endif %}>{% if plaza %}Guardar cambios{% else %}Publicar plaza{% endif %}</button></div>
 </form>
 {% endblock %}
