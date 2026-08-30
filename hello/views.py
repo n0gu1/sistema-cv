@@ -51,12 +51,14 @@ from reclutamiento.models import (
     AnalisisCV,
     CertificacionAspirante,
     CertificacionAnalisisCV,
+    Ciudad,
     Curriculo,
     DatosPersonalesAnalisisCV,
     Departamento,
     EducacionAnalisisCV,
     Entrevista,
     EvaluacionPostulacion,
+    EstadoPostulacion,
     ExperienciaAnalisisCV,
     ExperienciaLaboral,
     FormacionAcademica,
@@ -75,6 +77,8 @@ from reclutamiento.models import (
     Plaza,
     Postulacion,
     RequisitoPlaza,
+    TipoEmpleo,
+    TipoNotificacion,
     Usuario,
 )
 from reclutamiento.permissions import roles_required
@@ -524,6 +528,8 @@ def plazas(request):
             vacancies = vacancies.filter(active_filter)
         elif status == "VENCIDA":
             vacancies = vacancies.filter(expired_filter)
+        elif status == "PENDIENTES":
+            vacancies = vacancies.filter(estado_id__in=("BORRADOR", "PAUSADA"))
         else:
             vacancies = vacancies.filter(estado_id=status)
     if department:
@@ -538,6 +544,9 @@ def plazas(request):
     )
     status_counts["PUBLICADA"] = Plaza.objects.filter(active_filter).count()
     status_counts["VENCIDA"] = Plaza.objects.filter(expired_filter).count()
+    status_counts["PENDIENTES"] = sum(
+        status_counts.get(code, 0) for code in ("BORRADOR", "PAUSADA")
+    )
     page = Paginator(vacancies, 9).get_page(request.GET.get("pagina"))
     return render(
         request,
@@ -573,7 +582,12 @@ def nueva_plaza(request):
     elif request.method == "POST" and form.is_valid():
         publish = request.POST.get("accion") == "publicar"
         try:
-            vacancy = save_vacancy(form, request.user, publish=publish)
+            vacancy = save_vacancy(
+                form,
+                request.user,
+                publish=publish,
+                publish_reason=request.POST.get("motivo"),
+            )
         except ValidationError as error:
             form.add_error(None, error.message)
         else:
@@ -852,9 +866,7 @@ def postulaciones(request):
         .annotate(total=Count("id"))
         .values_list("estado_id", "total")
     )
-    statuses = Postulacion._meta.get_field("estado").remote_field.model.objects.order_by(
-        "nombre"
-    )
+    statuses = EstadoPostulacion.objects.order_by("nombre")
     status_summary = [
         {"status": item, "count": status_counts.get(item.codigo, 0)}
         for item in statuses
@@ -1276,15 +1288,31 @@ def portal(request):
 
 @login_required
 def notificaciones(request):
-    notifications = (
-        Notificacion.objects.filter(usuario_destinatario=request.user)
-        .select_related(
-            "tipo",
-            "postulacion__plaza",
-            "entrevista",
-        )
-        .order_by("-creado_en", "-pk")
+    all_notifications = Notificacion.objects.filter(
+        usuario_destinatario=request.user
     )
+    notifications = all_notifications.select_related(
+        "tipo",
+        "postulacion__plaza",
+        "entrevista",
+    ).order_by("-creado_en", "-pk")
+    query = request.GET.get("q", "").strip()
+    read_filter = request.GET.get("leido", "").strip().lower()
+    if read_filter not in {"leidas", "no_leidas"}:
+        read_filter = ""
+    notification_type = request.GET.get("tipo", "").strip()
+    if query:
+        notifications = notifications.filter(
+            Q(titulo__icontains=query) | Q(mensaje__icontains=query)
+        )
+    if read_filter == "leidas":
+        notifications = notifications.filter(leido_en__isnull=False)
+    elif read_filter == "no_leidas":
+        notifications = notifications.filter(leido_en__isnull=True)
+    if notification_type:
+        notifications = notifications.filter(tipo_id=notification_type)
+    page = Paginator(notifications, 10).get_page(request.GET.get("pagina"))
+    notification_types = TipoNotificacion.objects.order_by("nombre")
     is_portal = request.user.has_role("ASPIRANTE") and not request.user.has_role(
         "RRHH", "ADMINISTRADOR"
     )
@@ -1294,8 +1322,18 @@ def notificaciones(request):
         {
             "base_template": "portal_base.html" if is_portal else "base.html",
             "is_portal": is_portal,
+            "page": page,
             "notificaciones": notifications,
-            "unread_count": notifications.filter(leido_en__isnull=True).count(),
+            "notification_types": notification_types,
+            "filters": {
+                "q": query,
+                "leido": read_filter,
+                "tipo": notification_type,
+            },
+            "has_filters": bool(query or read_filter or notification_type),
+            "unread_count": all_notifications.filter(
+                leido_en__isnull=True
+            ).count(),
         },
     )
 
@@ -1568,12 +1606,33 @@ def oportunidades(request):
     profile = get_applicant_profile(request.user)
     vacancies = _available_vacancies().order_by("-publicado_en")
     query = request.GET.get("q", "").strip()
+    filters = {
+        "departamento": request.GET.get("departamento", "").strip(),
+        "modalidad": request.GET.get("modalidad", "").strip(),
+        "ciudad": request.GET.get("ciudad", "").strip(),
+        "tipo_empleo": request.GET.get("tipo_empleo", "").strip(),
+    }
     if query:
         vacancies = vacancies.filter(
             Q(titulo__icontains=query)
             | Q(descripcion__icontains=query)
             | Q(departamento__nombre__icontains=query)
+            | Q(ciudad__nombre__icontains=query)
+            | Q(tipo_empleo__nombre__icontains=query)
+            | Q(modalidad_trabajo__nombre__icontains=query)
         )
+    for field_name in ("departamento", "modalidad", "ciudad", "tipo_empleo"):
+        value = filters[field_name]
+        if value and value.isdigit():
+            lookup = {
+                "departamento": "departamento_id",
+                "modalidad": "modalidad_trabajo_id",
+                "ciudad": "ciudad_id",
+                "tipo_empleo": "tipo_empleo_id",
+            }[field_name]
+            vacancies = vacancies.filter(**{lookup: value})
+        elif value:
+            filters[field_name] = ""
     applied_ids = set(
         Postulacion.objects.filter(aspirante=profile).values_list("plaza_id", flat=True)
     )
@@ -1581,7 +1640,17 @@ def oportunidades(request):
     return render(
         request,
         "oportunidades.html",
-        {"page": page, "query": query, "applied_ids": applied_ids},
+        {
+            "page": page,
+            "query": query,
+            "filters": filters,
+            "has_filters": bool(query or any(filters.values())),
+            "departments": Departamento.objects.filter(activo=True).order_by("nombre"),
+            "work_modes": ModalidadTrabajo.objects.order_by("nombre"),
+            "cities": Ciudad.objects.select_related("region").order_by("nombre"),
+            "employment_types": TipoEmpleo.objects.order_by("nombre"),
+            "applied_ids": applied_ids,
+        },
     )
 
 
@@ -1630,7 +1699,31 @@ def mis_postulaciones(request):
     applications = Postulacion.objects.filter(aspirante=profile).select_related(
         "plaza__departamento", "plaza__modalidad_trabajo", "estado"
     ).order_by("-actualizado_en")
-    return render(request, "mis_postulaciones.html", {"postulaciones": applications})
+    query = request.GET.get("q", "").strip()
+    status = request.GET.get("estado", "").strip().upper()
+    if query:
+        applications = applications.filter(
+            Q(plaza__titulo__icontains=query)
+            | Q(plaza__departamento__nombre__icontains=query)
+            | Q(plaza__modalidad_trabajo__nombre__icontains=query)
+        )
+    if status:
+        applications = applications.filter(estado_id=status)
+    statuses = Postulacion._meta.get_field("estado").remote_field.model.objects.order_by(
+        "nombre"
+    )
+    page = Paginator(applications, 10).get_page(request.GET.get("pagina"))
+    return render(
+        request,
+        "mis_postulaciones.html",
+        {
+            "page": page,
+            "postulaciones": applications,
+            "statuses": statuses,
+            "filters": {"q": query, "estado": status},
+            "has_filters": bool(query or status),
+        },
+    )
 
 
 @roles_required("ASPIRANTE")

@@ -67,7 +67,7 @@
             <span><small>Currículum</small><a href="{% url 'descargar_curriculo' postulacion.curriculo_id %}">{{ postulacion.curriculo.nombre_archivo_original }}</a></span>
             {% if postulacion.carta_presentacion %}<span><small>Carta de presentación</small><p>{{ postulacion.carta_presentacion }}</p></span>{% endif %}
             {% if postulacion.estado_id != 'CONTRATADA' and postulacion.estado_id != 'RECHAZADA' and postulacion.estado_id != 'RETIRADA' %}
-            <form method="post" action="{% url 'retirar_postulacion' postulacion.pk %}">{% csrf_token %}<button class="btn btn-outline-danger w-100" type="submit">Retirar postulación</button></form>
+            <form class="withdraw-form" method="post" action="{% url 'retirar_postulacion' postulacion.pk %}">{% csrf_token %}<label for="withdrawReason">Motivo del retiro <span>(opcional)</span></label><textarea id="withdrawReason" name="motivo" maxlength="1000" rows="3" placeholder="Cuéntanos por qué retiras tu postulación"></textarea><button class="btn btn-outline-danger w-100" type="submit">Retirar postulación</button></form>
             {% endif %}
         </section>
     </aside>

@@ -9,7 +9,7 @@
 
 <section class="metric-grid clean-metrics" aria-label="Resumen de contratación">
     <article class="metric-card"><div class="metric-top"><span>Plazas activas</span><span class="metric-icon"><i class="bi bi-briefcase"></i></span></div><div class="metric-value">{{ active_vacancies }}</div><a class="metric-link" href="{% url 'plazas' %}?estado=PUBLICADA">Ver plazas</a></article>
-    <article class="metric-card"><div class="metric-top"><span>Plazas pendientes</span><span class="metric-icon amber"><i class="bi bi-clock"></i></span></div><div class="metric-value">{{ pending_vacancies }}</div><a class="metric-link" href="{% url 'plazas' %}?estado=BORRADOR">Ver plazas</a></article>
+    <article class="metric-card"><div class="metric-top"><span>Plazas pendientes</span><span class="metric-icon amber"><i class="bi bi-clock"></i></span></div><div class="metric-value">{{ pending_vacancies }}</div><a class="metric-link" href="{% url 'plazas' %}?estado=PENDIENTES">Ver plazas</a></article>
     <article class="metric-card"><div class="metric-top"><span>Plazas cerradas</span><span class="metric-icon green"><i class="bi bi-check-circle"></i></span></div><div class="metric-value">{{ closed_vacancies }}</div><a class="metric-link" href="{% url 'plazas' %}?estado=CERRADA">Ver plazas</a></article>
     <article class="metric-card"><div class="metric-top"><span>Total aspirantes</span><span class="metric-icon violet"><i class="bi bi-people"></i></span></div><div class="metric-value">{{ total_applicants }}</div><a class="metric-link" href="{% url 'aspirantes' %}">Ver todos</a></article>
 </section>

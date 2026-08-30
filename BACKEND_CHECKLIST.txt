@@ -176,11 +176,11 @@ Convenciones:
 [x] Agregar acceso directo desde el detalle de una plaza a sus postulaciones.
 [x] Usar catalogs_ready para explicar catalogos faltantes y desactivar el guardado imposible de plazas.
 [x] Mostrar nombres legibles para estados compuestos como EN_REVISION, OFERTA_ENVIADA y NO_ASISTIO.
-[ ] Reemplazar o adaptar los multiselect que requieren Ctrl o Cmd para que funcionen correctamente en movil.
-[ ] Agregar filtros por departamento, modalidad, ciudad y tipo de empleo en oportunidades.
-[ ] Agregar paginacion y filtros a Mis solicitudes y Notificaciones.
-[ ] Corregir el enlace de la metrica Plazas pendientes para incluir borradores y pausadas.
-[ ] Permitir ingresar un motivo al publicar, pausar, reactivar, cerrar o retirar una postulacion.
+[x] Reemplazar o adaptar los multiselect que requieren Ctrl o Cmd para que funcionen correctamente en movil.
+[x] Agregar filtros por departamento, modalidad, ciudad y tipo de empleo en oportunidades.
+[x] Agregar paginacion y filtros a Mis solicitudes y Notificaciones.
+[x] Corregir el enlace de la metrica Plazas pendientes para incluir borradores y pausadas.
+[x] Permitir ingresar un motivo al publicar, pausar, reactivar, cerrar o retirar una postulacion.
 [ ] Mostrar las URL de credenciales y reuniones como enlaces seguros y utilizables.
 [ ] Adaptar los listados administrativos a tarjetas o acciones visibles sin desplazamiento horizontal en movil.
 [ ] Mantener activa la opcion correcta del menu en detalles y edicion de plazas y aspirantes.

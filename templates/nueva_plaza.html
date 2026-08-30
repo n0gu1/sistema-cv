@@ -12,6 +12,7 @@
 
 <form method="post" class="vacancy-form" id="vacancyForm">
     {% csrf_token %}
+    {% if not plaza %}<div class="transition-reason"><label for="publicationReason">Motivo de publicación <span>(opcional)</span></label><input id="publicationReason" class="form-control" type="text" name="motivo" maxlength="1000" placeholder="Indica por qué se publica esta plaza"><small>Este motivo quedará registrado en el historial de estados.</small></div>{% endif %}
     <section class="form-card">
         <div class="form-card-header"><span><i class="bi bi-briefcase"></i></span><div><h2>Información de la plaza</h2><p>Datos principales que verán los candidatos.</p></div></div>
         <div class="form-card-body field-grid-2">
@@ -38,8 +39,8 @@
             <div class="field-stack"><label for="{{ form.anios_experiencia.id_for_label }}">Años de experiencia</label>{{ form.anios_experiencia }}{{ form.anios_experiencia.errors }}</div>
             <div class="field-stack"><label for="{{ form.nivel_educativo.id_for_label }}">Nivel educativo</label>{{ form.nivel_educativo }}{{ form.nivel_educativo.errors }}</div>
             <div class="field-stack field-span-2"><label for="{{ form.area_estudio.id_for_label }}">Área de estudio</label>{{ form.area_estudio }}{{ form.area_estudio.errors }}</div>
-            <div class="field-stack"><label for="{{ form.habilidades_obligatorias.id_for_label }}">Habilidades obligatorias</label>{{ form.habilidades_obligatorias }}{{ form.habilidades_obligatorias.errors }}<small>Usa Ctrl o Cmd para seleccionar varias opciones.</small></div>
-            <div class="field-stack"><label for="{{ form.habilidades_deseables.id_for_label }}">Habilidades deseables</label>{{ form.habilidades_deseables }}{{ form.habilidades_deseables.errors }}<small>Usa Ctrl o Cmd para seleccionar varias opciones.</small></div>
+            <div class="field-stack"><label for="{{ form.habilidades_obligatorias.id_for_label }}">Habilidades obligatorias</label>{{ form.habilidades_obligatorias }}{{ form.habilidades_obligatorias.errors }}<small>Selecciona las habilidades que son indispensables para el puesto.</small></div>
+            <div class="field-stack"><label for="{{ form.habilidades_deseables.id_for_label }}">Habilidades deseables</label>{{ form.habilidades_deseables }}{{ form.habilidades_deseables.errors }}<small>Selecciona las habilidades que representan una ventaja.</small></div>
             <div class="field-stack"><label for="{{ form.idioma.id_for_label }}">Idioma requerido</label>{{ form.idioma }}{{ form.idioma.errors }}</div>
             <div class="field-stack"><label for="{{ form.nivel_idioma.id_for_label }}">Nivel del idioma</label>{{ form.nivel_idioma }}{{ form.nivel_idioma.errors }}</div>
             <div class="field-stack field-span-2"><label for="{{ form.certificaciones.id_for_label }}">Certificaciones</label>{{ form.certificaciones }}{{ form.certificaciones.errors }}</div>

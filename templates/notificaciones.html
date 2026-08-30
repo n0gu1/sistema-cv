@@ -7,16 +7,18 @@
 {% else %}
 <div class="page-heading simple-heading"><div><h1>Notificaciones</h1><p>Revisa los eventos recientes y confirma cuáles ya leíste.</p></div>{% if unread_count %}<form method="post" action="{% url 'marcar_notificaciones_leidas' %}">{% csrf_token %}<button class="btn btn-outline-primary btn-lg" type="submit"><i class="bi bi-check2-all"></i> Marcar todas como leídas</button></form>{% endif %}</div>
 {% endif %}
+<form class="notification-filters" method="get"><label class="notification-search"><i class="bi bi-search"></i><input type="search" name="q" value="{{ filters.q }}" placeholder="Buscar notificaciones" aria-label="Buscar notificaciones"></label><select name="leido" aria-label="Filtrar por estado de lectura"><option value="">Todas las notificaciones</option><option value="no_leidas" {% if filters.leido == 'no_leidas' %}selected{% endif %}>No leídas</option><option value="leidas" {% if filters.leido == 'leidas' %}selected{% endif %}>Leídas</option></select><select name="tipo" aria-label="Filtrar por tipo de notificación"><option value="">Todos los tipos</option>{% for notification_type in notification_types %}<option value="{{ notification_type.codigo }}" {% if filters.tipo == notification_type.codigo %}selected{% endif %}>{{ notification_type.nombre }}</option>{% endfor %}</select><button class="btn btn-dark" type="submit">Aplicar filtros</button>{% if has_filters %}<a class="filter-reset" href="{% url 'notificaciones' %}">Limpiar</a>{% endif %}</form>
 <section class="{% if is_portal %}portal-card{% else %}panel{% endif %} notification-panel">
     <div class="notification-list">
-        {% for notification in notificaciones %}
+        {% for notification in page.object_list %}
         <article class="notification-item {% if not notification.leido_en %}unread{% endif %}">
             <span class="notification-icon"><i class="bi bi-{% if notification.entrevista %}calendar-event{% elif notification.tipo.codigo == 'CAMBIO_ESTADO' %}arrow-repeat{% else %}send-check{% endif %}"></i></span>
             <div class="notification-content"><div class="notification-meta"><strong>{{ notification.tipo.nombre }}</strong><small>{{ notification.creado_en|date:"d/m/Y H:i" }}</small>{% if not notification.leido_en %}<span class="notification-unread">Nueva</span>{% endif %}</div><h2>{{ notification.titulo }}</h2><p>{{ notification.mensaje }}</p><div class="notification-actions">{% if notification.postulacion %}<a href="{% if is_portal %}{% url 'mi_postulacion' notification.postulacion.pk %}{% else %}{% url 'detalle_postulacion' notification.postulacion.pk %}{% endif %}">Ver postulación <i class="bi bi-arrow-right"></i></a>{% endif %}{% if not notification.leido_en %}<form method="post" action="{% url 'marcar_notificacion_leida' notification.pk %}">{% csrf_token %}<button type="submit">Marcar como leída</button></form>{% endif %}</div></div>
         </article>
         {% empty %}
-        <div class="portal-empty"><i class="bi bi-bell-slash"></i><h3>No tienes notificaciones</h3><p>Las novedades de tus procesos aparecerán aquí.</p></div>
+        <div class="portal-empty"><i class="bi bi-bell-slash"></i><h3>{% if has_filters %}No encontramos notificaciones{% else %}No tienes notificaciones{% endif %}</h3><p>{% if has_filters %}Prueba con otros filtros de búsqueda.{% else %}Las novedades de tus procesos aparecerán aquí.{% endif %}</p></div>
         {% endfor %}
     </div>
 </section>
+{% if page.has_other_pages %}<nav class="page-pagination">{% if page.has_previous %}<a href="?q={{ filters.q|urlencode }}&amp;leido={{ filters.leido }}&amp;tipo={{ filters.tipo }}&amp;pagina={{ page.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span>Página {{ page.number }} de {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?q={{ filters.q|urlencode }}&amp;leido={{ filters.leido }}&amp;tipo={{ filters.tipo }}&amp;pagina={{ page.next_page_number }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav>{% endif %}
 {% endblock %}

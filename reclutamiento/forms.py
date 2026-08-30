@@ -414,10 +414,12 @@ class FormularioPlaza(forms.ModelForm):
     habilidades_obligatorias = forms.ModelMultipleChoiceField(
         queryset=Habilidad.objects.none(),
         required=False,
+        widget=forms.CheckboxSelectMultiple,
     )
     habilidades_deseables = forms.ModelMultipleChoiceField(
         queryset=Habilidad.objects.none(),
         required=False,
+        widget=forms.CheckboxSelectMultiple,
     )
     idioma = forms.ModelChoiceField(queryset=Idioma.objects.none(), required=False)
     nivel_idioma = forms.ModelChoiceField(
@@ -427,6 +429,7 @@ class FormularioPlaza(forms.ModelForm):
     certificaciones = forms.ModelMultipleChoiceField(
         queryset=Certificacion.objects.none(),
         required=False,
+        widget=forms.CheckboxSelectMultiple,
     )
     disponible_desde = forms.DateField(required=False)
     requiere_viajar = forms.BooleanField(required=False)
@@ -489,12 +492,6 @@ class FormularioPlaza(forms.ModelForm):
         skills = Habilidad.objects.filter(activo=True).order_by("nombre")
         self.fields["habilidades_obligatorias"].queryset = skills
         self.fields["habilidades_deseables"].queryset = skills
-        self.fields["habilidades_obligatorias"].widget.attrs.update(
-            {"class": "form-select multi-select"}
-        )
-        self.fields["habilidades_deseables"].widget.attrs.update(
-            {"class": "form-select multi-select"}
-        )
         self.fields["idioma"].queryset = Idioma.objects.order_by("nombre")
         self.fields["nivel_idioma"].queryset = NivelIdioma.objects.order_by(
             "orden_nivel"
@@ -502,12 +499,11 @@ class FormularioPlaza(forms.ModelForm):
         self.fields["certificaciones"].queryset = Certificacion.objects.order_by(
             "nombre"
         )
-        self.fields["certificaciones"].widget.attrs.update(
-            {"class": "form-select multi-select"}
-        )
         for field in self.fields.values():
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.setdefault("class", "form-check-input")
+            elif isinstance(field.widget, forms.CheckboxSelectMultiple):
+                field.widget.attrs.setdefault("class", "multi-checkboxes")
             elif isinstance(field.widget, forms.Select):
                 field.widget.attrs.setdefault("class", "form-select")
             else:

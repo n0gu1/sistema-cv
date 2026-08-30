@@ -8,7 +8,7 @@
     <a class="{% if not filters.estado %}active{% endif %}" href="{% url 'plazas' %}">Todas <span>{{ total_count }}</span></a>
     <a class="{% if filters.estado == 'PUBLICADA' %}active{% endif %}" href="?estado=PUBLICADA">Activas <span>{{ status_counts.PUBLICADA|default:0 }}</span></a>
     <a class="{% if filters.estado == 'VENCIDA' %}active{% endif %}" href="?estado=VENCIDA">Vencidas <span>{{ status_counts.VENCIDA|default:0 }}</span></a>
-    <a class="{% if filters.estado == 'BORRADOR' %}active{% endif %}" href="?estado=BORRADOR">Pendientes <span>{{ status_counts.BORRADOR|default:0 }}</span></a>
+    <a class="{% if filters.estado == 'PENDIENTES' %}active{% endif %}" href="?estado=PENDIENTES">Pendientes <span>{{ status_counts.PENDIENTES|default:0 }}</span></a>
     <a class="{% if filters.estado == 'PAUSADA' %}active{% endif %}" href="?estado=PAUSADA">Pausadas <span>{{ status_counts.PAUSADA|default:0 }}</span></a>
     <a class="{% if filters.estado == 'CERRADA' %}active{% endif %}" href="?estado=CERRADA">Cerradas <span>{{ status_counts.CERRADA|default:0 }}</span></a>
 </div>

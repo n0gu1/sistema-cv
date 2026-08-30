@@ -1,3 +1,4 @@
+from django import forms
 from django.db import connection
 from django.core import mail
 from django.contrib.auth.tokens import default_token_generator
@@ -696,7 +697,11 @@ class VacancyManagementTests(TransactionTestCase):
     def test_create_and_publish_vacancy_with_normalized_requirements(self):
         response = self.client.post(
             reverse("nueva_plaza"),
-            {**self._payload(), "accion": "publicar"},
+            {
+                **self._payload(),
+                "accion": "publicar",
+                "motivo": "Aprobación de la convocatoria técnica.",
+            },
         )
 
         vacancy = Plaza.objects.get()
@@ -719,6 +724,30 @@ class VacancyManagementTests(TransactionTestCase):
             ),
             ["BORRADOR", "PUBLICADA"],
         )
+        self.assertEqual(
+            HistorialEstadoPlaza.objects.filter(
+                plaza=vacancy, codigo_estado_nuevo="PUBLICADA"
+            ).get().motivo,
+            "Aprobación de la convocatoria técnica.",
+        )
+
+    def test_vacancy_multiselects_render_as_mobile_checkboxes(self):
+        form = FormularioPlaza()
+
+        for field_name in (
+            "habilidades_obligatorias",
+            "habilidades_deseables",
+            "certificaciones",
+        ):
+            with self.subTest(field_name=field_name):
+                self.assertIsInstance(
+                    form.fields[field_name].widget,
+                    forms.CheckboxSelectMultiple,
+                )
+
+        response = self.client.get(reverse("nueva_plaza"))
+        self.assertContains(response, "multi-checkboxes")
+        self.assertNotContains(response, "Ctrl o Cmd")
 
     def test_edit_vacancy_preserves_requirements(self):
         vacancy = self._create_draft()
@@ -1023,6 +1052,27 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertNotContains(response, "Ana Martínez")
         self.assertNotContains(response, "Luis Alberto Moreno")
         self.assertNotContains(response, "Hace 2 horas")
+
+    def test_pending_metric_and_filter_include_drafts_and_paused_vacancies(self):
+        draft = self._create_draft()
+        self.client.post(
+            reverse("nueva_plaza"),
+            {**self._payload(titulo="Plaza pausada"), "accion": "borrador"},
+        )
+        paused = Plaza.objects.exclude(pk=draft.pk).get()
+        transition_vacancy(paused.pk, "PUBLICADA", self.user)
+        transition_vacancy(paused.pk, "PAUSADA", self.user)
+
+        dashboard = self.client.get(reverse("dashboard"))
+        pending = self.client.get(reverse("plazas"), {"estado": "PENDIENTES"})
+
+        self.assertEqual(dashboard.context["pending_vacancies"], 2)
+        self.assertContains(
+            dashboard,
+            f"{reverse('plazas')}?estado=PENDIENTES",
+        )
+        self.assertEqual(pending.context["status_counts"]["PENDIENTES"], 2)
+        self.assertEqual(pending.context["page"].paginator.count, 2)
 
     def test_salary_and_duplicate_skill_validation(self):
         python_id = Habilidad.objects.get(nombre="Python").pk

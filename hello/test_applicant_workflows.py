@@ -785,6 +785,41 @@ class ApplicantWorkflowTests(TransactionTestCase):
             0,
         )
 
+    def test_applicant_can_filter_and_paginate_notifications(self):
+        notification_type = TipoNotificacion.objects.get(codigo="CAMBIO_ESTADO")
+        other_type = TipoNotificacion.objects.get(codigo="OFERTA_LABORAL")
+        now = timezone.now()
+        for index in range(11):
+            Notificacion.objects.create(
+                usuario_destinatario=self.applicant,
+                tipo=notification_type if index % 2 else other_type,
+                titulo=f"Seguimiento {index}",
+                mensaje="Actualización del proceso.",
+                creado_en=now + timezone.timedelta(seconds=index),
+                leido_en=now if index % 2 == 0 else None,
+            )
+        self.client.force_login(self.applicant)
+
+        response = self.client.get(reverse("notificaciones"))
+        filtered = self.client.get(
+            reverse("notificaciones"),
+            {
+                "q": "Seguimiento",
+                "leido": "no_leidas",
+                "tipo": notification_type.pk,
+            },
+        )
+
+        self.assertEqual(response.context["page"].paginator.count, 11)
+        self.assertEqual(response.context["page"].paginator.num_pages, 2)
+        self.assertContains(response, "pagina=2")
+        self.assertEqual(filtered.context["page"].paginator.count, 5)
+        self.assertTrue(
+            all(item.leido_en is None for item in filtered.context["page"].object_list)
+        )
+        self.assertContains(filtered, "Seguimiento")
+        self.assertNotContains(filtered, "Aplicación")
+
     @patch(
         "reclutamiento.notifications.EmailMultiAlternatives.send",
         side_effect=OSError("SMTP caído"),
@@ -818,6 +853,24 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(
             HistorialEstadoPostulacion.objects.filter(postulacion=application).count(),
             3,
+        )
+
+    def test_applicant_withdrawal_records_the_entered_reason(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        transition_application(application.pk, "EN_REVISION", self.hr_user)
+        self.client.force_login(self.applicant)
+
+        response = self.client.post(
+            reverse("retirar_postulacion", args=[application.pk]),
+            {"motivo": "Acepté otra oportunidad laboral."},
+        )
+
+        self.assertRedirects(response, reverse("mi_postulacion", args=[application.pk]))
+        self.assertEqual(
+            HistorialEstadoPostulacion.objects.filter(
+                postulacion=application, codigo_estado_nuevo="RETIRADA"
+            ).get().motivo,
+            "Acepté otra oportunidad laboral.",
         )
 
     def test_hr_can_schedule_interview_from_shortlist(self):
@@ -1228,6 +1281,88 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertNotIn(self.vacancy, response.context["page"].object_list)
         self.assertEqual(api_response.status_code, 200)
         self.assertEqual(api_response.data["count"], 0)
+
+    def test_applicant_can_filter_and_paginate_opportunities(self):
+        country = Pais.objects.create(codigo_iso="GT", nombre="Guatemala")
+        region = Region.objects.create(pais=country, nombre="Central")
+        city = Ciudad.objects.create(region=region, nombre="Ciudad objetivo")
+        department = Departamento.objects.create(nombre="Operaciones", activo=True)
+        employment_type = TipoEmpleo.objects.create(
+            codigo="MEDIO_TIEMPO", nombre="Medio tiempo"
+        )
+        work_mode = ModalidadTrabajo.objects.create(
+            codigo="HIBRIDO", nombre="Híbrido"
+        )
+        for index in range(10):
+            now = timezone.now()
+            Plaza.objects.create(
+                departamento=department,
+                creado_por=self.hr_user,
+                ciudad=city,
+                tipo_empleo=employment_type,
+                modalidad_trabajo=work_mode,
+                estado_id="PUBLICADA",
+                titulo=f"Operaciones {index}",
+                descripcion="Vacante para operaciones.",
+                cantidad_vacantes=1,
+                publicado_en=now,
+                cierra_en=now + timezone.timedelta(days=10),
+                creado_en=now,
+                actualizado_en=now,
+            )
+        self.client.force_login(self.applicant)
+
+        response = self.client.get(
+            reverse("oportunidades"),
+            {
+                "departamento": department.pk,
+                "modalidad": work_mode.pk,
+                "ciudad": city.pk,
+                "tipo_empleo": employment_type.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page"].paginator.count, 10)
+        self.assertEqual(response.context["page"].paginator.num_pages, 2)
+        self.assertContains(response, "Operaciones 0")
+        self.assertContains(response, "pagina=2")
+        self.assertEqual(response.context["filters"]["ciudad"], str(city.pk))
+
+    def test_applicant_can_filter_and_paginate_own_applications(self):
+        for index in range(11):
+            now = timezone.now()
+            vacancy = Plaza.objects.create(
+                departamento=self.department,
+                creado_por=self.hr_user,
+                tipo_empleo=self.employment_type,
+                modalidad_trabajo=self.work_mode,
+                estado_id="PUBLICADA",
+                titulo=f"Solicitud {index}",
+                descripcion="Vacante para solicitudes.",
+                cantidad_vacantes=1,
+                publicado_en=now,
+                cierra_en=now + timezone.timedelta(days=10),
+                creado_en=now,
+                actualizado_en=now,
+            )
+            application = create_application(vacancy.pk, self.profile)
+            if index == 0:
+                transition_application(application.pk, "EN_REVISION", self.hr_user)
+        self.client.force_login(self.applicant)
+
+        response = self.client.get(reverse("mis_postulaciones"))
+        filtered = self.client.get(
+            reverse("mis_postulaciones"),
+            {"q": "Solicitud 0", "estado": "EN_REVISION"},
+        )
+
+        self.assertEqual(response.context["page"].paginator.count, 11)
+        self.assertEqual(response.context["page"].paginator.num_pages, 2)
+        self.assertContains(response, "pagina=2")
+        self.assertEqual(filtered.context["page"].paginator.count, 1)
+        self.assertContains(filtered, "Solicitud 0")
+        self.assertNotContains(filtered, "Solicitud 1")
 
     def test_reports_use_hiring_event_date_and_exclude_future_interviews(self):
         application = create_application(self.vacancy.pk, self.profile)

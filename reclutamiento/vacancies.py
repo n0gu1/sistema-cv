@@ -227,7 +227,7 @@ def _replace_requirement_specs(vacancy, specs):
 
 
 @transaction.atomic
-def save_vacancy(form, user, publish=False):
+def save_vacancy(form, user, publish=False, publish_reason=None):
     now = timezone.now()
     vacancy = form.save(commit=False)
     creating = vacancy.pk is None
@@ -259,7 +259,12 @@ def save_vacancy(form, user, publish=False):
             cambiado_en=now,
         )
     if publish:
-        transition_vacancy(vacancy.pk, "PUBLICADA", user, "Publicación inicial.")
+        transition_vacancy(
+            vacancy.pk,
+            "PUBLICADA",
+            user,
+            publish_reason or "Publicación inicial.",
+        )
         vacancy.refresh_from_db()
     return vacancy
 
