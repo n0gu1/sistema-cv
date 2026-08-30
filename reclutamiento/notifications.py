@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 CONFIRMATION_TYPE = "CONFIRMACION_POSTULACION"
 STATUS_CHANGE_TYPE = "CAMBIO_ESTADO"
 INTERVIEW_INVITATION_TYPE = "INVITACION_ENTREVISTA"
+OFFER_TYPE = "OFERTA_LABORAL"
+OFFER_RESPONSE_TYPE = "RESPUESTA_OFERTA"
 
 
 def _catalog(model, code):
@@ -203,6 +205,33 @@ def notify_interview_status_changed(interview, previous_code, current_code):
         ),
         application=application,
         interview=interview,
+    )
+
+
+def notify_offer_created(offer):
+    application = offer.postulacion
+    return create_notification(
+        recipient=application.aspirante.usuario,
+        type_code=OFFER_TYPE,
+        title="Nueva oferta laboral",
+        message=(
+            f"Recibiste una oferta para «{application.plaza.titulo}». "
+            f"Puedes responderla hasta el {offer.vence_en:%d/%m/%Y %H:%M}."
+        ),
+        application=application,
+    )
+
+
+def notify_offer_response(offer):
+    return create_notification(
+        recipient=offer.creado_por,
+        type_code=OFFER_RESPONSE_TYPE,
+        title="Respuesta a oferta laboral",
+        message=(
+            f"La oferta para «{offer.postulacion.plaza.titulo}» ahora está "
+            f"en estado «{offer.estado.nombre}»."
+        ),
+        application=offer.postulacion,
     )
 
 

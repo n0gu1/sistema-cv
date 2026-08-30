@@ -1061,6 +1061,47 @@ class Postulacion(ModeloExistente):
         db_table = "postulaciones"
 
 
+class EstadoOferta(ModeloExistente):
+    codigo = models.CharField(max_length=20, primary_key=True)
+    nombre = models.CharField(max_length=80, unique=True)
+    es_final = models.BooleanField(default=False)
+
+    class Meta(ModeloExistente.Meta):
+        db_table = "estados_oferta"
+
+    def __str__(self):
+        return self.nombre
+
+
+class OfertaLaboral(ModeloExistente):
+    postulacion = models.ForeignKey(
+        Postulacion,
+        models.CASCADE,
+        db_column="postulacion_id",
+    )
+    creado_por = models.ForeignKey(
+        Usuario,
+        models.PROTECT,
+        db_column="creado_por_id",
+    )
+    estado = models.ForeignKey(
+        EstadoOferta,
+        models.PROTECT,
+        db_column="codigo_estado",
+        default="ENVIADA",
+    )
+    condiciones = models.TextField()
+    respuesta = models.CharField(max_length=20, blank=True, null=True)
+    vence_en = models.DateTimeField()
+    enviada_en = models.DateTimeField()
+    respondida_en = models.DateTimeField(blank=True, null=True)
+    creado_en = models.DateTimeField()
+    actualizado_en = models.DateTimeField()
+
+    class Meta(ModeloExistente.Meta):
+        db_table = "ofertas_laborales"
+
+
 class HistorialEstadoPostulacion(ModeloExistente):
     postulacion = models.ForeignKey(
         Postulacion,

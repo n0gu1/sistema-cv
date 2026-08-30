@@ -9,6 +9,7 @@ from reclutamiento.models import (
     Departamento,
     EstadoEntrevista,
     EstadoEntrega,
+    EstadoOferta,
     EstadoPlaza,
     EstadoPostulacion,
     EstadoProcesamiento,
@@ -39,12 +40,14 @@ class Command(BaseCommand):
         self._code_catalog(EstadoPlaza, (("BORRADOR", "Pendiente", {"es_final": False}), ("PUBLICADA", "Activa", {"es_final": False}), ("PAUSADA", "Pausada", {"es_final": False}), ("CERRADA", "Cerrada", {"es_final": True})))
         if self._has_table(EstadoPostulacion):
             self._code_catalog(EstadoPostulacion, (("ENVIADA", "Enviada", {"es_final": False}), ("EN_REVISION", "En revisión", {"es_final": False}), ("PRESELECCIONADA", "Preseleccionada", {"es_final": False}), ("ENTREVISTA", "Entrevista", {"es_final": False}), ("OFERTA_ENVIADA", "Oferta enviada", {"es_final": False}), ("CONTRATADA", "Contratada", {"es_final": True}), ("RECHAZADA", "Rechazada", {"es_final": True}), ("RETIRADA", "Retirada", {"es_final": True})))
+        if self._has_table(EstadoOferta):
+            self._code_catalog(EstadoOferta, (("ENVIADA", "Enviada", {"es_final": False}), ("ACEPTADA", "Aceptada", {"es_final": True}), ("RECHAZADA", "Rechazada", {"es_final": True}), ("VENCIDA", "Vencida", {"es_final": True}), ("CANCELADA", "Cancelada", {"es_final": True})))
         if self._has_table(EstadoEntrevista):
             self._code_catalog(EstadoEntrevista, (("PROGRAMADA", "Programada", {"es_final": False}), ("CONFIRMADA", "Confirmada", {"es_final": False}), ("COMPLETADA", "Completada", {"es_final": True}), ("CANCELADA", "Cancelada", {"es_final": True}), ("NO_ASISTIO", "No asistió", {"es_final": True})))
         if self._has_table(EstadoProcesamiento):
             self._code_catalog(EstadoProcesamiento, (("PENDIENTE", "Pendiente", {"es_final": False}), ("PROCESANDO", "Procesando", {"es_final": False}), ("COMPLETADO", "Completado", {"es_final": True}), ("FALLIDO", "Fallido", {"es_final": True})))
         if self._has_table(TipoNotificacion):
-            self._code_catalog(TipoNotificacion, (("CONFIRMACION_POSTULACION", "Confirmación de postulación", {}), ("CAMBIO_ESTADO", "Cambio de estado", {}), ("INVITACION_ENTREVISTA", "Invitación a entrevista", {})))
+            self._code_catalog(TipoNotificacion, (("CONFIRMACION_POSTULACION", "Confirmación de postulación", {}), ("CAMBIO_ESTADO", "Cambio de estado", {}), ("INVITACION_ENTREVISTA", "Invitación a entrevista", {}), ("OFERTA_LABORAL", "Oferta laboral", {}), ("RESPUESTA_OFERTA", "Respuesta a oferta laboral", {})))
         if self._has_table(CanalNotificacion):
             self._code_catalog(CanalNotificacion, (("APLICACION", "Aplicación", {}), ("CORREO", "Correo electrónico", {})))
         if self._has_table(EstadoEntrega):

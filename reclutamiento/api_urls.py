@@ -13,6 +13,7 @@ from reclutamiento.api_views import (
     EmploymentTypeCatalogViewSet,
     LanguageCatalogViewSet,
     LanguageLevelCatalogViewSet,
+    InstitutionCatalogViewSet,
     ProfessionCatalogViewSet,
     SkillCatalogViewSet,
     SkillLevelCatalogViewSet,
@@ -39,6 +40,7 @@ router.register("catalogos/niveles-idioma", LanguageLevelCatalogViewSet, basenam
 router.register("catalogos/areas-estudio", StudyAreaCatalogViewSet, basename="api-area-estudio")
 router.register("catalogos/ciudades", CityCatalogViewSet, basename="api-ciudad")
 router.register("catalogos/certificaciones", CertificationCatalogViewSet, basename="api-certificacion")
+router.register("catalogos/instituciones", InstitutionCatalogViewSet, basename="api-institucion")
 router.register("catalogos/estados-plaza", VacancyStatusCatalogViewSet, basename="api-estado-plaza")
 router.register("catalogos/estados-postulacion", ApplicationStatusCatalogViewSet, basename="api-estado-postulacion")
 

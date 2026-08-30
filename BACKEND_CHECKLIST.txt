@@ -147,3 +147,44 @@ Convenciones:
 [x] Actualizar rollback.sql para eliminar tambien las tablas con nombres en espanol.
 [x] Fijar la version de Python usada por desarrollo, web y worker.
 [x] Verificar persistencia de curriculos en produccion cuando Backblaze este desactivado.
+
+12. PENDIENTES FUNCIONALES DE BACKEND
+[x] Implementar una oferta laboral real con condiciones, vencimiento y aceptacion o rechazo del aspirante antes de contratar.
+[x] Impedir reducir cantidad_vacantes por debajo de las contrataciones existentes.
+[x] Cerrar o resolver las postulaciones activas restantes cuando una plaza complete sus vacantes.
+[x] Evitar que una plaza sin cupos siga publicada o visible como disponible para nuevas postulaciones.
+[x] Permitir editar datos generales de una plaza sin eliminar y recrear requisitos que ya tienen evaluaciones.
+[x] Permitir definir nivel y experiencia minima para cada habilidad requerida.
+[x] Permitir varios requisitos de idioma por plaza.
+[x] Permitir configurar obligatoriedad y vigencia para cada certificacion requerida.
+[x] Permitir gestionar desde el sistema los catalogos de ciudades, profesiones, instituciones, habilidades y certificaciones.
+[x] Incluir ciudad, direccion y disponibilidad en el calculo real de completitud del perfil.
+[x] Permitir editar habilidades e idiomas del perfil sin eliminarlos y crearlos nuevamente.
+[x] Rechazar desde el formulario los anios de experiencia negativos en habilidades del aspirante.
+[x] Corregir los periodos de reportes para contar contrataciones y entrevistas por la fecha real del evento.
+[x] Separar la edicion de requisitos de la edicion general de una plaza evaluada.
+
+13. PENDIENTES DE FRONTEND Y EXPERIENCIA DE USUARIO
+[ ] Mantener visible y accesible el enlace al detalle de una postulacion en pantallas menores de 480 px.
+[ ] Agregar en escritorio las acciones de cambiar contrasena y cerrar sesion al portal del aspirante.
+[ ] Mostrar una accion de reenvio de verificacion cuando un enlace de verificacion sea invalido o venza.
+[ ] Mostrar en el inicio de sesion un enlace visible para reenviar la verificacion de una cuenta no verificada.
+[ ] Diferenciar visualmente las plazas vencidas de las plazas publicadas activas.
+[ ] Mostrar todos los detalles de disponibilidad: fecha requerida, viajes, reubicacion y horario.
+[ ] Mostrar hora de finalizacion, notas, ubicacion y enlace utilizable en las entrevistas.
+[ ] Implementar o eliminar los botones inactivos de contraer menu, buscar y ayuda del encabezado administrativo.
+[ ] Agregar acceso directo desde el detalle de una plaza a sus postulaciones.
+[ ] Usar catalogs_ready para explicar catalogos faltantes y desactivar el guardado imposible de plazas.
+[ ] Mostrar nombres legibles para estados compuestos como EN_REVISION, OFERTA_ENVIADA y NO_ASISTIO.
+[ ] Reemplazar o adaptar los multiselect que requieren Ctrl o Cmd para que funcionen correctamente en movil.
+[ ] Agregar filtros por departamento, modalidad, ciudad y tipo de empleo en oportunidades.
+[ ] Agregar paginacion y filtros a Mis solicitudes y Notificaciones.
+[ ] Corregir el enlace de la metrica Plazas pendientes para incluir borradores y pausadas.
+[ ] Permitir ingresar un motivo al publicar, pausar, reactivar, cerrar o retirar una postulacion.
+[ ] Mostrar las URL de credenciales y reuniones como enlaces seguros y utilizables.
+[ ] Adaptar los listados administrativos a tarjetas o acciones visibles sin desplazamiento horizontal en movil.
+[ ] Mantener activa la opcion correcta del menu en detalles y edicion de plazas y aspirantes.
+[ ] Agregar nombres accesibles a botones iconograficos, filtros, paginadores y cierre del menu movil.
+[ ] Aumentar tamanos de texto y objetivos tactiles demasiado pequenos en movil.
+[ ] Renombrar Formacion y beneficios o agregar campos reales para beneficios de la plaza.
+[ ] Mostrar nombres de estado legibles en el historial de plazas en lugar de codigos tecnicos.

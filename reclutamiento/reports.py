@@ -1,9 +1,15 @@
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.utils import timezone
 
-from reclutamiento.models import Entrevista, Plaza, Postulacion, Usuario
+from reclutamiento.models import (
+    Entrevista,
+    HistorialEstadoPostulacion,
+    Plaza,
+    Postulacion,
+    Usuario,
+)
 
 
 REPORT_PERIODS = {"30": 30, "90": 90, "365": 365, "all": None}
@@ -35,9 +41,16 @@ def build_recruitment_report(period):
     if start_date:
         vacancies = vacancies.filter(creado_en__gte=start_date)
         interviews = interviews.filter(inicia_en__gte=start_date)
+    interviews = interviews.filter(inicia_en__lte=timezone.now())
 
     total_applications = applications.count()
-    hired_count = applications.filter(estado_id="CONTRATADA").count()
+    cohort_hired_count = applications.filter(estado_id="CONTRATADA").count()
+    hired_events = HistorialEstadoPostulacion.objects.filter(
+        codigo_estado_nuevo="CONTRATADA"
+    )
+    if start_date:
+        hired_events = hired_events.filter(cambiado_en__gte=start_date)
+    hired_count = hired_events.count()
     status_rows = list(
         applications.values("estado_id", "estado__nombre")
         .annotate(total=Count("id"))
@@ -78,11 +91,17 @@ def build_recruitment_report(period):
     return {
         "period": period,
         "total_vacancies": total_vacancies,
-        "active_vacancies": Plaza.objects.filter(
-            estado_id="PUBLICADA"
-        ).filter(
-            Q(cierra_en__isnull=True) | Q(cierra_en__gt=timezone.now())
-        ).count(),
+        "active_vacancies": Plaza.objects.filter(estado_id="PUBLICADA")
+        .filter(Q(cierra_en__isnull=True) | Q(cierra_en__gt=timezone.now()))
+        .annotate(
+            hired_count=Count(
+                "postulacion",
+                filter=Q(postulacion__estado_id="CONTRATADA"),
+                distinct=True,
+            )
+        )
+        .filter(hired_count__lt=F("cantidad_vacantes"))
+        .count(),
         "total_applicants": Usuario.objects.filter(
             usuariorol__rol__codigo="ASPIRANTE"
         ).distinct().count(),
@@ -90,7 +109,7 @@ def build_recruitment_report(period):
         "interview_count": interviews.count(),
         "hired_count": hired_count,
         "conversion_rate": (
-            round(hired_count * 100 / total_applications, 1)
+            round(cohort_hired_count * 100 / total_applications, 1)
             if total_applications
             else 0
         ),

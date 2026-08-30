@@ -8,7 +8,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import send_mail
 from django.db import DatabaseError, IntegrityError, connection, transaction
 from django.core.exceptions import ValidationError
-from django.db.models import Count, DecimalField, OuterRef, Q, Subquery
+from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
@@ -33,13 +33,19 @@ from reclutamiento.forms import (
     FormularioExperiencia,
     FormularioFormacion,
     FormularioHabilidadAspirante,
+    FormularioHabilidadesPlaza,
     FormularioIdiomaAspirante,
+    FormularioIdiomasPlaza,
     FormularioNuevaContrasena,
     FormularioPerfilAspirante,
+    FormularioOfertaLaboral,
     FormularioPostulacion,
     FormularioReenvioVerificacion,
     FormularioRegistroAspirante,
     FormularioPlaza,
+    FormularioDatosPlaza,
+    FormularioRequisitosGenerales,
+    FormularioCertificacionesPlaza,
 )
 from reclutamiento.models import (
     AnalisisCV,
@@ -62,6 +68,7 @@ from reclutamiento.models import (
     IdiomaAnalisisCV,
     ModalidadTrabajo,
     Notificacion,
+    OfertaLaboral,
     PerfilAspirante,
     PerfilPersonal,
     Plaza,
@@ -79,6 +86,9 @@ from reclutamiento.applications import (
     ALLOWED_APPLICATION_TRANSITIONS,
     ALLOWED_INTERVIEW_TRANSITIONS,
     create_application,
+    create_offer,
+    expire_offers,
+    respond_offer,
     schedule_interview,
     transition_application,
     transition_interview,
@@ -104,8 +114,9 @@ from reclutamiento.storage import B2_PROVIDER_CODE, backblaze_download_url
 from reclutamiento.tokens import email_verification_token
 from reclutamiento.vacancies import (
     ALLOWED_TRANSITIONS,
-    get_vacancy_form_initial,
+    get_requirement_editor_initial,
     save_vacancy,
+    save_vacancy_requirements,
     transition_vacancy,
 )
 
@@ -358,7 +369,17 @@ def dashboard(request):
         Q(cierra_en__isnull=True) | Q(cierra_en__gt=now)
     )
     priority_vacancies = list(
-        Plaza.objects.filter(Q(estado_id="PAUSADA") | active_vacancy_query)
+        Plaza.objects.annotate(
+            hired_count=Count(
+                "postulacion",
+                filter=Q(postulacion__estado_id="CONTRATADA"),
+                distinct=True,
+            )
+        )
+        .filter(
+            Q(estado_id="PAUSADA")
+            | (active_vacancy_query & Q(hired_count__lt=F("cantidad_vacantes")))
+        )
         .select_related("departamento", "modalidad_trabajo")
         .annotate(applicant_count=Count("postulacion", distinct=True))
         .order_by("cierra_en", "-actualizado_en")[:3]
@@ -385,7 +406,7 @@ def dashboard(request):
         "dashboard.html",
         {
             "vacancy_counts": vacancy_counts,
-            "active_vacancies": Plaza.objects.filter(active_vacancy_query).count(),
+            "active_vacancies": _available_vacancies().count(),
             "pending_vacancies": vacancy_counts.get("BORRADOR", 0)
             + vacancy_counts.get("PAUSADA", 0),
             "closed_vacancies": vacancy_counts.get("CERRADA", 0),
@@ -543,10 +564,9 @@ def editar_plaza(request, plaza_id):
     if vacancy.estado_id == "CERRADA":
         messages.error(request, "Una plaza cerrada no puede editarse.")
         return redirect("detalle_plaza", plaza_id=vacancy.pk)
-    form = FormularioPlaza(
+    form = FormularioDatosPlaza(
         request.POST or None,
         instance=vacancy,
-        initial=get_vacancy_form_initial(vacancy),
     )
     if request.method == "POST" and form.is_valid():
         try:
@@ -564,6 +584,71 @@ def editar_plaza(request, plaza_id):
             "plaza": vacancy,
             "catalogs_ready": form.has_required_catalogs(),
             "editing": True,
+        },
+    )
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
+def editar_requisitos_plaza(request, plaza_id):
+    vacancy = get_object_or_404(Plaza.objects.select_related("estado"), pk=plaza_id)
+    if vacancy.estado_id == "CERRADA":
+        messages.error(request, "Los requisitos de una plaza cerrada no pueden editarse.")
+        return redirect("detalle_plaza", plaza_id=vacancy.pk)
+    general_initial, skills_initial, languages_initial, certifications_initial = (
+        get_requirement_editor_initial(vacancy)
+    )
+    general_form = FormularioRequisitosGenerales(
+        request.POST or None,
+        initial=general_initial,
+        prefix="general",
+    )
+    skill_formset = FormularioHabilidadesPlaza(
+        request.POST or None,
+        initial=skills_initial,
+        prefix="habilidades",
+    )
+    language_formset = FormularioIdiomasPlaza(
+        request.POST or None,
+        initial=languages_initial,
+        prefix="idiomas",
+    )
+    certification_formset = FormularioCertificacionesPlaza(
+        request.POST or None,
+        initial=certifications_initial,
+        prefix="certificaciones",
+    )
+    forms_are_valid = all(
+        item.is_valid()
+        for item in (
+            general_form,
+            skill_formset,
+            language_formset,
+            certification_formset,
+        )
+    )
+    if request.method == "POST" and forms_are_valid:
+        try:
+            save_vacancy_requirements(
+                vacancy.pk,
+                general_form,
+                skill_formset,
+                language_formset,
+                certification_formset,
+            )
+        except ValidationError as error:
+            general_form.add_error(None, error.message)
+        else:
+            messages.success(request, "Los requisitos de la plaza fueron actualizados.")
+            return redirect("detalle_plaza", plaza_id=vacancy.pk)
+    return render(
+        request,
+        "requisitos_plaza.html",
+        {
+            "plaza": vacancy,
+            "general_form": general_form,
+            "skill_formset": skill_formset,
+            "language_formset": language_formset,
+            "certification_formset": certification_formset,
         },
     )
 
@@ -677,6 +762,7 @@ def detalle_aspirante(request, aspirante_id):
 
 @roles_required("RRHH", "ADMINISTRADOR")
 def postulaciones(request):
+    expire_offers()
     current_compatibility = (
         EvaluacionPostulacion.objects.filter(
             postulacion=OuterRef("pk"),
@@ -734,6 +820,8 @@ def postulaciones(request):
 
 
 def _postulacion_detail_context(application, interview_form=None):
+    expire_offers(application.pk)
+    application.refresh_from_db()
     history = HistorialEstadoPostulacion.objects.filter(
         postulacion=application
     ).select_related("cambiado_por").order_by("-cambiado_en")
@@ -745,9 +833,16 @@ def _postulacion_detail_context(application, interview_form=None):
         interview.available_transitions = sorted(
             ALLOWED_INTERVIEW_TRANSITIONS.get(interview.estado_id, set())
         )
+    offers = OfertaLaboral.objects.filter(postulacion=application).select_related(
+        "estado", "creado_por"
+    ).order_by("-creado_en")
+    active_offer = offers.filter(estado_id__in={"ENVIADA", "ACEPTADA"}).first()
     transitions = ALLOWED_APPLICATION_TRANSITIONS.get(application.estado_id, set()) - {
-        "RETIRADA"
+        "RETIRADA",
+        "OFERTA_ENVIADA",
     }
+    if not active_offer or active_offer.estado_id != "ACEPTADA":
+        transitions.discard("CONTRATADA")
     status_choices = [
         (status.codigo, status.nombre)
         for status in Postulacion._meta.get_field("estado").remote_field.model.objects.filter(
@@ -765,6 +860,9 @@ def _postulacion_detail_context(application, interview_form=None):
         ),
         "can_schedule_interview": application.estado_id in {"PRESELECCIONADA", "ENTREVISTA"},
         "evaluacion": evaluation,
+        "ofertas": offers,
+        "offer_form": FormularioOfertaLaboral(),
+        "can_send_offer": application.estado_id == "ENTREVISTA" and active_offer is None,
     }
 
 
@@ -818,6 +916,49 @@ def cambiar_estado_postulacion(request, postulacion_id):
     else:
         messages.error(request, "Selecciona una transición válida.")
     return redirect("detalle_postulacion", postulacion_id=postulacion_id)
+
+
+@roles_required("RRHH", "ADMINISTRADOR")
+def enviar_oferta(request, postulacion_id):
+    if request.method != "POST":
+        return redirect("detalle_postulacion", postulacion_id=postulacion_id)
+    application = get_object_or_404(Postulacion, pk=postulacion_id)
+    form = FormularioOfertaLaboral(request.POST)
+    if form.is_valid():
+        try:
+            create_offer(
+                application.pk,
+                request.user,
+                form.cleaned_data["condiciones"],
+                form.cleaned_data["vence_en"],
+            )
+        except ValidationError as error:
+            messages.error(request, error.message)
+        else:
+            messages.success(request, "La oferta laboral fue enviada al aspirante.")
+    else:
+        messages.error(request, "Revisa las condiciones y el vencimiento de la oferta.")
+    return redirect("detalle_postulacion", postulacion_id=postulacion_id)
+
+
+@roles_required("ASPIRANTE")
+def responder_oferta(request, oferta_id, respuesta):
+    offer = get_object_or_404(
+        OfertaLaboral.objects.select_related("postulacion__aspirante"),
+        pk=oferta_id,
+        postulacion__aspirante__usuario=request.user,
+    )
+    if request.method == "POST":
+        try:
+            offer = respond_offer(offer.pk, request.user, respuesta)
+        except ValidationError as error:
+            messages.error(request, error.message)
+        else:
+            if offer.estado_id == "VENCIDA":
+                messages.error(request, "La oferta venció y ya no puede responderse.")
+            else:
+                messages.success(request, "Tu respuesta a la oferta fue registrada.")
+    return redirect("mi_postulacion", postulacion_id=offer.postulacion_id)
 
 
 @roles_required("RRHH", "ADMINISTRADOR")
@@ -1048,6 +1189,7 @@ def estado_analisis(request, postulacion_id):
 
 @roles_required("ASPIRANTE")
 def portal(request):
+    expire_offers()
     profile = get_applicant_profile(request.user)
     percentage, completed = profile_completion(profile)
     profile_checklist = _profile_checklist(completed)
@@ -1127,7 +1269,13 @@ def _available_vacancies():
     now = timezone.now()
     return Plaza.objects.filter(estado_id="PUBLICADA").filter(
         Q(cierra_en__isnull=True) | Q(cierra_en__gt=now)
-    ).select_related(
+    ).annotate(
+        hired_count=Count(
+            "postulacion",
+            filter=Q(postulacion__estado_id="CONTRATADA"),
+            distinct=True,
+        )
+    ).filter(hired_count__lt=F("cantidad_vacantes")).select_related(
         "departamento", "profesion", "ciudad", "tipo_empleo", "modalidad_trabajo"
     )
 
@@ -1230,6 +1378,30 @@ def agregar_habilidad(request):
 
 
 @roles_required("ASPIRANTE")
+def editar_habilidad(request, habilidad_id):
+    profile = get_applicant_profile(request.user)
+    instance = get_object_or_404(
+        HabilidadAspirante,
+        aspirante=profile,
+        habilidad_id=habilidad_id,
+    )
+    form = FormularioHabilidadAspirante(
+        request.POST or None,
+        instance=instance,
+        aspirante=profile,
+    )
+    if request.method == "POST" and form.is_valid():
+        save_profile_record(form, profile)
+        messages.success(request, "Habilidad actualizada.")
+        return redirect("perfil_aspirante")
+    return render(
+        request,
+        "formulario_perfil.html",
+        {"form": form, "title": "Habilidad", "editing": True},
+    )
+
+
+@roles_required("ASPIRANTE")
 def eliminar_habilidad(request, habilidad_id):
     if request.method == "POST":
         profile = get_applicant_profile(request.user)
@@ -1251,6 +1423,30 @@ def agregar_idioma(request):
         messages.success(request, "Idioma agregado.")
         return redirect("perfil_aspirante")
     return render(request, "formulario_perfil.html", {"form": form, "title": "Idioma"})
+
+
+@roles_required("ASPIRANTE")
+def editar_idioma(request, idioma_id):
+    profile = get_applicant_profile(request.user)
+    instance = get_object_or_404(
+        IdiomaAspirante,
+        aspirante=profile,
+        idioma_id=idioma_id,
+    )
+    form = FormularioIdiomaAspirante(
+        request.POST or None,
+        instance=instance,
+        aspirante=profile,
+    )
+    if request.method == "POST" and form.is_valid():
+        save_profile_record(form, profile)
+        messages.success(request, "Idioma actualizado.")
+        return redirect("perfil_aspirante")
+    return render(
+        request,
+        "formulario_perfil.html",
+        {"form": form, "title": "Idioma", "editing": True},
+    )
 
 
 @roles_required("ASPIRANTE")
@@ -1369,6 +1565,7 @@ def detalle_oportunidad(request, plaza_id):
 
 @roles_required("ASPIRANTE")
 def mis_postulaciones(request):
+    expire_offers()
     profile = get_applicant_profile(request.user)
     applications = Postulacion.objects.filter(aspirante=profile).select_related(
         "plaza__departamento", "plaza__modalidad_trabajo", "estado"
@@ -1386,6 +1583,8 @@ def mi_postulacion(request, postulacion_id):
         pk=postulacion_id,
         aspirante=profile,
     )
+    expire_offers(application.pk)
+    application.refresh_from_db()
     history = HistorialEstadoPostulacion.objects.filter(
         postulacion=application
     ).order_by("-cambiado_en")
@@ -1395,7 +1594,14 @@ def mi_postulacion(request, postulacion_id):
     return render(
         request,
         "mi_postulacion.html",
-        {"postulacion": application, "history": history, "entrevistas": entrevistas},
+        {
+            "postulacion": application,
+            "history": history,
+            "entrevistas": entrevistas,
+            "ofertas": OfertaLaboral.objects.filter(postulacion=application)
+            .select_related("estado")
+            .order_by("-creado_en"),
+        },
     )
 
 

@@ -47,8 +47,11 @@ def profile_completion(profile):
                 profile.usuario.first_name,
                 profile.usuario.last_name,
                 profile.profesion_id,
+                profile.ciudad_id,
                 profile.telefono,
+                profile.direccion,
                 profile.resumen_profesional,
+                profile.disponible_desde,
             )
         ),
         "experiencia": profile.experiencialaboral_set.exists(),

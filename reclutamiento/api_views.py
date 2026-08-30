@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Prefetch, Q
+from django.db.models import Count, F, Prefetch, Q
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from drf_spectacular.utils import (
     OpenApiParameter,
@@ -24,6 +25,7 @@ from reclutamiento.api_permissions import (
     ApplicantProfilePermission,
     PublicVacancyPermission,
     StaffOnlyPermission,
+    CatalogWritePermission,
 )
 from reclutamiento.api_serializers import (
     AnalysisActionSerializer,
@@ -35,10 +37,23 @@ from reclutamiento.api_serializers import (
     ApplicationSerializer,
     ApplicationStateSerializer,
     CatalogSerializer,
+    CertificationCatalogSerializer,
+    CityCatalogWriteSerializer,
     EvaluationDetailSerializer,
+    InstitutionCatalogSerializer,
+    ProfessionCatalogSerializer,
+    OfferCreateSerializer,
+    OfferResponseSerializer,
+    OfferSerializer,
+    SkillCatalogSerializer,
     VacancySerializer,
 )
-from reclutamiento.applications import transition_application
+from reclutamiento.applications import (
+    create_offer,
+    expire_offers,
+    respond_offer,
+    transition_application,
+)
 from reclutamiento.models import (
     AnalisisCV,
     AreaEstudio,
@@ -49,10 +64,12 @@ from reclutamiento.models import (
     EstadoPostulacion,
     Habilidad,
     Idioma,
+    Institucion,
     NivelEducativo,
     NivelHabilidad,
     NivelIdioma,
     ModalidadTrabajo,
+    OfertaLaboral,
     PerfilAspirante,
     Plaza,
     Postulacion,
@@ -120,7 +137,13 @@ class VacancyViewSet(viewsets.ReadOnlyModelViewSet):
             return queryset
         return queryset.filter(estado_id="PUBLICADA").filter(
             Q(cierra_en__isnull=True) | Q(cierra_en__gt=timezone.now())
-        )
+        ).annotate(
+            hired_count=Count(
+                "postulacion",
+                filter=Q(postulacion__estado_id="CONTRATADA"),
+                distinct=True,
+            )
+        ).filter(hired_count__lt=F("cantidad_vacantes"))
 
 
 def _applicant_queryset():
@@ -202,6 +225,8 @@ class ApplicationViewSet(
     ordering = ("-actualizado_en", "-pk")
 
     def get_queryset(self):
+        if self.request.user.is_authenticated:
+            expire_offers()
         queryset = _application_queryset()
         if _is_staff(self.request.user):
             return queryset
@@ -214,6 +239,10 @@ class ApplicationViewSet(
             return ApplicationCreateSerializer
         if self.action == "estado":
             return ApplicationStateSerializer
+        if self.action == "ofertas" and self.request.method == "POST":
+            return OfferCreateSerializer
+        if self.action == "responder_oferta":
+            return OfferResponseSerializer
         if self.action == "analisis" and self.request.method == "POST":
             return AnalysisActionSerializer
         return ApplicationSerializer
@@ -237,6 +266,59 @@ class ApplicationViewSet(
             status=status.HTTP_201_CREATED,
             headers=headers,
         )
+
+    @extend_schema(
+        request=OfferCreateSerializer,
+        responses={200: OfferSerializer(many=True), 201: OfferSerializer},
+        tags=["Postulaciones"],
+    )
+    @action(detail=True, methods=["get", "post"], url_path="ofertas")
+    def ofertas(self, request, *args, **kwargs):
+        application = self.get_object()
+        if request.method == "GET":
+            offers = OfertaLaboral.objects.filter(postulacion=application).select_related(
+                "estado", "creado_por"
+            ).order_by("-creado_en")
+            return Response(OfferSerializer(offers, many=True).data)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            offer = create_offer(
+                application.pk,
+                request.user,
+                serializer.validated_data["condiciones"],
+                serializer.validated_data["vence_en"],
+            )
+        except DjangoValidationError as error:
+            raise ValidationError(error.messages) from error
+        return Response(OfferSerializer(offer).data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        request=OfferResponseSerializer,
+        responses={200: OfferSerializer},
+        tags=["Postulaciones"],
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="ofertas/responder",
+    )
+    def responder_oferta(self, request, *args, **kwargs):
+        application = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        offer = serializer.validated_data["oferta"]
+        if offer.postulacion_id != application.pk:
+            raise ValidationError({"oferta_id": "La oferta no pertenece a la postulación."})
+        try:
+            offer = respond_offer(
+                offer.pk,
+                request.user,
+                serializer.validated_data["respuesta"],
+            )
+        except DjangoValidationError as error:
+            raise ValidationError(error.messages) from error
+        return Response(OfferSerializer(offer).data)
 
     @extend_schema(
         request=ApplicationStateSerializer,
@@ -321,7 +403,9 @@ class ApplicationViewSet(
         )
 
     def get_permissions(self):
-        if self.action == "analisis":
+        if self.action == "analisis" or (
+            self.action == "ofertas" and self.request.method == "POST"
+        ):
             return [StaffOnlyPermission()]
         return super().get_permissions()
 
@@ -334,19 +418,47 @@ class CatalogViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ("nombre",)
 
 
+class ManagedCatalogViewSet(viewsets.ModelViewSet):
+    serializer_class = CatalogSerializer
+    write_serializer_class = None
+    permission_classes = (CatalogWritePermission,)
+    pagination_class = None
+    ordering_fields = ("nombre",)
+    ordering = ("nombre",)
+
+    def get_serializer_class(self):
+        if self.action in {"create", "update", "partial_update"}:
+            return self.write_serializer_class
+        return self.serializer_class
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError as error:
+            raise ValidationError(
+                {"detail": "El registro está en uso y no puede eliminarse."}
+            ) from error
+
+
 @extend_schema_view(list=extend_schema(tags=["Catálogos"]), retrieve=extend_schema(tags=["Catálogos"]))
 class DepartmentCatalogViewSet(CatalogViewSet):
     queryset = Departamento.objects.filter(activo=True)
 
 
 @extend_schema_view(list=extend_schema(tags=["Catálogos"]), retrieve=extend_schema(tags=["Catálogos"]))
-class ProfessionCatalogViewSet(CatalogViewSet):
+class ProfessionCatalogViewSet(ManagedCatalogViewSet):
     queryset = Profesion.objects.all()
+    write_serializer_class = ProfessionCatalogSerializer
 
 
 @extend_schema_view(list=extend_schema(tags=["Catálogos"]), retrieve=extend_schema(tags=["Catálogos"]))
-class SkillCatalogViewSet(CatalogViewSet):
-    queryset = Habilidad.objects.filter(activo=True)
+class SkillCatalogViewSet(ManagedCatalogViewSet):
+    queryset = Habilidad.objects.all()
+    write_serializer_class = SkillCatalogSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        return queryset if _is_staff(self.request.user) else queryset.filter(activo=True)
 
 
 @extend_schema_view(list=extend_schema(tags=["Catálogos"]), retrieve=extend_schema(tags=["Catálogos"]))
@@ -385,13 +497,21 @@ class StudyAreaCatalogViewSet(CatalogViewSet):
 
 
 @extend_schema_view(list=extend_schema(tags=["Catálogos"]), retrieve=extend_schema(tags=["Catálogos"]))
-class CityCatalogViewSet(CatalogViewSet):
+class CityCatalogViewSet(ManagedCatalogViewSet):
     queryset = Ciudad.objects.select_related("region__pais").all()
+    write_serializer_class = CityCatalogWriteSerializer
 
 
 @extend_schema_view(list=extend_schema(tags=["Catálogos"]), retrieve=extend_schema(tags=["Catálogos"]))
-class CertificationCatalogViewSet(CatalogViewSet):
+class CertificationCatalogViewSet(ManagedCatalogViewSet):
     queryset = Certificacion.objects.all()
+    write_serializer_class = CertificationCatalogSerializer
+
+
+@extend_schema_view(list=extend_schema(tags=["Catálogos"]), retrieve=extend_schema(tags=["Catálogos"]))
+class InstitutionCatalogViewSet(ManagedCatalogViewSet):
+    queryset = Institucion.objects.select_related("ciudad").all()
+    write_serializer_class = InstitutionCatalogSerializer
 
 
 @extend_schema_view(list=extend_schema(tags=["Catálogos"]), retrieve=extend_schema(tags=["Catálogos"]))

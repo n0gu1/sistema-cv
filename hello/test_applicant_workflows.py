@@ -14,9 +14,15 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from reclutamiento.candidates import curriculum_path, save_curriculum
-from reclutamiento.applications import create_application, transition_application
+from reclutamiento.applications import (
+    create_application,
+    create_offer,
+    expire_offers,
+    respond_offer,
+    transition_application,
+)
 from reclutamiento.ai_analysis import analyze_application, enqueue_application_analysis
-from reclutamiento.forms import FormularioEntrevista
+from reclutamiento.forms import FormularioEntrevista, FormularioHabilidadAspirante
 from reclutamiento.tasks import process_application_analysis
 from reclutamiento.models import (
     AnalisisCV,
@@ -34,6 +40,7 @@ from reclutamiento.models import (
     Entrevista,
     EstadoEntrevista,
     EstadoEntrega,
+    EstadoOferta,
     EstadoPlaza,
     EstadoPostulacion,
     EstadoProcesamiento,
@@ -57,6 +64,7 @@ from reclutamiento.models import (
     NivelHabilidad,
     NivelIdioma,
     Notificacion,
+    OfertaLaboral,
     Pais,
     PerfilAspirante,
     PerfilPersonal,
@@ -108,6 +116,7 @@ class ApplicantWorkflowTests(TransactionTestCase):
         ProveedorAlmacenamiento,
         EstadoPlaza,
         EstadoPostulacion,
+        EstadoOferta,
         EstadoEntrevista,
         EstadoProcesamiento,
         ModeloIA,
@@ -140,6 +149,7 @@ class ApplicantWorkflowTests(TransactionTestCase):
         IdiomaAnalisisCV,
         CertificacionAnalisisCV,
         Postulacion,
+        OfertaLaboral,
         HistorialEstadoPostulacion,
         EvaluacionPostulacion,
         ResultadoRequisitoEvaluacion,
@@ -223,8 +233,18 @@ class ApplicantWorkflowTests(TransactionTestCase):
             ("CONFIRMACION_POSTULACION", "Confirmación de postulación"),
             ("CAMBIO_ESTADO", "Cambio de estado"),
             ("INVITACION_ENTREVISTA", "Invitación a entrevista"),
+            ("OFERTA_LABORAL", "Oferta laboral"),
+            ("RESPUESTA_OFERTA", "Respuesta a oferta laboral"),
         ):
             TipoNotificacion.objects.create(codigo=code, nombre=name)
+        for code, name, final in (
+            ("ENVIADA", "Enviada", False),
+            ("ACEPTADA", "Aceptada", True),
+            ("RECHAZADA", "Rechazada", True),
+            ("VENCIDA", "Vencida", True),
+            ("CANCELADA", "Cancelada", True),
+        ):
+            EstadoOferta.objects.create(codigo=code, nombre=name, es_final=final)
         for code, name in (
             ("APLICACION", "Aplicación"),
             ("CORREO", "Correo electrónico"),
@@ -297,6 +317,15 @@ class ApplicantWorkflowTests(TransactionTestCase):
             detalle_ubicacion="Oficina central",
             creado_en=timezone.now(),
         )
+
+    def _accepted_offer(self, application):
+        offer = create_offer(
+            application.pk,
+            self.hr_user,
+            "Salario mensual y fecha de inicio acordados.",
+            timezone.now() + timezone.timedelta(days=5),
+        )
+        return respond_offer(offer.pk, application.aspirante.usuario, "ACEPTADA")
 
     def test_profile_update_and_owned_experience(self):
         self.client.force_login(self.applicant)
@@ -437,11 +466,24 @@ class ApplicantWorkflowTests(TransactionTestCase):
 
     def test_hr_can_view_complete_applicant_profile(self):
         profession = Profesion.objects.create(nombre="Ingeniería de software")
+        country = Pais.objects.create(codigo_iso="GT", nombre="Guatemala")
+        region = Region.objects.create(pais=country, nombre="Guatemala")
+        city = Ciudad.objects.create(region=region, nombre="Ciudad de Guatemala")
         self.profile.profesion = profession
+        self.profile.ciudad = city
         self.profile.telefono = "5555-0101"
+        self.profile.direccion = "Zona 10"
         self.profile.resumen_profesional = "Desarrolladora con experiencia web."
+        self.profile.disponible_desde = timezone.localdate()
         self.profile.save(
-            update_fields=("profesion", "telefono", "resumen_profesional")
+            update_fields=(
+                "profesion",
+                "ciudad",
+                "telefono",
+                "direccion",
+                "resumen_profesional",
+                "disponible_desde",
+            )
         )
         ExperienciaLaboral.objects.create(
             aspirante=self.profile,
@@ -677,34 +719,15 @@ class ApplicantWorkflowTests(TransactionTestCase):
         second_application = create_application(self.vacancy.pk, self.other_profile)
 
         first_application = create_application(self.vacancy.pk, self.profile)
-        for target in (
-            "EN_REVISION",
-            "PRESELECCIONADA",
-            "ENTREVISTA",
-            "OFERTA_ENVIADA",
-            "CONTRATADA",
-        ):
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
             transition_application(first_application.pk, target, self.hr_user)
+        self._accepted_offer(first_application)
+        transition_application(first_application.pk, "CONTRATADA", self.hr_user)
 
         self.vacancy.refresh_from_db()
         self.assertEqual(self.vacancy.estado_id, "CERRADA")
-        for target in (
-            "EN_REVISION",
-            "PRESELECCIONADA",
-            "ENTREVISTA",
-            "OFERTA_ENVIADA",
-        ):
-            transition_application(second_application.pk, target, self.hr_user)
-
-        with self.assertRaisesRegex(ValidationError, "cantidad de vacantes"):
-            transition_application(
-                second_application.pk,
-                "CONTRATADA",
-                self.hr_user,
-            )
-
         second_application.refresh_from_db()
-        self.assertEqual(second_application.estado_id, "OFERTA_ENVIADA")
+        self.assertEqual(second_application.estado_id, "RECHAZADA")
         self.assertEqual(
             Postulacion.objects.filter(
                 plaza=self.vacancy,
@@ -970,15 +993,10 @@ class ApplicantWorkflowTests(TransactionTestCase):
 
     def test_hiring_application_cancels_active_interviews(self):
         application = create_application(self.vacancy.pk, self.profile)
-        for target in (
-            "EN_REVISION",
-            "PRESELECCIONADA",
-            "ENTREVISTA",
-            "OFERTA_ENVIADA",
-        ):
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
             transition_application(application.pk, target, self.hr_user)
         interview = self._interview(application, "CONFIRMADA")
-
+        self._accepted_offer(application)
         transition_application(application.pk, "CONTRATADA", self.hr_user)
 
         interview.refresh_from_db()
@@ -989,15 +1007,253 @@ class ApplicantWorkflowTests(TransactionTestCase):
         for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
             transition_application(application.pk, target, self.hr_user)
 
-        with self.assertRaisesRegex(ValidationError, "oferta enviada"):
+        with self.assertRaisesRegex(ValidationError, "oferta aceptada"):
             transition_application(application.pk, "CONTRATADA", self.hr_user)
 
         application.refresh_from_db()
         self.assertEqual(application.estado_id, "ENTREVISTA")
-        transition_application(application.pk, "OFERTA_ENVIADA", self.hr_user)
+        offer = create_offer(
+            application.pk,
+            self.hr_user,
+            "Condiciones contractuales completas.",
+            timezone.now() + timezone.timedelta(days=3),
+        )
+        with self.assertRaisesRegex(ValidationError, "aceptar la oferta"):
+            transition_application(application.pk, "CONTRATADA", self.hr_user)
+        respond_offer(offer.pk, self.applicant, "ACEPTADA")
         transition_application(application.pk, "CONTRATADA", self.hr_user)
         application.refresh_from_db()
         self.assertEqual(application.estado_id, "CONTRATADA")
+
+    def test_offer_can_only_be_answered_by_its_applicant_before_expiration(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
+            transition_application(application.pk, target, self.hr_user)
+        offer = create_offer(
+            application.pk,
+            self.hr_user,
+            "Contrato por tiempo indefinido.",
+            timezone.now() + timezone.timedelta(days=2),
+        )
+
+        with self.assertRaisesRegex(ValidationError, "Solo el aspirante"):
+            respond_offer(offer.pk, self.other_applicant, "ACEPTADA")
+        offer.refresh_from_db()
+        self.assertEqual(offer.estado_id, "ENVIADA")
+        respond_offer(offer.pk, self.applicant, "RECHAZADA")
+        offer.refresh_from_db()
+        application.refresh_from_db()
+        self.assertEqual(offer.estado_id, "RECHAZADA")
+        self.assertEqual(application.estado_id, "RECHAZADA")
+
+    def test_expired_offer_is_resolved_idempotently(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
+            transition_application(application.pk, target, self.hr_user)
+        offer = create_offer(
+            application.pk,
+            self.hr_user,
+            "Oferta con vencimiento controlado.",
+            timezone.now() + timezone.timedelta(hours=1),
+        )
+
+        future = offer.vence_en + timezone.timedelta(minutes=1)
+        self.assertEqual(expire_offers(application.pk, now=future), 1)
+        self.assertEqual(expire_offers(application.pk, now=future), 0)
+        offer.refresh_from_db()
+        application.refresh_from_db()
+        self.assertEqual(offer.estado_id, "VENCIDA")
+        self.assertEqual(application.estado_id, "RECHAZADA")
+
+    def test_filling_vacancy_preserves_a_cancelled_offer_response(self):
+        self._curriculum(self.other_profile, "otro-curriculo.pdf")
+        selected = create_application(self.vacancy.pk, self.profile)
+        remaining = create_application(self.vacancy.pk, self.other_profile)
+        for application in (selected, remaining):
+            for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
+                transition_application(application.pk, target, self.hr_user)
+            self._accepted_offer(application)
+
+        transition_application(selected.pk, "CONTRATADA", self.hr_user)
+
+        remaining.refresh_from_db()
+        remaining_offer = OfertaLaboral.objects.get(postulacion=remaining)
+        self.assertEqual(remaining.estado_id, "RECHAZADA")
+        self.assertEqual(remaining_offer.estado_id, "CANCELADA")
+        self.assertEqual(remaining_offer.respuesta, "ACEPTADA")
+        self.assertIsNotNone(remaining_offer.respondida_en)
+
+    def test_negative_skill_experience_is_rejected_by_the_form(self):
+        skill = Habilidad.objects.create(nombre="Python", activo=True)
+        form = FormularioHabilidadAspirante(
+            data={"habilidad": skill.pk, "anios_experiencia": "-0.1"},
+            aspirante=self.profile,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("no pueden ser negativos", form.errors["anios_experiencia"][0])
+
+    def test_applicant_can_edit_skill_and_language_without_recreating_them(self):
+        basic = NivelHabilidad.objects.create(
+            codigo="BASICO", nombre="Básico", orden_nivel=1
+        )
+        advanced = NivelHabilidad.objects.create(
+            codigo="AVANZADO", nombre="Avanzado", orden_nivel=2
+        )
+        skill = Habilidad.objects.create(nombre="Python", activo=True)
+        HabilidadAspirante.objects.create(
+            aspirante=self.profile,
+            habilidad=skill,
+            nivel_habilidad=basic,
+            anios_experiencia="1.0",
+        )
+        a1 = NivelIdioma.objects.create(codigo="A1", nombre="A1", orden_nivel=1)
+        c1 = NivelIdioma.objects.create(codigo="C1", nombre="C1", orden_nivel=2)
+        language = Idioma.objects.create(codigo_iso="en", nombre="Inglés")
+        IdiomaAspirante.objects.create(
+            aspirante=self.profile,
+            idioma=language,
+            nivel_idioma=a1,
+        )
+        self.client.force_login(self.applicant)
+
+        skill_response = self.client.post(
+            reverse("editar_habilidad", args=[skill.pk]),
+            {
+                "habilidad": skill.pk,
+                "nivel_habilidad": advanced.pk,
+                "anios_experiencia": "3.5",
+            },
+        )
+        language_response = self.client.post(
+            reverse("editar_idioma", args=[language.pk]),
+            {"idioma": language.pk, "nivel_idioma": c1.pk},
+        )
+
+        self.assertRedirects(skill_response, reverse("perfil_aspirante"))
+        self.assertRedirects(language_response, reverse("perfil_aspirante"))
+        self.assertEqual(HabilidadAspirante.objects.count(), 1)
+        self.assertEqual(IdiomaAspirante.objects.count(), 1)
+        skill_record = HabilidadAspirante.objects.get()
+        language_record = IdiomaAspirante.objects.get()
+        self.assertEqual(skill_record.nivel_habilidad, advanced)
+        self.assertEqual(str(skill_record.anios_experiencia), "3.5")
+        self.assertEqual(language_record.nivel_idioma, c1)
+
+    def test_full_vacancy_is_hidden_even_if_its_status_is_published(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
+            transition_application(application.pk, target, self.hr_user)
+        self._accepted_offer(application)
+        transition_application(application.pk, "CONTRATADA", self.hr_user)
+        Plaza.objects.filter(pk=self.vacancy.pk).update(
+            estado_id="PUBLICADA",
+            cierra_en=timezone.now() + timezone.timedelta(days=2),
+        )
+        self.client.force_login(self.applicant)
+
+        response = self.client.get(reverse("oportunidades"))
+        api_response = APIClient().get(reverse("api-plaza-list"))
+
+        self.assertNotIn(self.vacancy, response.context["page"].object_list)
+        self.assertEqual(api_response.status_code, 200)
+        self.assertEqual(api_response.data["count"], 0)
+
+    def test_reports_use_hiring_event_date_and_exclude_future_interviews(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        Postulacion.objects.filter(pk=application.pk).update(
+            postulado_en=timezone.now() - timezone.timedelta(days=90)
+        )
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
+            transition_application(application.pk, target, self.hr_user)
+        self._accepted_offer(application)
+        transition_application(application.pk, "CONTRATADA", self.hr_user)
+        self._interview(application, "COMPLETADA")
+        self.client.force_login(self.hr_user)
+
+        response = self.client.get(reverse("reportes"), {"periodo": "30"})
+
+        self.assertEqual(response.context["total_applications"], 0)
+        self.assertEqual(response.context["hired_count"], 1)
+        self.assertEqual(response.context["interview_count"], 0)
+        self.assertEqual(response.context["conversion_rate"], 0)
+
+    def test_staff_can_manage_required_catalogs_via_api(self):
+        country = Pais.objects.create(codigo_iso="GT", nombre="Guatemala")
+        region = Region.objects.create(pais=country, nombre="Central")
+        anonymous = APIClient()
+        self.assertEqual(
+            anonymous.post(
+                reverse("api-profesion-list"),
+                {"nombre": "Arquitectura"},
+            ).status_code,
+            403,
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.hr_user)
+
+        profession = client.post(
+            reverse("api-profesion-list"), {"nombre": "Arquitectura"}
+        )
+        city = client.post(
+            reverse("api-ciudad-list"),
+            {"nombre": "Mixco", "region": region.pk},
+        )
+        institution = client.post(
+            reverse("api-institucion-list"),
+            {"nombre": "Universidad Técnica", "ciudad": city.data["id"]},
+        )
+        skill = client.post(
+            reverse("api-habilidad-list"),
+            {"nombre": "Kubernetes", "activo": True},
+        )
+        certification = client.post(
+            reverse("api-certificacion-list"),
+            {"nombre": "CKA", "organizacion_emisora": "CNCF"},
+        )
+
+        for response in (profession, city, institution, skill, certification):
+            self.assertEqual(response.status_code, 201, response.data)
+        profession_detail = client.get(
+            reverse("api-profesion-detail", args=[profession.data["id"]])
+        )
+        self.assertIn("codigo", profession_detail.data)
+        update = client.patch(
+            reverse("api-profesion-detail", args=[profession.data["id"]]),
+            {"nombre": "Arquitectura empresarial"},
+        )
+        self.assertEqual(update.status_code, 200)
+        delete = client.delete(
+            reverse("api-profesion-detail", args=[profession.data["id"]])
+        )
+        self.assertEqual(delete.status_code, 204)
+
+    def test_offer_flow_is_available_through_the_api(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        for target in ("EN_REVISION", "PRESELECCIONADA", "ENTREVISTA"):
+            transition_application(application.pk, target, self.hr_user)
+        staff_client = APIClient()
+        staff_client.force_authenticate(user=self.hr_user)
+        create_response = staff_client.post(
+            reverse("api-postulacion-ofertas", args=[application.pk]),
+            {
+                "condiciones": "Contrato por tiempo indefinido.",
+                "vence_en": (timezone.now() + timezone.timedelta(days=2)).isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201, create_response.data)
+        applicant_client = APIClient()
+        applicant_client.force_authenticate(user=self.applicant)
+
+        response = applicant_client.post(
+            reverse("api-postulacion-responder-oferta", args=[application.pk]),
+            {"oferta_id": create_response.data["id"], "respuesta": "ACEPTADA"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["estado"]["codigo"], "ACEPTADA")
 
     def test_applicant_and_hr_pages_render_real_data(self):
         application = create_application(self.vacancy.pk, self.profile)

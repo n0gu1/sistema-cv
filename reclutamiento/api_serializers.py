@@ -32,6 +32,7 @@ from reclutamiento.models import (
     NivelEducativo,
     NivelHabilidad,
     NivelIdioma,
+    OfertaLaboral,
     PeriodoSalarial,
     PerfilAspirante,
     Plaza,
@@ -57,6 +58,72 @@ class CatalogSerializer(serializers.Serializer):
     @extend_schema_field(serializers.CharField(allow_null=True))
     def get_codigo(self, obj):
         return getattr(obj, "codigo", None)
+
+
+class ProfessionCatalogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profesion
+        fields = ("id", "nombre")
+
+
+class InstitutionCatalogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Institucion
+        fields = ("id", "nombre", "ciudad")
+
+    def validate(self, attrs):
+        queryset = Institucion.objects.filter(
+            nombre__iexact=attrs.get("nombre", getattr(self.instance, "nombre", "")),
+            ciudad=attrs.get("ciudad", getattr(self.instance, "ciudad", None)),
+        )
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("La institución ya existe en esa ciudad.")
+        return attrs
+
+
+class SkillCatalogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Habilidad
+        fields = ("id", "nombre", "categoria", "activo")
+
+
+class CityCatalogWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ciudad
+        fields = ("id", "nombre", "region")
+
+    def validate(self, attrs):
+        queryset = Ciudad.objects.filter(
+            nombre__iexact=attrs.get("nombre", getattr(self.instance, "nombre", "")),
+            region=attrs.get("region", getattr(self.instance, "region", None)),
+        )
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("La ciudad ya existe en esa región.")
+        return attrs
+
+
+class CertificationCatalogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Certificacion
+        fields = ("id", "nombre", "organizacion_emisora")
+
+    def validate(self, attrs):
+        queryset = Certificacion.objects.filter(
+            nombre__iexact=attrs.get("nombre", getattr(self.instance, "nombre", "")),
+            organizacion_emisora__iexact=attrs.get(
+                "organizacion_emisora",
+                getattr(self.instance, "organizacion_emisora", ""),
+            ),
+        )
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError("La certificación ya existe.")
+        return attrs
 
 
 class UserSummarySerializer(serializers.Serializer):
@@ -426,6 +493,37 @@ class InterviewSerializer(serializers.ModelSerializer):
         )
 
 
+class OfferSerializer(serializers.ModelSerializer):
+    estado = CatalogSerializer(read_only=True)
+    creado_por = UserSummarySerializer(read_only=True)
+
+    class Meta:
+        model = OfertaLaboral
+        fields = (
+            "id",
+            "estado",
+            "condiciones",
+            "respuesta",
+            "vence_en",
+            "enviada_en",
+            "respondida_en",
+            "creado_por",
+        )
+
+
+class OfferCreateSerializer(serializers.Serializer):
+    condiciones = serializers.CharField(max_length=8000)
+    vence_en = serializers.DateTimeField()
+
+
+class OfferResponseSerializer(serializers.Serializer):
+    oferta_id = serializers.PrimaryKeyRelatedField(
+        source="oferta",
+        queryset=OfertaLaboral.objects.all(),
+    )
+    respuesta = serializers.ChoiceField(choices=("ACEPTADA", "RECHAZADA"))
+
+
 class ApplicationSerializer(serializers.ModelSerializer):
     plaza = VacancySummarySerializer(read_only=True)
     aspirante = ApplicantSummarySerializer(read_only=True)
@@ -433,6 +531,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
     estado = CatalogSerializer(read_only=True)
     evaluacion = serializers.SerializerMethodField()
     entrevistas = serializers.SerializerMethodField()
+    ofertas = serializers.SerializerMethodField()
 
     class Meta:
         model = Postulacion
@@ -448,6 +547,7 @@ class ApplicationSerializer(serializers.ModelSerializer):
             "actualizado_en",
             "evaluacion",
             "entrevistas",
+            "ofertas",
         )
 
     @extend_schema_field(EvaluationSummarySerializer(allow_null=True))
@@ -459,6 +559,15 @@ class ApplicationSerializer(serializers.ModelSerializer):
     def get_entrevistas(self, obj):
         return InterviewSerializer(
             obj.entrevista_set.select_related("estado", "creado_por").all(),
+            many=True,
+        ).data
+
+    @extend_schema_field(OfferSerializer(many=True))
+    def get_ofertas(self, obj):
+        return OfferSerializer(
+            obj.ofertalaboral_set.select_related("estado", "creado_por").order_by(
+                "-creado_en"
+            ),
             many=True,
         ).data
 

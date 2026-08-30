@@ -6,6 +6,7 @@ from django.contrib.auth.forms import (
     UserCreationForm,
 )
 from django.core.validators import RegexValidator
+from django.forms import BaseFormSet, formset_factory
 from django.utils import timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -209,6 +210,18 @@ class FormularioFormacion(forms.ModelForm):
 
 
 class FormularioHabilidadAspirante(forms.ModelForm):
+    anios_experiencia = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_value=99,
+        max_digits=4,
+        decimal_places=1,
+        label="Años de experiencia",
+        error_messages={
+            "min_value": "Los años de experiencia no pueden ser negativos."
+        },
+    )
+
     class Meta:
         model = HabilidadAspirante
         exclude = ("aspirante",)
@@ -219,6 +232,8 @@ class FormularioHabilidadAspirante(forms.ModelForm):
         skills = Habilidad.objects.filter(activo=True)
         if aspirante and self.instance._state.adding:
             skills = skills.exclude(habilidadaspirante__aspirante=aspirante)
+        elif not self.instance._state.adding:
+            self.fields["habilidad"].disabled = True
         self.fields["habilidad"].queryset = skills.order_by("nombre")
         self.fields["nivel_habilidad"].queryset = NivelHabilidad.objects.order_by(
             "orden_nivel"
@@ -235,6 +250,8 @@ class FormularioIdiomaAspirante(forms.ModelForm):
         languages = Idioma.objects.all()
         if aspirante and self.instance._state.adding:
             languages = languages.exclude(idiomaaspirante__aspirante=aspirante)
+        elif not self.instance._state.adding:
+            self.fields["idioma"].disabled = True
         self.fields["idioma"].queryset = languages.order_by("nombre")
         self.fields["nivel_idioma"].queryset = NivelIdioma.objects.order_by(
             "orden_nivel"
@@ -546,6 +563,194 @@ class FormularioPlaza(forms.ModelForm):
             self.fields[field_name].queryset.exists()
             for field_name in ("departamento", "tipo_empleo", "modalidad_trabajo")
         )
+
+
+class FormularioDatosPlaza(FormularioPlaza):
+    requirement_fields = (
+        "anios_experiencia",
+        "nivel_educativo",
+        "area_estudio",
+        "habilidades_obligatorias",
+        "habilidades_deseables",
+        "idioma",
+        "nivel_idioma",
+        "certificaciones",
+        "disponible_desde",
+        "requiere_viajar",
+        "requiere_reubicacion",
+        "descripcion_horario",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name in self.requirement_fields:
+            self.fields.pop(field_name, None)
+
+
+class FormularioRequisitosGenerales(forms.Form):
+    anios_experiencia = forms.IntegerField(required=False, min_value=0, max_value=50)
+    profesion = forms.ModelChoiceField(
+        queryset=Profesion.objects.none(),
+        required=False,
+        label="Profesión de la experiencia",
+    )
+    nivel_educativo = forms.ModelChoiceField(
+        queryset=NivelEducativo.objects.none(),
+        required=False,
+    )
+    area_estudio = forms.ModelChoiceField(
+        queryset=AreaEstudio.objects.none(),
+        required=False,
+    )
+    disponible_desde = forms.DateField(
+        required=False,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    requiere_viajar = forms.BooleanField(required=False)
+    requiere_reubicacion = forms.BooleanField(required=False)
+    descripcion_horario = forms.CharField(max_length=200, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["nivel_educativo"].queryset = NivelEducativo.objects.order_by(
+            "orden_nivel"
+        )
+        self.fields["profesion"].queryset = Profesion.objects.order_by("nombre")
+        self.fields["area_estudio"].queryset = AreaEstudio.objects.order_by("nombre")
+        for field in self.fields.values():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs["class"] = "form-check-input"
+            elif isinstance(field.widget, forms.Select):
+                field.widget.attrs["class"] = "form-select"
+            else:
+                field.widget.attrs["class"] = "form-control"
+
+
+class FormularioRequisitoHabilidadPlaza(forms.Form):
+    habilidad = forms.ModelChoiceField(queryset=Habilidad.objects.none())
+    nivel_habilidad_minimo = forms.ModelChoiceField(
+        queryset=NivelHabilidad.objects.none(),
+        required=False,
+        label="Nivel mínimo",
+    )
+    anios_minimos = forms.DecimalField(
+        required=False,
+        min_value=0,
+        max_value=99,
+        max_digits=4,
+        decimal_places=1,
+        label="Años mínimos",
+    )
+    obligatorio = forms.BooleanField(required=False, initial=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["habilidad"].queryset = Habilidad.objects.filter(
+            activo=True
+        ).order_by("nombre")
+        self.fields["nivel_habilidad_minimo"].queryset = (
+            NivelHabilidad.objects.order_by("orden_nivel")
+        )
+
+
+class FormularioRequisitoIdiomaPlaza(forms.Form):
+    idioma = forms.ModelChoiceField(queryset=Idioma.objects.none())
+    nivel_idioma_minimo = forms.ModelChoiceField(
+        queryset=NivelIdioma.objects.none(),
+        label="Nivel mínimo",
+    )
+    obligatorio = forms.BooleanField(required=False, initial=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["idioma"].queryset = Idioma.objects.order_by("nombre")
+        self.fields["nivel_idioma_minimo"].queryset = NivelIdioma.objects.order_by(
+            "orden_nivel"
+        )
+
+
+class FormularioRequisitoCertificacionPlaza(forms.Form):
+    certificacion = forms.ModelChoiceField(queryset=Certificacion.objects.none())
+    obligatorio = forms.BooleanField(required=False, initial=True)
+    debe_estar_vigente = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Debe estar vigente",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["certificacion"].queryset = Certificacion.objects.order_by("nombre")
+
+
+class FormularioBaseRequisitosUnicos(BaseFormSet):
+    unique_field = None
+
+    def clean(self):
+        if any(self.errors):
+            return
+        values = set()
+        for form in self.forms:
+            data = form.cleaned_data
+            if not data or data.get("DELETE"):
+                continue
+            value = data.get(self.unique_field)
+            if value in values:
+                raise forms.ValidationError("No repitas el mismo requisito.")
+            values.add(value)
+
+
+class FormularioBaseHabilidadesUnicas(FormularioBaseRequisitosUnicos):
+    unique_field = "habilidad"
+
+
+class FormularioBaseIdiomasUnicos(FormularioBaseRequisitosUnicos):
+    unique_field = "idioma"
+
+
+class FormularioBaseCertificacionesUnicas(FormularioBaseRequisitosUnicos):
+    unique_field = "certificacion"
+
+
+FormularioHabilidadesPlaza = formset_factory(
+    FormularioRequisitoHabilidadPlaza,
+    formset=FormularioBaseHabilidadesUnicas,
+    extra=3,
+    can_delete=True,
+)
+FormularioIdiomasPlaza = formset_factory(
+    FormularioRequisitoIdiomaPlaza,
+    formset=FormularioBaseIdiomasUnicos,
+    extra=3,
+    can_delete=True,
+)
+FormularioCertificacionesPlaza = formset_factory(
+    FormularioRequisitoCertificacionPlaza,
+    formset=FormularioBaseCertificacionesUnicas,
+    extra=3,
+    can_delete=True,
+)
+
+
+class FormularioOfertaLaboral(forms.Form):
+    condiciones = forms.CharField(
+        max_length=8000,
+        widget=forms.Textarea(attrs={"rows": 6}),
+        help_text="Incluye remuneración, fecha de inicio y demás condiciones aplicables.",
+    )
+    vence_en = forms.DateTimeField(
+        label="Vence el",
+        widget=forms.DateTimeInput(
+            attrs={"type": "datetime-local"},
+            format="%Y-%m-%dT%H:%M",
+        ),
+    )
+
+    def clean_vence_en(self):
+        expires_at = self.cleaned_data["vence_en"]
+        if expires_at <= timezone.now():
+            raise forms.ValidationError("El vencimiento debe estar en el futuro.")
+        return expires_at
 
 
 class FormularioAcceso(forms.Form):

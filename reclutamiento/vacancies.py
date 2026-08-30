@@ -9,6 +9,7 @@ from reclutamiento.models import (
     EstadoPlaza,
     HistorialEstadoPlaza,
     Plaza,
+    Postulacion,
     RequisitoCertificacion,
     RequisitoDisponibilidad,
     RequisitoEducacion,
@@ -16,6 +17,7 @@ from reclutamiento.models import (
     RequisitoHabilidad,
     RequisitoIdioma,
     RequisitoPlaza,
+    ResultadoRequisitoEvaluacion,
     TipoRequisito,
 )
 
@@ -40,6 +42,7 @@ def get_vacancy_form_initial(vacancy):
             detail = RequisitoExperiencia.objects.filter(requisito=requirement).first()
             if detail:
                 initial["anios_experiencia"] = detail.meses_minimos // 12
+                initial["profesion"] = detail.profesion_id
         elif kind == "EDUCACION":
             detail = RequisitoEducacion.objects.filter(requisito=requirement).first()
             if detail:
@@ -176,6 +179,16 @@ DETAIL_MODELS = {
 
 
 def _replace_requirements(vacancy, cleaned_data):
+    _replace_requirement_specs(vacancy, _requirement_specs(cleaned_data))
+
+
+def _replace_requirement_specs(vacancy, specs):
+    if ResultadoRequisitoEvaluacion.objects.filter(
+        requisito__plaza=vacancy
+    ).exists():
+        raise ValidationError(
+            "Los requisitos ya tienen evaluaciones asociadas y no pueden reemplazarse."
+        )
     try:
         RequisitoPlaza.objects.filter(plaza=vacancy).delete()
     except ProtectedError as error:
@@ -183,7 +196,6 @@ def _replace_requirements(vacancy, cleaned_data):
             "Los requisitos ya tienen evaluaciones asociadas y no pueden reemplazarse."
         ) from error
 
-    specs = _requirement_specs(cleaned_data)
     if not specs:
         return
     base_weight = (Decimal("100.00") / len(specs)).quantize(Decimal("0.01"))
@@ -219,13 +231,24 @@ def save_vacancy(form, user, publish=False):
     now = timezone.now()
     vacancy = form.save(commit=False)
     creating = vacancy.pk is None
+    if not creating:
+        locked_vacancy = Plaza.objects.select_for_update().get(pk=vacancy.pk)
+        hired_count = Postulacion.objects.filter(
+            plaza=locked_vacancy,
+            estado_id="CONTRATADA",
+        ).count()
+        if form.cleaned_data["cantidad_vacantes"] < hired_count:
+            raise ValidationError(
+                "La cantidad de vacantes no puede ser menor que las contrataciones existentes."
+            )
     if creating:
         vacancy.creado_por = user
         vacancy.creado_en = now
         vacancy.estado = EstadoPlaza.objects.get(codigo="BORRADOR")
     vacancy.actualizado_en = now
     vacancy.save()
-    _replace_requirements(vacancy, form.cleaned_data)
+    if creating:
+        _replace_requirements(vacancy, form.cleaned_data)
     if creating:
         HistorialEstadoPlaza.objects.create(
             plaza=vacancy,
@@ -238,6 +261,115 @@ def save_vacancy(form, user, publish=False):
     if publish:
         transition_vacancy(vacancy.pk, "PUBLICADA", user, "Publicación inicial.")
         vacancy.refresh_from_db()
+    return vacancy
+
+
+def get_requirement_editor_initial(vacancy):
+    general = get_vacancy_form_initial(vacancy)
+    skills = []
+    languages = []
+    certifications = []
+    requirements = RequisitoPlaza.objects.filter(plaza=vacancy).select_related("tipo")
+    for requirement in requirements:
+        if requirement.tipo_id == "HABILIDAD":
+            detail = RequisitoHabilidad.objects.filter(requisito=requirement).first()
+            if detail:
+                skills.append(
+                    {
+                        "habilidad": detail.habilidad_id,
+                        "nivel_habilidad_minimo": detail.nivel_habilidad_minimo_id,
+                        "anios_minimos": detail.anios_minimos,
+                        "obligatorio": requirement.obligatorio,
+                    }
+                )
+        elif requirement.tipo_id == "IDIOMA":
+            detail = RequisitoIdioma.objects.filter(requisito=requirement).first()
+            if detail:
+                languages.append(
+                    {
+                        "idioma": detail.idioma_id,
+                        "nivel_idioma_minimo": detail.nivel_idioma_minimo_id,
+                        "obligatorio": requirement.obligatorio,
+                    }
+                )
+        elif requirement.tipo_id == "CERTIFICACION":
+            detail = RequisitoCertificacion.objects.filter(requisito=requirement).first()
+            if detail:
+                certifications.append(
+                    {
+                        "certificacion": detail.certificacion_id,
+                        "obligatorio": requirement.obligatorio,
+                        "debe_estar_vigente": detail.debe_estar_vigente,
+                    }
+                )
+    return general, skills, languages, certifications
+
+
+def _active_form_data(formset):
+    return [
+        form.cleaned_data
+        for form in formset.forms
+        if form.cleaned_data and not form.cleaned_data.get("DELETE")
+    ]
+
+
+@transaction.atomic
+def save_vacancy_requirements(
+    vacancy_id,
+    general_form,
+    skill_formset,
+    language_formset,
+    certification_formset,
+):
+    vacancy = Plaza.objects.select_for_update().get(pk=vacancy_id)
+    specs = [
+        spec
+        for spec in _requirement_specs(general_form.cleaned_data)
+        if spec[0] not in {"HABILIDAD", "IDIOMA", "CERTIFICACION"}
+    ]
+    for data in _active_form_data(skill_formset):
+        skill = data["habilidad"]
+        specs.append(
+            (
+                "HABILIDAD",
+                data["obligatorio"],
+                f"Habilidad: {skill.nombre}.",
+                {
+                    "habilidad": skill,
+                    "nivel_habilidad_minimo": data.get("nivel_habilidad_minimo"),
+                    "anios_minimos": data.get("anios_minimos"),
+                },
+            )
+        )
+    for data in _active_form_data(language_formset):
+        language = data["idioma"]
+        level = data["nivel_idioma_minimo"]
+        specs.append(
+            (
+                "IDIOMA",
+                data["obligatorio"],
+                f"{language.nombre}: {level.nombre}.",
+                {"idioma": language, "nivel_idioma_minimo": level},
+            )
+        )
+    for data in _active_form_data(certification_formset):
+        certification = data["certificacion"]
+        specs.append(
+            (
+                "CERTIFICACION",
+                data["obligatorio"],
+                f"Certificación: {certification.nombre}.",
+                {
+                    "certificacion": certification,
+                    "debe_estar_vigente": data["debe_estar_vigente"],
+                },
+            )
+        )
+    if vacancy.estado_id == "PUBLICADA" and not specs:
+        raise ValidationError("Una plaza publicada debe conservar al menos un requisito.")
+    _replace_requirement_specs(vacancy, specs)
+    vacancy.actualizado_en = timezone.now()
+    vacancy.save(update_fields=("actualizado_en",))
     return vacancy
 
 
@@ -255,6 +387,11 @@ def transition_vacancy(vacancy_id, target_code, user, reason=None):
         plaza=vacancy
     ).exists():
         raise ValidationError("Agrega al menos un requisito antes de publicar.")
+    if target_code == "PUBLICADA" and Postulacion.objects.filter(
+        plaza=vacancy,
+        estado_id="CONTRATADA",
+    ).count() >= vacancy.cantidad_vacantes:
+        raise ValidationError("La plaza no tiene vacantes disponibles para publicar.")
     if (
         target_code == "PUBLICADA"
         and vacancy.cierra_en is not None

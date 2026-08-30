@@ -31,6 +31,11 @@ class StaffOnlyPermission(BasePermission):
         return _is_staff(request.user)
 
 
+class CatalogWritePermission(BasePermission):
+    def has_permission(self, request, view):
+        return request.method in SAFE_METHODS or _is_staff(request.user)
+
+
 class ApplicantAccessPermission(BasePermission):
     def has_permission(self, request, view):
         user = request.user

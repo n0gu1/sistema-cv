@@ -30,6 +30,8 @@ DROP TABLE IF EXISTS historial_estados_plaza CASCADE;
 DROP TABLE IF EXISTS perfiles_personal CASCADE;
 DROP TABLE IF EXISTS entrevistas CASCADE;
 DROP TABLE IF EXISTS estados_entrevista CASCADE;
+DROP TABLE IF EXISTS ofertas_laborales CASCADE;
+DROP TABLE IF EXISTS estados_oferta CASCADE;
 DROP TABLE IF EXISTS historial_estados_postulacion CASCADE;
 DROP TABLE IF EXISTS postulaciones CASCADE;
 DROP TABLE IF EXISTS estados_postulacion CASCADE;

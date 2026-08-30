@@ -21,6 +21,9 @@ from hello.views import (
     estado_analisis,
     editar_registro_perfil,
     editar_plaza,
+    editar_requisitos_plaza,
+    editar_habilidad,
+    editar_idioma,
     eliminar_habilidad,
     eliminar_idioma,
     eliminar_registro_perfil,
@@ -38,6 +41,8 @@ from hello.views import (
     portal,
     postulaciones,
     programar_entrevista,
+    enviar_oferta,
+    responder_oferta,
     reportes,
     reenviar_verificacion,
     registrar_aspirante,
@@ -56,6 +61,11 @@ urlpatterns = [
     path("plazas/nueva/", nueva_plaza, name="nueva_plaza"),
     path("plazas/<int:plaza_id>/", detalle_plaza, name="detalle_plaza"),
     path("plazas/<int:plaza_id>/editar/", editar_plaza, name="editar_plaza"),
+    path(
+        "plazas/<int:plaza_id>/requisitos/",
+        editar_requisitos_plaza,
+        name="editar_requisitos_plaza",
+    ),
     path(
         "plazas/<int:plaza_id>/estado/<str:estado>/",
         cambiar_estado_plaza,
@@ -82,6 +92,11 @@ urlpatterns = [
         "postulaciones/<int:postulacion_id>/entrevista/",
         programar_entrevista,
         name="programar_entrevista",
+    ),
+    path(
+        "postulaciones/<int:postulacion_id>/oferta/",
+        enviar_oferta,
+        name="enviar_oferta",
     ),
     path(
         "entrevistas/<int:entrevista_id>/estado/",
@@ -113,11 +128,21 @@ urlpatterns = [
     path("portal/perfil/", perfil_aspirante, name="perfil_aspirante"),
     path("portal/perfil/habilidades/nueva/", agregar_habilidad, name="agregar_habilidad"),
     path(
+        "portal/perfil/habilidades/<int:habilidad_id>/editar/",
+        editar_habilidad,
+        name="editar_habilidad",
+    ),
+    path(
         "portal/perfil/habilidades/<int:habilidad_id>/eliminar/",
         eliminar_habilidad,
         name="eliminar_habilidad",
     ),
     path("portal/perfil/idiomas/nuevo/", agregar_idioma, name="agregar_idioma"),
+    path(
+        "portal/perfil/idiomas/<int:idioma_id>/editar/",
+        editar_idioma,
+        name="editar_idioma",
+    ),
     path(
         "portal/perfil/idiomas/<int:idioma_id>/eliminar/",
         eliminar_idioma,
@@ -160,6 +185,11 @@ urlpatterns = [
         "portal/postulaciones/<int:postulacion_id>/retirar/",
         retirar_postulacion,
         name="retirar_postulacion",
+    ),
+    path(
+        "portal/ofertas/<int:oferta_id>/<str:respuesta>/",
+        responder_oferta,
+        name="responder_oferta",
     ),
     path("cuenta/registro/", registrar_aspirante, name="registrar_aspirante"),
     path(
