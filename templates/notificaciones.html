@@ -1,4 +1,5 @@
 {% extends base_template %}
+{% load ui_labels %}
 {% block title %}Notificaciones | Sistema CV{% endblock %}
 {% block page_title %}Notificaciones{% endblock %}
 {% block content %}
@@ -12,13 +13,13 @@
     <div class="notification-list">
         {% for notification in page.object_list %}
         <article class="notification-item {% if not notification.leido_en %}unread{% endif %}">
-            <span class="notification-icon"><i class="bi bi-{% if notification.entrevista %}calendar-event{% elif notification.tipo.codigo == 'CAMBIO_ESTADO' %}arrow-repeat{% else %}send-check{% endif %}"></i></span>
-            <div class="notification-content"><div class="notification-meta"><strong>{{ notification.tipo.nombre }}</strong><small>{{ notification.creado_en|date:"d/m/Y H:i" }}</small>{% if not notification.leido_en %}<span class="notification-unread">Nueva</span>{% endif %}</div><h2>{{ notification.titulo }}</h2><p>{{ notification.mensaje }}</p><div class="notification-actions">{% if notification.postulacion %}<a href="{% if is_portal %}{% url 'mi_postulacion' notification.postulacion.pk %}{% else %}{% url 'detalle_postulacion' notification.postulacion.pk %}{% endif %}">Ver postulación <i class="bi bi-arrow-right"></i></a>{% endif %}{% if not notification.leido_en %}<form method="post" action="{% url 'marcar_notificacion_leida' notification.pk %}">{% csrf_token %}<button type="submit">Marcar como leída</button></form>{% endif %}</div></div>
+            <span class="notification-icon"><i class="bi bi-{% if notification.entrevista %}calendar-event{% elif notification.tipo.codigo == 'CAMBIO_ESTADO' %}arrow-repeat{% else %}send-check{% endif %}" aria-hidden="true"></i></span>
+            <div class="notification-content"><div class="notification-meta"><strong>{{ notification.tipo.nombre }}</strong><small>{{ notification.creado_en|date:"d/m/Y H:i" }}</small>{% if not notification.leido_en %}<span class="notification-unread">Nueva</span>{% endif %}</div><h2>{{ notification.titulo }}</h2><p>{{ notification.mensaje }}</p><div class="notification-actions">{% if notification.postulacion %}<a href="{% if is_portal %}{% url 'mi_postulacion' notification.postulacion.pk %}{% else %}{% url 'detalle_postulacion' notification.postulacion.pk %}{% endif %}">Ver postulación <i class="bi bi-arrow-right" aria-hidden="true"></i></a>{% endif %}{% with meeting_url=notification.entrevista.url_reunion|safe_external_url %}{% if meeting_url %}<a class="interview-link" href="{{ meeting_url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-camera-video" aria-hidden="true"></i> Abrir reunión</a>{% endif %}{% endwith %}{% if not notification.leido_en %}<form method="post" action="{% url 'marcar_notificacion_leida' notification.pk %}">{% csrf_token %}<button type="submit">Marcar como leída</button></form>{% endif %}</div></div>
         </article>
         {% empty %}
         <div class="portal-empty"><i class="bi bi-bell-slash"></i><h3>{% if has_filters %}No encontramos notificaciones{% else %}No tienes notificaciones{% endif %}</h3><p>{% if has_filters %}Prueba con otros filtros de búsqueda.{% else %}Las novedades de tus procesos aparecerán aquí.{% endif %}</p></div>
         {% endfor %}
     </div>
 </section>
-{% if page.has_other_pages %}<nav class="page-pagination">{% if page.has_previous %}<a href="?q={{ filters.q|urlencode }}&amp;leido={{ filters.leido }}&amp;tipo={{ filters.tipo }}&amp;pagina={{ page.previous_page_number }}"><i class="bi bi-chevron-left"></i></a>{% endif %}<span>Página {{ page.number }} de {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?q={{ filters.q|urlencode }}&amp;leido={{ filters.leido }}&amp;tipo={{ filters.tipo }}&amp;pagina={{ page.next_page_number }}"><i class="bi bi-chevron-right"></i></a>{% endif %}</nav>{% endif %}
+{% if page.has_other_pages %}<nav class="page-pagination" aria-label="Paginación de notificaciones">{% if page.has_previous %}<a href="?q={{ filters.q|urlencode }}&amp;leido={{ filters.leido }}&amp;tipo={{ filters.tipo }}&amp;pagina={{ page.previous_page_number }}" aria-label="Página anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>{% endif %}<span aria-current="page">Página {{ page.number }} de {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?q={{ filters.q|urlencode }}&amp;leido={{ filters.leido }}&amp;tipo={{ filters.tipo }}&amp;pagina={{ page.next_page_number }}" aria-label="Página siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>{% endif %}</nav>{% endif %}
 {% endblock %}

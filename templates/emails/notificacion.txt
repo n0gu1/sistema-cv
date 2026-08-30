@@ -1,3 +1,4 @@
+{% load ui_labels %}
 Hola {{ notification.usuario_destinatario.first_name }},
 
 {{ notification.titulo }}
@@ -8,8 +9,8 @@ Detalles de la entrevista:
 Fecha: {{ notification.entrevista.inicia_en|date:"d/m/Y H:i" }}
 Zona horaria: {{ notification.entrevista.zona_horaria }}
 {% if notification.entrevista.detalle_ubicacion %}Lugar: {{ notification.entrevista.detalle_ubicacion }}
-{% endif %}{% if notification.entrevista.url_reunion %}Enlace: {{ notification.entrevista.url_reunion }}
-{% endif %}{% endif %}
+{% endif %}{% with meeting_url=notification.entrevista.url_reunion|safe_external_url %}{% if meeting_url %}Enlace: {{ meeting_url }}
+{% endif %}{% endwith %}{% endif %}
 
 Puedes consultar el detalle desde tu espacio en Sistema CV.
 

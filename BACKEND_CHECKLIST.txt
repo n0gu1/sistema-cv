@@ -181,10 +181,10 @@ Convenciones:
 [x] Agregar paginacion y filtros a Mis solicitudes y Notificaciones.
 [x] Corregir el enlace de la metrica Plazas pendientes para incluir borradores y pausadas.
 [x] Permitir ingresar un motivo al publicar, pausar, reactivar, cerrar o retirar una postulacion.
-[ ] Mostrar las URL de credenciales y reuniones como enlaces seguros y utilizables.
-[ ] Adaptar los listados administrativos a tarjetas o acciones visibles sin desplazamiento horizontal en movil.
-[ ] Mantener activa la opcion correcta del menu en detalles y edicion de plazas y aspirantes.
-[ ] Agregar nombres accesibles a botones iconograficos, filtros, paginadores y cierre del menu movil.
-[ ] Aumentar tamanos de texto y objetivos tactiles demasiado pequenos en movil.
-[ ] Renombrar Formacion y beneficios o agregar campos reales para beneficios de la plaza.
+[x] Mostrar las URL de credenciales y reuniones como enlaces seguros y utilizables.
+[x] Adaptar los listados administrativos a tarjetas o acciones visibles sin desplazamiento horizontal en movil.
+[x] Mantener activa la opcion correcta del menu en detalles y edicion de plazas y aspirantes.
+[x] Agregar nombres accesibles a botones iconograficos, filtros, paginadores y cierre del menu movil.
+[x] Aumentar tamanos de texto y objetivos tactiles demasiado pequenos en movil.
+[x] Renombrar Formacion y beneficios o agregar campos reales para beneficios de la plaza.
 [x] Mostrar nombres de estado legibles en el historial de plazas en lugar de codigos tecnicos.

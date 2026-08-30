@@ -19,37 +19,39 @@
     <aside class="sidebar offcanvas-lg offcanvas-start" tabindex="-1" id="appSidebar" aria-label="Navegación principal">
         <div class="sidebar-header">
             <a class="brand" href="{% url 'dashboard' %}" aria-label="Sistema CV, inicio">
-                <span class="brand-mark"><i class="bi bi-bullseye"></i></span>
+                <span class="brand-mark"><i class="bi bi-bullseye" aria-hidden="true"></i></span>
                 <span><strong>Sistema CV</strong><small>Gestión de reclutamiento</small></span>
             </a>
             <button class="btn-close btn-close-white d-lg-none" type="button" data-bs-dismiss="offcanvas" aria-label="Cerrar menú"></button>
         </div>
 
+        {% with current_url=request.resolver_match.url_name %}
         <nav class="sidebar-nav">
-            <a class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
-                <i class="bi bi-house-door"></i><span>Dashboard</span>
+            <a class="nav-item {% if current_url == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}"{% if current_url == 'dashboard' %} aria-current="page"{% endif %}>
+                <i class="bi bi-house-door" aria-hidden="true"></i><span>Dashboard</span>
             </a>
-            <a class="nav-item {% if request.resolver_match.url_name == 'plazas' or request.resolver_match.url_name == 'nueva_plaza' %}active{% endif %}" href="{% url 'plazas' %}">
-                <i class="bi bi-briefcase"></i><span>Plazas</span>
+            <a class="nav-item {% if current_url == 'plazas' or current_url == 'nueva_plaza' or current_url == 'detalle_plaza' or current_url == 'editar_plaza' or current_url == 'editar_requisitos_plaza' or current_url == 'cambiar_estado_plaza' %}active{% endif %}" href="{% url 'plazas' %}"{% if current_url == 'plazas' or current_url == 'nueva_plaza' or current_url == 'detalle_plaza' or current_url == 'editar_plaza' or current_url == 'editar_requisitos_plaza' or current_url == 'cambiar_estado_plaza' %} aria-current="page"{% endif %}>
+                <i class="bi bi-briefcase" aria-hidden="true"></i><span>Plazas</span>
             </a>
-            <a class="nav-item {% if request.resolver_match.url_name == 'aspirantes' %}active{% endif %}" href="{% url 'aspirantes' %}">
-                <i class="bi bi-people"></i><span>Aspirantes</span>
+            <a class="nav-item {% if current_url == 'aspirantes' or current_url == 'detalle_aspirante' %}active{% endif %}" href="{% url 'aspirantes' %}"{% if current_url == 'aspirantes' or current_url == 'detalle_aspirante' %} aria-current="page"{% endif %}>
+                <i class="bi bi-people" aria-hidden="true"></i><span>Aspirantes</span>
             </a>
-            <a class="nav-item {% if request.resolver_match.url_name == 'postulaciones' or request.resolver_match.url_name == 'detalle_postulacion' %}active{% endif %}" href="{% url 'postulaciones' %}"><i class="bi bi-send"></i><span>Postulaciones</span></a>
-            <a class="nav-item {% if request.resolver_match.url_name == 'analisis' %}active{% endif %}" href="{% url 'analisis' %}"><i class="bi bi-bar-chart"></i><span>Análisis</span></a>
-            <a class="nav-item {% if request.resolver_match.url_name == 'notificaciones' %}active{% endif %}" href="{% url 'notificaciones' %}"><i class="bi bi-bell"></i><span>Notificaciones</span>{% if unread_notification_count %}<span class="nav-alert-count">{{ unread_notification_count }}</span>{% endif %}</a>
-            <a class="nav-item {% if request.resolver_match.url_name == 'reportes' %}active{% endif %}" href="{% url 'reportes' %}"><i class="bi bi-file-earmark-bar-graph"></i><span>Reportes</span></a>
-            <a class="nav-item {% if request.resolver_match.url_name == 'configuracion' %}active{% endif %}" href="{% url 'configuracion' %}"><i class="bi bi-gear"></i><span>Configuración</span></a>
+            <a class="nav-item {% if current_url == 'postulaciones' or current_url == 'detalle_postulacion' or current_url == 'cambiar_estado_postulacion' or current_url == 'programar_entrevista' or current_url == 'cambiar_estado_entrevista' or current_url == 'enviar_oferta' %}active{% endif %}" href="{% url 'postulaciones' %}"{% if current_url == 'postulaciones' or current_url == 'detalle_postulacion' or current_url == 'cambiar_estado_postulacion' or current_url == 'programar_entrevista' or current_url == 'cambiar_estado_entrevista' or current_url == 'enviar_oferta' %} aria-current="page"{% endif %}><i class="bi bi-send" aria-hidden="true"></i><span>Postulaciones</span></a>
+            <a class="nav-item {% if current_url == 'analisis' or current_url == 'estado_analisis' %}active{% endif %}" href="{% url 'analisis' %}"{% if current_url == 'analisis' or current_url == 'estado_analisis' %} aria-current="page"{% endif %}><i class="bi bi-bar-chart" aria-hidden="true"></i><span>Análisis</span></a>
+            <a class="nav-item {% if current_url == 'notificaciones' or current_url == 'marcar_notificaciones_leidas' or current_url == 'marcar_notificacion_leida' %}active{% endif %}" href="{% url 'notificaciones' %}"{% if current_url == 'notificaciones' or current_url == 'marcar_notificaciones_leidas' or current_url == 'marcar_notificacion_leida' %} aria-current="page"{% endif %}><i class="bi bi-bell" aria-hidden="true"></i><span>Notificaciones</span>{% if unread_notification_count %}<span class="nav-alert-count">{{ unread_notification_count }}</span>{% endif %}</a>
+            <a class="nav-item {% if current_url == 'reportes' or current_url == 'exportar_reporte' %}active{% endif %}" href="{% url 'reportes' %}"{% if current_url == 'reportes' or current_url == 'exportar_reporte' %} aria-current="page"{% endif %}><i class="bi bi-file-earmark-bar-graph" aria-hidden="true"></i><span>Reportes</span></a>
+            <a class="nav-item {% if current_url == 'configuracion' or current_url == 'cambiar_contrasena' %}active{% endif %}" href="{% url 'configuracion' %}"{% if current_url == 'configuracion' or current_url == 'cambiar_contrasena' %} aria-current="page"{% endif %}><i class="bi bi-gear" aria-hidden="true"></i><span>Configuración</span></a>
         </nav>
+        {% endwith %}
 
         <div class="sidebar-user">
             <div class="avatar avatar-sm">{{ request.user.first_name|first }}{{ request.user.last_name|first }}</div>
             <div class="flex-grow-1 overflow-hidden"><strong>{{ request.user.get_full_name }}</strong><small>Equipo de Recursos Humanos</small></div>
             <div class="dropdown">
-                <button class="icon-button dark" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Opciones de cuenta"><i class="bi bi-three-dots"></i></button>
+                <button class="icon-button dark" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Opciones de cuenta"><i class="bi bi-three-dots" aria-hidden="true"></i></button>
                 <div class="dropdown-menu dropdown-menu-end account-menu">
-                    <a class="dropdown-item" href="{% url 'cambiar_contrasena' %}"><i class="bi bi-key"></i>Cambiar contraseña</a>
-                    <form method="post" action="{% url 'cerrar_sesion' %}">{% csrf_token %}<button class="dropdown-item text-danger" type="submit"><i class="bi bi-box-arrow-right"></i>Cerrar sesión</button></form>
+                    <a class="dropdown-item" href="{% url 'cambiar_contrasena' %}"><i class="bi bi-key" aria-hidden="true"></i>Cambiar contraseña</a>
+                    <form method="post" action="{% url 'cerrar_sesion' %}">{% csrf_token %}<button class="dropdown-item text-danger" type="submit"><i class="bi bi-box-arrow-right" aria-hidden="true"></i>Cerrar sesión</button></form>
                 </div>
             </div>
         </div>
@@ -58,13 +60,13 @@
     <div class="main-panel">
         <header class="topbar">
             <button class="icon-button d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#appSidebar" aria-controls="appSidebar" aria-label="Abrir menú">
-                <i class="bi bi-list"></i>
+                <i class="bi bi-list" aria-hidden="true"></i>
             </button>
             <div class="topbar-context">
                 <strong>{% block page_title %}Panel de reclutamiento{% endblock %}</strong>
             </div>
             <div class="topbar-actions">
-                <a class="icon-button {% if unread_notification_count %}has-alert{% endif %}" href="{% url 'notificaciones' %}" aria-label="Notificaciones"><i class="bi bi-bell"></i></a>
+                <a class="icon-button {% if unread_notification_count %}has-alert{% endif %}" href="{% url 'notificaciones' %}" aria-label="Notificaciones"><i class="bi bi-bell" aria-hidden="true"></i></a>
                 <div class="topbar-profile d-none d-md-flex">
                     <div class="avatar avatar-sm">{{ request.user.first_name|first }}{{ request.user.last_name|first }}</div>
                     <span><strong>{{ request.user.get_full_name }}</strong><small>Recursos Humanos</small></span>

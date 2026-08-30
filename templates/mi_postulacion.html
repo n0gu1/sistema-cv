@@ -52,7 +52,7 @@
                     <span class="interview-status">{{ interview.estado.nombre }} · {{ interview.zona_horaria }}</span>
                     {% if interview.detalle_ubicacion %}<p class="interview-location"><i class="bi bi-geo-alt"></i><strong>Ubicación:</strong> {{ interview.detalle_ubicacion }}</p>{% endif %}
                     {% if interview.notas %}<p class="interview-notes"><i class="bi bi-card-text"></i><strong>Notas:</strong> {{ interview.notas }}</p>{% endif %}
-                    {% if interview.url_reunion %}<a class="interview-link" href="{{ interview.url_reunion }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-camera-video"></i> Abrir reunión</a>{% endif %}
+                    {% with meeting_url=interview.url_reunion|safe_external_url %}{% if meeting_url %}<a class="interview-link" href="{{ meeting_url }}" target="_blank" rel="noopener noreferrer"><i class="bi bi-camera-video" aria-hidden="true"></i> Abrir reunión</a>{% endif %}{% endwith %}
                 </div>
             </article>
             {% endfor %}

@@ -5,7 +5,7 @@ from django.contrib.auth.forms import (
     SetPasswordForm,
     UserCreationForm,
 )
-from django.core.validators import RegexValidator
+from django.core.validators import RegexValidator, URLValidator
 from django.forms import BaseFormSet, formset_factory
 from django.utils import timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -259,6 +259,13 @@ class FormularioIdiomaAspirante(forms.ModelForm):
 
 
 class FormularioCertificacionAspirante(forms.ModelForm):
+    url_credencial = forms.CharField(
+        required=False,
+        label="Enlace de la credencial",
+        validators=[URLValidator(schemes=("http", "https"))],
+        widget=forms.URLInput(attrs={"placeholder": "https://..."}),
+    )
+
     class Meta:
         model = CertificacionAspirante
         exclude = ("aspirante",)
@@ -317,9 +324,10 @@ class FormularioCambioEstadoPostulacion(forms.Form):
 
 
 class FormularioEntrevista(forms.ModelForm):
-    url_reunion = forms.URLField(
+    url_reunion = forms.CharField(
         required=False,
         label="Enlace de reunión",
+        validators=[URLValidator(schemes=("http", "https"))],
         widget=forms.URLInput(
             attrs={"placeholder": "https://..."}
         ),

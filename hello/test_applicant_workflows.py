@@ -1,3 +1,4 @@
+import re
 import shutil
 import tempfile
 from datetime import datetime
@@ -22,7 +23,11 @@ from reclutamiento.applications import (
     transition_application,
 )
 from reclutamiento.ai_analysis import analyze_application, enqueue_application_analysis
-from reclutamiento.forms import FormularioEntrevista, FormularioHabilidadAspirante
+from reclutamiento.forms import (
+    FormularioCertificacionAspirante,
+    FormularioEntrevista,
+    FormularioHabilidadAspirante,
+)
 from reclutamiento.tasks import process_application_analysis
 from reclutamiento.models import (
     AnalisisCV,
@@ -536,6 +541,7 @@ class ApplicantWorkflowTests(TransactionTestCase):
             aspirante=self.profile,
             certificacion=certification,
             codigo_credencial="CERT-001",
+            url_credencial="https://certs.example.com/CERT-001",
         )
 
         self.client.force_login(self.hr_user)
@@ -561,6 +567,16 @@ class ApplicantWorkflowTests(TransactionTestCase):
             self.client.get(reverse("aspirantes")),
             reverse("detalle_aspirante", args=[self.profile.pk]),
         )
+        self.assertContains(response, 'href="https://certs.example.com/CERT-001"')
+        self.assertContains(response, 'target="_blank"')
+        self.assertContains(response, 'rel="noopener noreferrer"')
+
+        self.client.force_login(self.applicant)
+        profile_response = self.client.get(reverse("perfil_aspirante"))
+        self.assertContains(
+            profile_response,
+            'href="https://certs.example.com/CERT-001"',
+        )
 
         self.client.force_login(self.applicant)
         self.assertEqual(
@@ -569,6 +585,63 @@ class ApplicantWorkflowTests(TransactionTestCase):
             ).status_code,
             403,
         )
+
+    def test_credential_urls_accept_only_http_or_https(self):
+        certification = Certificacion.objects.create(
+            nombre="Certificación de prueba",
+            organizacion_emisora="Organización de prueba",
+        )
+        valid = FormularioCertificacionAspirante(
+            data={
+                "certificacion": certification.pk,
+                "url_credencial": "https://certs.example.com/valid",
+            }
+        )
+        self.assertTrue(valid.is_valid(), valid.errors)
+
+        invalid = FormularioCertificacionAspirante(
+            data={
+                "certificacion": certification.pk,
+                "url_credencial": "javascript:alert(1)",
+            }
+        )
+        self.assertFalse(invalid.is_valid())
+        self.assertIn("url_credencial", invalid.errors)
+
+    def test_admin_navigation_stays_active_on_related_pages(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        self.client.force_login(self.hr_user)
+
+        for route_name, args, section in (
+            ("nueva_plaza", (), "plazas"),
+            ("detalle_plaza", (self.vacancy.pk,), "plazas"),
+            ("editar_plaza", (self.vacancy.pk,), "plazas"),
+            ("editar_requisitos_plaza", (self.vacancy.pk,), "plazas"),
+            ("detalle_aspirante", (self.profile.pk,), "aspirantes"),
+            ("detalle_postulacion", (application.pk,), "postulaciones"),
+        ):
+            with self.subTest(route_name=route_name):
+                response = self.client.get(reverse(route_name, args=args))
+                self.assertEqual(response.status_code, 200)
+                section_url = reverse(section)
+                self.assertRegex(
+                    response.content.decode(),
+                    rf'class="nav-item active" href="{re.escape(section_url)}"',
+                )
+
+    def test_admin_listings_include_mobile_labels_and_named_actions(self):
+        create_application(self.vacancy.pk, self.profile)
+        self.client.force_login(self.hr_user)
+        for route_name, label in (
+            ("aspirantes", "Paginación de aspirantes"),
+            ("postulaciones", "Paginación de postulaciones"),
+            ("plazas", "Paginación de plazas"),
+        ):
+            with self.subTest(route_name=route_name):
+                response = self.client.get(reverse(route_name))
+                self.assertContains(response, 'data-label="Acciones"')
+                self.assertContains(response, 'class="action-label"')
+                self.assertContains(response, f'aria-label="{label}"')
 
     def test_portal_lists_all_pending_profile_sections(self):
         self.client.force_login(self.applicant)
