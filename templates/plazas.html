@@ -7,6 +7,7 @@
 <div class="status-tabs wide-tabs" aria-label="Estado de plazas">
     <a class="{% if not filters.estado %}active{% endif %}" href="{% url 'plazas' %}">Todas <span>{{ total_count }}</span></a>
     <a class="{% if filters.estado == 'PUBLICADA' %}active{% endif %}" href="?estado=PUBLICADA">Activas <span>{{ status_counts.PUBLICADA|default:0 }}</span></a>
+    <a class="{% if filters.estado == 'VENCIDA' %}active{% endif %}" href="?estado=VENCIDA">Vencidas <span>{{ status_counts.VENCIDA|default:0 }}</span></a>
     <a class="{% if filters.estado == 'BORRADOR' %}active{% endif %}" href="?estado=BORRADOR">Pendientes <span>{{ status_counts.BORRADOR|default:0 }}</span></a>
     <a class="{% if filters.estado == 'PAUSADA' %}active{% endif %}" href="?estado=PAUSADA">Pausadas <span>{{ status_counts.PAUSADA|default:0 }}</span></a>
     <a class="{% if filters.estado == 'CERRADA' %}active{% endif %}" href="?estado=CERRADA">Cerradas <span>{{ status_counts.CERRADA|default:0 }}</span></a>
@@ -26,12 +27,12 @@
             <thead><tr><th>Puesto</th><th>Departamento</th><th>Ubicación</th><th>Postulaciones</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody>
             {% for plaza in page.object_list %}
-                <tr>
+                <tr{% if plaza.esta_vencida %} class="vacancy-expired"{% endif %}>
                     <td><a class="vacancy-name" href="{% url 'detalle_plaza' plaza.pk %}">{{ plaza.titulo }}</a><small>ID: PLA-{{ plaza.pk|stringformat:'04d' }}</small></td>
                     <td>{{ plaza.departamento.nombre }}</td>
                     <td>{{ plaza.detalle_ubicacion|default:plaza.modalidad_trabajo.nombre }}</td>
                     <td class="text-center">{{ plaza.applicant_count }}</td>
-                    <td><span class="status-badge {% if plaza.estado_id == 'PUBLICADA' %}active{% elif plaza.estado_id == 'PAUSADA' %}paused{% elif plaza.estado_id == 'CERRADA' %}closed{% else %}draft{% endif %}">{{ plaza.estado.nombre }}</span></td>
+                    <td><span class="status-badge {% if plaza.esta_vencida %}expired{% elif plaza.estado_id == 'PUBLICADA' %}active{% elif plaza.estado_id == 'PAUSADA' %}paused{% elif plaza.estado_id == 'CERRADA' %}closed{% else %}draft{% endif %}">{% if plaza.esta_vencida %}Vencida{% else %}{{ plaza.estado.nombre }}{% endif %}</span>{% if plaza.esta_vencida %}<small class="status-note">Cierre cumplido</small>{% endif %}</td>
                     <td><a class="icon-button" href="{% url 'detalle_plaza' plaza.pk %}" aria-label="Gestionar {{ plaza.titulo }}"><i class="bi bi-three-dots-vertical"></i></a></td>
                 </tr>
             {% empty %}<tr><td colspan="6"><div class="inline-empty">No se encontraron plazas con estos filtros.</div></td></tr>{% endfor %}

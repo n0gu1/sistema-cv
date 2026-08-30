@@ -883,3 +883,38 @@ button, input, select, textarea { font: inherit; }
     .application-list article > .application-detail-link { display:inline-flex; grid-column:1 / -1; grid-row:auto; justify-self:end; width:auto; min-width:0; height:36px; flex:0 0 auto; gap:7px; padding:0 12px; }
     .application-list article > .application-detail-link span { display:inline; font-size:10px; font-weight:700; }
 }
+
+.login-resend-verification { display:grid; gap:4px; padding:10px 12px; border:1px solid #f0dfb8; border-radius:8px; color:#7d6b45; background:#fffaf0; font-size:10px; line-height:1.4; }
+.login-resend-verification a { color:#9a650e; font-weight:750; }
+.login-resend-verification a:hover { color:#754d09; }
+
+.management-table tbody tr.vacancy-expired td { background:#fffaf2; }
+.management-table tbody tr.vacancy-expired:hover td { background:#fff5e3; }
+.status-badge.expired { color:#9a5b0b; background:#fff0d0; }
+.management-table .status-note { color:#a47631; }
+
+.availability-section { margin-top:26px; padding-top:23px; border-top:1px solid #eeece6; }
+.availability-section h2 { margin-bottom:15px; }
+.availability-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.availability-item { padding:12px; border:1px solid #eeece6; border-radius:10px; background:#fbfaf8; }
+.availability-item small,.availability-item strong { display:block; }
+.availability-item small { color:#9299a5; font-size:8px; text-transform:uppercase; }
+.availability-item strong { margin-top:5px; color:#465268; font-size:10px; line-height:1.45; }
+.availability-empty { margin:0; color:#747e8f; font-size:10px; }
+
+.interview-summary-body,.interview-details { min-width:0; flex:1; }
+.interview-time { display:flex; flex-wrap:wrap; gap:18px; }
+.interview-time > span { margin:0; color:inherit; font-size:inherit; }
+.interview-time small { display:block; margin:0 0 3px; color:#9299a5; font-size:8px; text-transform:uppercase; }
+.interview-time strong { display:block; color:#344054; font-size:10px; }
+.interview-status { display:block; margin-top:6px; color:#7c8494; font-size:9px; }
+.interview-location,.interview-notes { display:flex; align-items:flex-start; gap:5px; margin:8px 0 0; color:#6f798a; font-size:9px; line-height:1.5; }
+.interview-location > i,.interview-notes > i { flex:0 0 auto; color:var(--primary); }
+.interview-location strong,.interview-notes strong { display:inline; color:#5b6678; font-size:inherit; }
+.interview-link { display:inline-flex !important; align-items:center; gap:5px; margin-top:9px !important; color:var(--primary); font-size:9px; font-weight:750; }
+.interview-link:hover { color:#164d95; }
+.admin-interview .interview-status { margin-top:6px; }
+
+@media (max-width: 767.98px) {
+    .availability-grid { grid-template-columns:1fr; }
+}

@@ -618,6 +618,14 @@ class Plaza(ModeloExistente):
     def __str__(self):
         return self.titulo
 
+    @property
+    def esta_vencida(self):
+        return (
+            self.estado_id == "PUBLICADA"
+            and self.cierra_en is not None
+            and self.cierra_en <= timezone.now()
+        )
+
 
 class HistorialEstadoPlaza(ModeloExistente):
     plaza = models.ForeignKey(Plaza, models.CASCADE, db_column="plaza_id")

@@ -165,13 +165,13 @@ Convenciones:
 [x] Separar la edicion de requisitos de la edicion general de una plaza evaluada.
 
 13. PENDIENTES DE FRONTEND Y EXPERIENCIA DE USUARIO
-[ ] Mantener visible y accesible el enlace al detalle de una postulacion en pantallas menores de 480 px.
-[ ] Agregar en escritorio las acciones de cambiar contrasena y cerrar sesion al portal del aspirante.
-[ ] Mostrar una accion de reenvio de verificacion cuando un enlace de verificacion sea invalido o venza.
-[ ] Mostrar en el inicio de sesion un enlace visible para reenviar la verificacion de una cuenta no verificada.
-[ ] Diferenciar visualmente las plazas vencidas de las plazas publicadas activas.
-[ ] Mostrar todos los detalles de disponibilidad: fecha requerida, viajes, reubicacion y horario.
-[ ] Mostrar hora de finalizacion, notas, ubicacion y enlace utilizable en las entrevistas.
+[x] Mantener visible y accesible el enlace al detalle de una postulacion en pantallas menores de 480 px.
+[x] Agregar en escritorio las acciones de cambiar contrasena y cerrar sesion al portal del aspirante.
+[x] Mostrar una accion de reenvio de verificacion cuando un enlace de verificacion sea invalido o venza.
+[x] Mostrar en el inicio de sesion un enlace visible para reenviar la verificacion de una cuenta no verificada.
+[x] Diferenciar visualmente las plazas vencidas de las plazas publicadas activas.
+[x] Mostrar todos los detalles de disponibilidad: fecha requerida, viajes, reubicacion y horario.
+[x] Mostrar hora de finalizacion, notas, ubicacion y enlace utilizable en las entrevistas.
 [ ] Implementar o eliminar los botones inactivos de contraer menu, buscar y ayuda del encabezado administrativo.
 [ ] Agregar acceso directo desde el detalle de una plaza a sus postulaciones.
 [ ] Usar catalogs_ready para explicar catalogos faltantes y desactivar el guardado imposible de plazas.

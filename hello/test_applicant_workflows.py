@@ -878,6 +878,76 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(len(response.context["entrevistas"]), 1)
         self.assertContains(response, "America/Guatemala")
 
+    def test_application_pages_show_complete_interview_details(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        interview = self._interview(application)
+        interview.url_reunion = "https://meet.example.com/entrevista"
+        interview.notas = "Traer documento de identidad."
+        interview.save(update_fields=("url_reunion", "notas"))
+
+        self.client.force_login(self.applicant)
+        applicant_response = self.client.get(
+            reverse("mi_postulacion", args=[application.pk])
+        )
+        self.client.force_login(self.hr_user)
+        hr_response = self.client.get(
+            reverse("detalle_postulacion", args=[application.pk])
+        )
+
+        for response in (applicant_response, hr_response):
+            with self.subTest(page=response.request["PATH_INFO"]):
+                self.assertContains(response, "Finaliza")
+                self.assertContains(
+                    response,
+                    interview.termina_en_local.strftime("%d/%m/%Y %H:%M"),
+                )
+                self.assertContains(response, "Oficina central")
+                self.assertContains(response, "Traer documento de identidad.")
+                self.assertContains(response, "Abrir reunión")
+                self.assertContains(
+                    response,
+                    'href="https://meet.example.com/entrevista"',
+                )
+                self.assertContains(response, 'target="_blank"')
+
+    def test_opportunity_detail_shows_all_availability_requirements(self):
+        requirement = RequisitoPlaza.objects.create(
+            plaza=self.vacancy,
+            tipo=TipoRequisito.objects.create(
+                codigo="DISPONIBILIDAD",
+                nombre="Disponibilidad",
+            ),
+            descripcion="Condiciones de disponibilidad para el puesto.",
+            obligatorio=True,
+            peso="15.00",
+            orden_visualizacion=1,
+        )
+        availability = RequisitoDisponibilidad.objects.create(
+            requisito=requirement,
+            requerido_desde=timezone.localdate() + timezone.timedelta(days=14),
+            requiere_reubicacion=True,
+            requiere_viajar=True,
+            descripcion_horario="Horario flexible de lunes a viernes.",
+        )
+        self.client.force_login(self.applicant)
+
+        response = self.client.get(
+            reverse("detalle_oportunidad", args=[self.vacancy.pk])
+        )
+
+        self.assertEqual(response.context["availability"], availability)
+        self.assertContains(response, "Fecha requerida")
+        self.assertContains(
+            response,
+            availability.requerido_desde.strftime("%d/%m/%Y"),
+        )
+        self.assertContains(response, "Viajes")
+        self.assertContains(response, "Requeridos")
+        self.assertContains(response, "Reubicación")
+        self.assertContains(response, "Requerida")
+        self.assertContains(response, "Horario")
+        self.assertContains(response, "Horario flexible de lunes a viernes.")
+
     def test_interview_form_is_only_available_in_interview_states(self):
         application = create_application(self.vacancy.pk, self.profile)
         self.client.force_login(self.hr_user)

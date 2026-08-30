@@ -71,6 +71,7 @@ from reclutamiento.models import (
     OfertaLaboral,
     PerfilAspirante,
     PerfilPersonal,
+    RequisitoDisponibilidad,
     Plaza,
     Postulacion,
     RequisitoPlaza,
@@ -177,22 +178,31 @@ def index(request):
         return redirect(_home_for(request.user))
 
     form = FormularioAcceso(request, request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        user = form.get_user()
-        login(request, user)
-        if not form.cleaned_data["remember"]:
-            request.session.set_expiry(0)
+    if request.method == "POST":
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            if not form.cleaned_data["remember"]:
+                request.session.set_expiry(0)
 
-        requested_next = request.GET.get("next")
-        if requested_next and url_has_allowed_host_and_scheme(
-            requested_next,
-            allowed_hosts={request.get_host()},
-            require_https=request.is_secure(),
-        ):
-            return redirect(requested_next)
-        return redirect(_home_for(user))
+            requested_next = request.GET.get("next")
+            if requested_next and url_has_allowed_host_and_scheme(
+                requested_next,
+                allowed_hosts={request.get_host()},
+                require_https=request.is_secure(),
+            ):
+                return redirect(requested_next)
+            return redirect(_home_for(user))
 
-    return render(request, "login.html", {"form": form})
+    show_verification_resend = any(
+        error.code == "unverified"
+        for error in form.non_field_errors().as_data()
+    )
+    return render(
+        request,
+        "login.html",
+        {"form": form, "show_verification_resend": show_verification_resend},
+    )
 
 
 def registrar_aspirante(request):
@@ -480,6 +490,15 @@ def configuracion(request):
 
 @roles_required("RRHH", "ADMINISTRADOR")
 def plazas(request):
+    now = timezone.now()
+    active_filter = Q(estado_id="PUBLICADA") & (
+        Q(cierra_en__isnull=True) | Q(cierra_en__gt=now)
+    )
+    expired_filter = Q(
+        estado_id="PUBLICADA",
+        cierra_en__isnull=False,
+        cierra_en__lte=now,
+    )
     vacancies = (
         Plaza.objects.select_related(
             "departamento",
@@ -501,7 +520,12 @@ def plazas(request):
             | Q(departamento__nombre__icontains=query)
         )
     if status:
-        vacancies = vacancies.filter(estado_id=status)
+        if status == "PUBLICADA":
+            vacancies = vacancies.filter(active_filter)
+        elif status == "VENCIDA":
+            vacancies = vacancies.filter(expired_filter)
+        else:
+            vacancies = vacancies.filter(estado_id=status)
     if department:
         vacancies = vacancies.filter(departamento_id=department)
     if work_mode:
@@ -512,6 +536,8 @@ def plazas(request):
         .annotate(total=Count("id"))
         .values_list("estado_id", "total")
     )
+    status_counts["PUBLICADA"] = Plaza.objects.filter(active_filter).count()
+    status_counts["VENCIDA"] = Plaza.objects.filter(expired_filter).count()
     page = Paginator(vacancies, 9).get_page(request.GET.get("pagina"))
     return render(
         request,
@@ -1536,6 +1562,9 @@ def detalle_oportunidad(request, plaza_id):
     requirements = RequisitoPlaza.objects.filter(plaza=vacancy).select_related(
         "tipo"
     ).order_by("orden_visualizacion")
+    availability = RequisitoDisponibilidad.objects.filter(
+        requisito__plaza=vacancy
+    ).first()
     application = Postulacion.objects.filter(plaza=vacancy, aspirante=profile).first()
     form = FormularioPostulacion(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -1556,6 +1585,7 @@ def detalle_oportunidad(request, plaza_id):
         {
             "plaza": vacancy,
             "requirements": requirements,
+            "availability": availability,
             "postulacion": application,
             "form": form,
             "curriculum": profile.curriculo_set.filter(activo=True).first(),

@@ -219,6 +219,8 @@ class AuthenticationTests(TransactionTestCase):
         )
 
         self.assertContains(response, "verificar tu correo")
+        self.assertContains(response, "Reenviar enlace de verificación")
+        self.assertContains(response, reverse("reenviar_verificacion"))
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_inactive_user_cannot_login(self):
@@ -950,6 +952,28 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, vacancy.titulo)
         self.assertEqual(response.context["page"].paginator.count, 1)
+
+    def test_expired_published_vacancies_are_separated_from_active(self):
+        vacancy = self._create_draft()
+        transition_vacancy(vacancy.pk, "PUBLICADA", self.user)
+        Plaza.objects.filter(pk=vacancy.pk).update(
+            cierra_en=timezone.now() - timezone.timedelta(minutes=1)
+        )
+
+        expired_response = self.client.get(
+            reverse("plazas"),
+            {"estado": "VENCIDA"},
+        )
+        active_response = self.client.get(
+            reverse("plazas"),
+            {"estado": "PUBLICADA"},
+        )
+
+        self.assertEqual(expired_response.context["status_counts"]["VENCIDA"], 1)
+        self.assertEqual(expired_response.context["page"].paginator.count, 1)
+        self.assertContains(expired_response, "Vencida")
+        self.assertContains(expired_response, "vacancy-expired")
+        self.assertEqual(active_response.context["page"].paginator.count, 0)
 
     def test_dashboard_uses_real_vacancy_counts(self):
         vacancy = self._create_draft()

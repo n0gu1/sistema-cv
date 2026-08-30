@@ -35,6 +35,7 @@
                 <input type="hidden" name="role" id="loginRole" value="{{ form.role.value|default:'rrhh' }}">
                 {% if messages %}{% for message in messages %}<div class="auth-alert success"><i class="bi bi-check-circle"></i>{{ message }}</div>{% endfor %}{% endif %}
                 {% if form.non_field_errors %}<div class="auth-alert error"><i class="bi bi-exclamation-circle"></i>{{ form.non_field_errors.0 }}</div>{% endif %}
+                {% if show_verification_resend %}<div class="login-resend-verification"><span>¿Aún no verificaste tu correo?</span><a href="{% url 'reenviar_verificacion' %}">Reenviar enlace de verificación</a></div>{% endif %}
 
                 <div class="login-role-switch" role="tablist" aria-label="Tipo de cuenta">
                     <button class="{% if form.role.value != 'aspirante' %}active{% endif %}" type="button" role="tab" aria-selected="{% if form.role.value != 'aspirante' %}true{% else %}false{% endif %}" data-login-role="rrhh"><span class="login-role-icon"><i class="bi bi-building"></i></span><span><strong>Recursos Humanos</strong><small>Gestionar selección</small></span><i class="bi bi-check-circle-fill"></i></button>

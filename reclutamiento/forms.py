@@ -317,6 +317,14 @@ class FormularioCambioEstadoPostulacion(forms.Form):
 
 
 class FormularioEntrevista(forms.ModelForm):
+    url_reunion = forms.URLField(
+        required=False,
+        label="Enlace de reunión",
+        widget=forms.URLInput(
+            attrs={"placeholder": "https://..."}
+        ),
+    )
+
     class Meta:
         model = Entrevista
         fields = (
