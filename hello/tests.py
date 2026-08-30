@@ -434,6 +434,30 @@ class AuthenticationTests(TransactionTestCase):
         self.assertRedirects(self.client.get(url), reverse("index"))
         self.assertEqual(self.client.get(url).status_code, 400)
 
+    def test_invalid_verification_link_offers_resend_action(self):
+        self.applicant.is_verified = False
+        self.applicant.save(update_fields=["is_verified"])
+        uid = urlsafe_base64_encode(force_bytes(self.applicant.pk))
+
+        response = self.client.get(
+            reverse(
+                "verificar_correo",
+                kwargs={"uidb64": uid, "token": "token-invalido"},
+            )
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(
+            response,
+            "Reenviar enlace de verificación",
+            status_code=400,
+        )
+        self.assertContains(
+            response,
+            reverse("reenviar_verificacion"),
+            status_code=400,
+        )
+
     def test_resend_verification_does_not_disclose_account_existence(self):
         self.applicant.is_verified = False
         self.applicant.save(update_fields=["is_verified"])

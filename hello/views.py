@@ -1695,12 +1695,28 @@ def restablecer_contrasena(request, uidb64, token):
 def verificar_correo(request, uidb64, token):
     try:
         user_id = force_str(urlsafe_base64_decode(uidb64))
-        user = get_object_or_404(Usuario, pk=user_id, is_active=True)
-    except (TypeError, ValueError, OverflowError):
-        return render(request, "auth/enlace_invalido.html", status=400)
+        user = Usuario.objects.get(pk=user_id, is_active=True)
+    except (TypeError, ValueError, OverflowError, Usuario.DoesNotExist):
+        return render(
+            request,
+            "auth/enlace_invalido.html",
+            {
+                "title": "Enlace de verificación no válido",
+                "verification_invalid": True,
+            },
+            status=400,
+        )
 
     if not email_verification_token.check_token(user, token):
-        return render(request, "auth/enlace_invalido.html", status=400)
+        return render(
+            request,
+            "auth/enlace_invalido.html",
+            {
+                "title": "Enlace de verificación no válido",
+                "verification_invalid": True,
+            },
+            status=400,
+        )
 
     if not user.is_verified:
         user.is_verified = True

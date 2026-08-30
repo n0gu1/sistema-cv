@@ -1277,6 +1277,23 @@ class ApplicantWorkflowTests(TransactionTestCase):
             "Historial de estados",
         )
 
+    def test_applicant_portal_exposes_account_actions_and_application_detail_links(self):
+        application = create_application(self.vacancy.pk, self.profile)
+        self.client.force_login(self.applicant)
+
+        portal_response = self.client.get(reverse("portal"))
+        applications_response = self.client.get(reverse("mis_postulaciones"))
+        detail_url = reverse("mi_postulacion", args=[application.pk])
+
+        self.assertContains(portal_response, 'id="portalAccountMenu"')
+        self.assertContains(portal_response, reverse("cambiar_contrasena"))
+        self.assertContains(portal_response, reverse("cerrar_sesion"))
+        for response in (portal_response, applications_response):
+            with self.subTest(page=response.request["PATH_INFO"]):
+                self.assertContains(response, "application-detail-link")
+                self.assertContains(response, "Ver detalle")
+                self.assertContains(response, detail_url)
+
     def test_hr_can_open_analysis_before_processing(self):
         application = create_application(self.vacancy.pk, self.profile)
         self.client.force_login(self.hr_user)
