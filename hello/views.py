@@ -778,6 +778,7 @@ def aspirantes(request):
             Q(usuario__first_name__icontains=query)
             | Q(usuario__last_name__icontains=query)
             | Q(usuario__email__icontains=query)
+            | Q(profesion_texto__icontains=query)
             | Q(profesion__nombre__icontains=query)
         )
     page = Paginator(applicants, 15).get_page(request.GET.get("pagina"))
@@ -806,10 +807,10 @@ def detalle_aspirante(request, aspirante_id):
             ).order_by("-fecha_fin", "-fecha_inicio"),
             "skills": profile.habilidadaspirante_set.select_related(
                 "habilidad", "nivel_habilidad"
-            ).order_by("habilidad__nombre"),
+            ).order_by("habilidad_texto", "habilidad__nombre"),
             "languages": profile.idiomaaspirante_set.select_related(
                 "idioma", "nivel_idioma"
-            ).order_by("idioma__nombre"),
+            ).order_by("idioma_texto", "idioma__nombre"),
             "certifications": profile.certificacionaspirante_set.select_related(
                 "certificacion"
             ).order_by("-emitida_en"),
@@ -1215,12 +1216,12 @@ def analisis(request, postulacion_id=None):
         "candidate_profession": (
             personal_data.profesion_texto
             if personal_data and personal_data.profesion_texto
-            else application.aspirante.profesion
+            else application.aspirante.profesion_nombre
         ),
         "candidate_city": (
             personal_data.ciudad_texto
             if personal_data and personal_data.ciudad_texto
-            else application.aspirante.ciudad
+            else application.aspirante.ciudad_nombre
         ),
     }
     return render(request, "analisis.html", context)
@@ -1399,10 +1400,10 @@ def perfil_aspirante(request):
             ).order_by("-fecha_fin", "-fecha_inicio"),
             "skills": profile.habilidadaspirante_set.select_related(
                 "habilidad", "nivel_habilidad"
-            ).order_by("habilidad__nombre"),
+            ).order_by("habilidad_texto", "habilidad__nombre"),
             "languages": profile.idiomaaspirante_set.select_related(
                 "idioma", "nivel_idioma"
-            ).order_by("idioma__nombre"),
+            ).order_by("idioma_texto", "idioma__nombre"),
             "certifications": profile.certificacionaspirante_set.select_related(
                 "certificacion"
             ).order_by("-emitida_en"),
@@ -1477,7 +1478,7 @@ def editar_habilidad(request, habilidad_id):
     instance = get_object_or_404(
         HabilidadAspirante,
         aspirante=profile,
-        habilidad_id=habilidad_id,
+        pk=habilidad_id,
     )
     form = FormularioHabilidadAspirante(
         request.POST or None,
@@ -1502,7 +1503,7 @@ def eliminar_habilidad(request, habilidad_id):
         get_object_or_404(
             HabilidadAspirante,
             aspirante=profile,
-            habilidad_id=habilidad_id,
+            pk=habilidad_id,
         ).delete()
         messages.success(request, "Habilidad eliminada.")
     return redirect("perfil_aspirante")
@@ -1525,7 +1526,7 @@ def editar_idioma(request, idioma_id):
     instance = get_object_or_404(
         IdiomaAspirante,
         aspirante=profile,
-        idioma_id=idioma_id,
+        pk=idioma_id,
     )
     form = FormularioIdiomaAspirante(
         request.POST or None,
@@ -1550,7 +1551,7 @@ def eliminar_idioma(request, idioma_id):
         get_object_or_404(
             IdiomaAspirante,
             aspirante=profile,
-            idioma_id=idioma_id,
+            pk=idioma_id,
         ).delete()
         messages.success(request, "Idioma eliminado.")
     return redirect("perfil_aspirante")

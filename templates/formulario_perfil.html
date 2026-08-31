@@ -3,7 +3,7 @@
 {% block content %}
 <a class="back-link" href="{% url 'perfil_aspirante' %}"><i class="bi bi-arrow-left"></i> Volver a mi perfil</a>
 <section class="portal-form-card">
-    <div class="portal-page-heading"><div><span class="section-kicker">Perfil profesional</span><h1>{% if editing %}Editar{% else %}Agregar{% endif %} {{ title|lower }}</h1><p>La información se guardará en tu perfil. Los valores nuevos estarán disponibles en el catálogo compartido.</p></div></div>
+    <div class="portal-page-heading"><div><span class="section-kicker">Perfil profesional</span><h1>{% if editing %}Editar{% else %}Agregar{% endif %} {{ title|lower }}</h1><p>Escribe libremente la información que corresponde a tu perfil.</p></div></div>
     <form method="post" enctype="multipart/form-data" class="portal-form">{% csrf_token %}
         {% if form.non_field_errors %}<div class="auth-alert error">{{ form.non_field_errors.0 }}</div>{% endif %}
         <div class="portal-form-grid">{% for field in form %}<div class="{% if field.field.widget.input_type == 'checkbox' %}portal-check{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% if field.errors %}<span class="auth-field-error">{{ field.errors.0 }}</span>{% endif %}</div>{% endfor %}</div>

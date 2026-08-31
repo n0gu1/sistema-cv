@@ -364,10 +364,22 @@ class PerfilAspirante(ModeloExistente):
         blank=True,
         null=True,
     )
+    profesion_texto = models.CharField(
+        max_length=150,
+        db_column="profesion_texto",
+        blank=True,
+        null=True,
+    )
     ciudad = models.ForeignKey(
         Ciudad,
         models.SET_NULL,
         db_column="ciudad_id",
+        blank=True,
+        null=True,
+    )
+    ciudad_texto = models.CharField(
+        max_length=120,
+        db_column="ciudad_texto",
         blank=True,
         null=True,
     )
@@ -382,6 +394,16 @@ class PerfilAspirante(ModeloExistente):
 
     class Meta(ModeloExistente.Meta):
         db_table = "perfiles_aspirantes"
+
+    @property
+    def profesion_nombre(self):
+        return self.profesion_texto or (
+            self.profesion.nombre if self.profesion_id else None
+        )
+
+    @property
+    def ciudad_nombre(self):
+        return self.ciudad_texto or (self.ciudad.nombre if self.ciudad_id else None)
 
 
 class PerfilPersonal(ModeloExistente):
@@ -418,6 +440,12 @@ class ExperienciaLaboral(ModeloExistente):
         blank=True,
         null=True,
     )
+    profesion_texto = models.CharField(
+        max_length=150,
+        db_column="profesion_texto",
+        blank=True,
+        null=True,
+    )
     empresa = models.CharField(max_length=180)
     puesto = models.CharField(max_length=180)
     ciudad = models.ForeignKey(
@@ -427,12 +455,28 @@ class ExperienciaLaboral(ModeloExistente):
         blank=True,
         null=True,
     )
+    ciudad_texto = models.CharField(
+        max_length=120,
+        db_column="ciudad_texto",
+        blank=True,
+        null=True,
+    )
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField(blank=True, null=True)
     descripcion = models.TextField(blank=True, null=True)
 
     class Meta(ModeloExistente.Meta):
         db_table = "experiencias_laborales"
+
+    @property
+    def profesion_nombre(self):
+        return self.profesion_texto or (
+            self.profesion.nombre if self.profesion_id else None
+        )
+
+    @property
+    def ciudad_nombre(self):
+        return self.ciudad_texto or (self.ciudad.nombre if self.ciudad_id else None)
 
 
 class FormacionAcademica(ModeloExistente):
@@ -445,16 +489,38 @@ class FormacionAcademica(ModeloExistente):
         Institucion,
         models.PROTECT,
         db_column="institucion_id",
+        blank=True,
+        null=True,
+    )
+    institucion_texto = models.CharField(
+        max_length=180,
+        db_column="institucion_texto",
+        blank=True,
+        null=True,
     )
     nivel_educativo = models.ForeignKey(
         NivelEducativo,
         models.PROTECT,
         db_column="nivel_educativo_id",
+        blank=True,
+        null=True,
+    )
+    nivel_educativo_texto = models.CharField(
+        max_length=100,
+        db_column="nivel_educativo_texto",
+        blank=True,
+        null=True,
     )
     area_estudio = models.ForeignKey(
         AreaEstudio,
         models.SET_NULL,
         db_column="area_estudio_id",
+        blank=True,
+        null=True,
+    )
+    area_estudio_texto = models.CharField(
+        max_length=150,
+        db_column="area_estudio_texto",
         blank=True,
         null=True,
     )
@@ -465,19 +531,55 @@ class FormacionAcademica(ModeloExistente):
     class Meta(ModeloExistente.Meta):
         db_table = "formaciones_academicas"
 
+    @property
+    def institucion_nombre(self):
+        return self.institucion_texto or (
+            self.institucion.nombre if self.institucion_id else None
+        )
+
+    @property
+    def nivel_educativo_nombre(self):
+        return self.nivel_educativo_texto or (
+            self.nivel_educativo.nombre if self.nivel_educativo_id else None
+        )
+
+    @property
+    def area_estudio_nombre(self):
+        return self.area_estudio_texto or (
+            self.area_estudio.nombre if self.area_estudio_id else None
+        )
+
 
 class HabilidadAspirante(ModeloExistente):
-    pk = models.CompositePrimaryKey("aspirante", "habilidad")
+    id = models.BigAutoField(primary_key=True)
     aspirante = models.ForeignKey(
         PerfilAspirante,
         models.CASCADE,
         db_column="aspirante_id",
     )
-    habilidad = models.ForeignKey(Habilidad, models.PROTECT, db_column="habilidad_id")
+    habilidad = models.ForeignKey(
+        Habilidad,
+        models.PROTECT,
+        db_column="habilidad_id",
+        blank=True,
+        null=True,
+    )
+    habilidad_texto = models.CharField(
+        max_length=150,
+        db_column="habilidad_texto",
+        blank=True,
+        null=True,
+    )
     nivel_habilidad = models.ForeignKey(
         NivelHabilidad,
         models.SET_NULL,
         db_column="nivel_habilidad_id",
+        blank=True,
+        null=True,
+    )
+    nivel_habilidad_texto = models.CharField(
+        max_length=80,
+        db_column="nivel_habilidad_texto",
         blank=True,
         null=True,
     )
@@ -491,23 +593,65 @@ class HabilidadAspirante(ModeloExistente):
     class Meta(ModeloExistente.Meta):
         db_table = "habilidades_aspirantes"
 
+    @property
+    def habilidad_nombre(self):
+        return self.habilidad_texto or (
+            self.habilidad.nombre if self.habilidad_id else None
+        )
+
+    @property
+    def nivel_habilidad_nombre(self):
+        return self.nivel_habilidad_texto or (
+            self.nivel_habilidad.nombre if self.nivel_habilidad_id else None
+        )
+
 
 class IdiomaAspirante(ModeloExistente):
-    pk = models.CompositePrimaryKey("aspirante", "idioma")
+    id = models.BigAutoField(primary_key=True)
     aspirante = models.ForeignKey(
         PerfilAspirante,
         models.CASCADE,
         db_column="aspirante_id",
     )
-    idioma = models.ForeignKey(Idioma, models.PROTECT, db_column="idioma_id")
+    idioma = models.ForeignKey(
+        Idioma,
+        models.PROTECT,
+        db_column="idioma_id",
+        blank=True,
+        null=True,
+    )
+    idioma_texto = models.CharField(
+        max_length=80,
+        db_column="idioma_texto",
+        blank=True,
+        null=True,
+    )
     nivel_idioma = models.ForeignKey(
         NivelIdioma,
         models.PROTECT,
         db_column="nivel_idioma_id",
+        blank=True,
+        null=True,
+    )
+    nivel_idioma_texto = models.CharField(
+        max_length=80,
+        db_column="nivel_idioma_texto",
+        blank=True,
+        null=True,
     )
 
     class Meta(ModeloExistente.Meta):
         db_table = "idiomas_aspirantes"
+
+    @property
+    def idioma_nombre(self):
+        return self.idioma_texto or (self.idioma.nombre if self.idioma_id else None)
+
+    @property
+    def nivel_idioma_nombre(self):
+        return self.nivel_idioma_texto or (
+            self.nivel_idioma.nombre if self.nivel_idioma_id else None
+        )
 
 
 class CertificacionAspirante(ModeloExistente):
@@ -520,6 +664,20 @@ class CertificacionAspirante(ModeloExistente):
         Certificacion,
         models.PROTECT,
         db_column="certificacion_id",
+        blank=True,
+        null=True,
+    )
+    certificacion_texto = models.CharField(
+        max_length=180,
+        db_column="certificacion_texto",
+        blank=True,
+        null=True,
+    )
+    organizacion_emisora_texto = models.CharField(
+        max_length=180,
+        db_column="organizacion_emisora_texto",
+        blank=True,
+        null=True,
     )
     codigo_credencial = models.CharField(max_length=120, blank=True, null=True)
     url_credencial = models.TextField(blank=True, null=True)
@@ -528,6 +686,18 @@ class CertificacionAspirante(ModeloExistente):
 
     class Meta(ModeloExistente.Meta):
         db_table = "certificaciones_aspirantes"
+
+    @property
+    def certificacion_nombre(self):
+        return self.certificacion_texto or (
+            self.certificacion.nombre if self.certificacion_id else None
+        )
+
+    @property
+    def organizacion_emisora_nombre(self):
+        return self.organizacion_emisora_texto or (
+            self.certificacion.organizacion_emisora if self.certificacion_id else None
+        )
 
 
 class EstadoPlaza(ModeloExistente):

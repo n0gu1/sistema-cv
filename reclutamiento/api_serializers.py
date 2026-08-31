@@ -166,8 +166,12 @@ class CurriculumSerializer(serializers.ModelSerializer):
 class ApplicantSummarySerializer(serializers.ModelSerializer):
     id = serializers.ReadOnlyField(source="usuario_id")
     usuario = UserSummarySerializer(read_only=True)
-    profesion = CatalogSerializer(read_only=True, allow_null=True)
-    ciudad = CitySerializer(read_only=True, allow_null=True)
+    profesion = serializers.CharField(
+        source="profesion_nombre", read_only=True, allow_null=True
+    )
+    ciudad = serializers.CharField(
+        source="ciudad_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = PerfilAspirante
@@ -175,8 +179,12 @@ class ApplicantSummarySerializer(serializers.ModelSerializer):
 
 
 class ExperienceSerializer(serializers.ModelSerializer):
-    profesion = CatalogSerializer(read_only=True, allow_null=True)
-    ciudad = CitySerializer(read_only=True, allow_null=True)
+    profesion = serializers.CharField(
+        source="profesion_nombre", read_only=True, allow_null=True
+    )
+    ciudad = serializers.CharField(
+        source="ciudad_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = ExperienciaLaboral
@@ -193,9 +201,15 @@ class ExperienceSerializer(serializers.ModelSerializer):
 
 
 class EducationSerializer(serializers.ModelSerializer):
-    institucion = serializers.SerializerMethodField()
-    nivel_educativo = CatalogSerializer(read_only=True)
-    area_estudio = CatalogSerializer(read_only=True, allow_null=True)
+    institucion = serializers.CharField(
+        source="institucion_nombre", read_only=True, allow_null=True
+    )
+    nivel_educativo = serializers.CharField(
+        source="nivel_educativo_nombre", read_only=True, allow_null=True
+    )
+    area_estudio = serializers.CharField(
+        source="area_estudio_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = FormacionAcademica
@@ -209,43 +223,46 @@ class EducationSerializer(serializers.ModelSerializer):
             "fecha_fin",
         )
 
-    @extend_schema_field(serializers.DictField(allow_null=True))
-    def get_institucion(self, obj):
-        return {
-            "id": obj.institucion_id,
-            "nombre": obj.institucion.nombre,
-            "ciudad": CitySerializer(obj.institucion.ciudad).data
-            if obj.institucion.ciudad
-            else None,
-        }
-
-
 class ApplicantSkillSerializer(serializers.ModelSerializer):
-    habilidad = CatalogSerializer(read_only=True)
-    nivel_habilidad = CatalogSerializer(read_only=True, allow_null=True)
+    habilidad = serializers.CharField(
+        source="habilidad_nombre", read_only=True, allow_null=True
+    )
+    nivel_habilidad = serializers.CharField(
+        source="nivel_habilidad_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = HabilidadAspirante
-        fields = ("habilidad", "nivel_habilidad", "anios_experiencia")
+        fields = ("id", "habilidad", "nivel_habilidad", "anios_experiencia")
 
 
 class ApplicantLanguageSerializer(serializers.ModelSerializer):
-    idioma = CatalogSerializer(read_only=True)
-    nivel_idioma = CatalogSerializer(read_only=True)
+    idioma = serializers.CharField(
+        source="idioma_nombre", read_only=True, allow_null=True
+    )
+    nivel_idioma = serializers.CharField(
+        source="nivel_idioma_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = IdiomaAspirante
-        fields = ("idioma", "nivel_idioma")
+        fields = ("id", "idioma", "nivel_idioma")
 
 
 class ApplicantCertificationSerializer(serializers.ModelSerializer):
-    certificacion = CatalogSerializer(read_only=True)
+    certificacion = serializers.CharField(
+        source="certificacion_nombre", read_only=True, allow_null=True
+    )
+    organizacion_emisora = serializers.CharField(
+        source="organizacion_emisora_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = CertificacionAspirante
         fields = (
             "id",
             "certificacion",
+            "organizacion_emisora",
             "codigo_credencial",
             "url_credencial",
             "emitida_en",

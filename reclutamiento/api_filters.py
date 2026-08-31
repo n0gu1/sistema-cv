@@ -45,8 +45,8 @@ class VacancyFilter(filters.FilterSet):
 
 class ApplicantFilter(filters.FilterSet):
     q = filters.CharFilter(method="filter_query", label="Texto libre")
-    profesion = filters.NumberFilter(field_name="profesion_id")
-    ciudad = filters.NumberFilter(field_name="ciudad_id")
+    profesion = filters.CharFilter(method="filter_profession")
+    ciudad = filters.CharFilter(method="filter_city")
     acepta_viajar = filters.BooleanFilter()
     acepta_reubicacion = filters.BooleanFilter()
 
@@ -66,7 +66,25 @@ class ApplicantFilter(filters.FilterSet):
             | Q(usuario__last_name__icontains=value)
             | Q(usuario__email__icontains=value)
             | Q(resumen_profesional__icontains=value)
+            | Q(profesion_texto__icontains=value)
+            | Q(profesion__nombre__icontains=value)
+            | Q(ciudad_texto__icontains=value)
+            | Q(ciudad__nombre__icontains=value)
         )
+
+    def filter_profession(self, queryset, name, value):
+        query = Q(profesion_texto__icontains=value) | Q(
+            profesion__nombre__icontains=value
+        )
+        if value.isdigit():
+            query |= Q(profesion_id=value)
+        return queryset.filter(query)
+
+    def filter_city(self, queryset, name, value):
+        query = Q(ciudad_texto__icontains=value) | Q(ciudad__nombre__icontains=value)
+        if value.isdigit():
+            query |= Q(ciudad_id=value)
+        return queryset.filter(query)
 
 
 class ApplicationFilter(filters.FilterSet):

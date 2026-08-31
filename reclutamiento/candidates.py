@@ -46,8 +46,8 @@ def profile_completion(profile):
             (
                 profile.usuario.first_name,
                 profile.usuario.last_name,
-                profile.profesion_id,
-                profile.ciudad_id,
+                profile.profesion_nombre,
+                profile.ciudad_nombre,
                 profile.telefono,
                 profile.direccion,
                 profile.resumen_profesional,

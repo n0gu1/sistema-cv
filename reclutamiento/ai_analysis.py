@@ -37,6 +37,7 @@ from reclutamiento.models import (
     MotorAnalisis,
     ModeloIA,
     NivelEducativo,
+    NivelHabilidad,
     NivelIdioma,
     Profesion,
     RequisitoCertificacion,
@@ -769,6 +770,15 @@ def _rank(value):
     return getattr(value, "orden_nivel", None) if value else None
 
 
+def _rank_or_catalog(value, model):
+    rank = _rank(value)
+    if rank is not None:
+        return rank
+    name = getattr(value, "nombre", value)
+    catalog = _find_catalog(_catalog_index(model), name)
+    return _rank(catalog)
+
+
 def _skill_result(requirement, detail, analysis_data, profile_data):
     target = detail.habilidad if detail else None
     target_name = target.nombre if target else requirement.descripcion
@@ -776,7 +786,10 @@ def _skill_result(requirement, detail, analysis_data, profile_data):
         (
             item
             for item in analysis_data["skills"]
-            if item.habilidad_id == getattr(detail, "habilidad_id", None)
+            if (
+                detail is not None
+                and item.habilidad_id == detail.habilidad_id
+            )
             or _normalise_name(item.nombre_detectado) == _normalise_name(target_name)
         ),
         None,
@@ -785,7 +798,11 @@ def _skill_result(requirement, detail, analysis_data, profile_data):
         (
             item
             for item in profile_data["skills"]
-            if item.habilidad_id == getattr(detail, "habilidad_id", None)
+            if (
+                item.habilidad_id == getattr(detail, "habilidad_id", None)
+                and detail is not None
+            )
+            or _normalise_name(item.habilidad_nombre) == _normalise_name(target_name)
         ),
         None,
     )
@@ -794,9 +811,18 @@ def _skill_result(requirement, detail, analysis_data, profile_data):
 
     checks = []
     if detail and detail.nivel_habilidad_minimo_id:
-        level = _rank(declared.nivel_habilidad if declared else None)
-        required = _rank(detail.nivel_habilidad_minimo)
-        checks.append(level is not None and required is not None and level >= required)
+        level = _rank_or_catalog(
+            (
+                declared.nivel_habilidad
+                if declared and declared.nivel_habilidad_id
+                else getattr(declared, "nivel_habilidad_nombre", None)
+            ),
+            NivelHabilidad,
+        )
+        required = _rank_or_catalog(detail.nivel_habilidad_minimo, NivelHabilidad)
+        checks.append(
+            level is not None and required is not None and level >= required
+        )
     if detail and detail.anios_minimos is not None:
         years = declared.anios_experiencia if declared else None
         checks.append(years is not None and years >= detail.anios_minimos)
@@ -817,7 +843,10 @@ def _language_result(requirement, detail, analysis_data, profile_data):
         (
             item
             for item in analysis_data["languages"]
-            if item.idioma_id == getattr(detail, "idioma_id", None)
+            if (
+                detail is not None
+                and item.idioma_id == detail.idioma_id
+            )
             or _normalise_name(item.nombre_detectado) == _normalise_name(target_name)
         ),
         None,
@@ -826,7 +855,11 @@ def _language_result(requirement, detail, analysis_data, profile_data):
         (
             item
             for item in profile_data["languages"]
-            if item.idioma_id == getattr(detail, "idioma_id", None)
+            if (
+                item.idioma_id == getattr(detail, "idioma_id", None)
+                and detail is not None
+            )
+            or _normalise_name(item.idioma_nombre) == _normalise_name(target_name)
         ),
         None,
     )
@@ -834,7 +867,14 @@ def _language_result(requirement, detail, analysis_data, profile_data):
         return False, Decimal("0.00"), "No se detecto el idioma.", f"Falta {target_name}."
     levels = [
         _rank(extracted.nivel_idioma if extracted else None),
-        _rank(declared.nivel_idioma if declared else None),
+        _rank_or_catalog(
+            (
+                declared.nivel_idioma
+                if declared and declared.nivel_idioma_id
+                else getattr(declared, "nivel_idioma_nombre", None)
+            ),
+            NivelIdioma,
+        ),
     ]
     levels = [level for level in levels if level is not None]
     required = _rank(detail.nivel_idioma_minimo if detail else None)
@@ -857,7 +897,10 @@ def _certification_result(requirement, detail, analysis_data, profile_data):
         (
             item
             for item in analysis_data["certifications"]
-            if item.certificacion_id == getattr(detail, "certificacion_id", None)
+            if (
+                detail is not None
+                and item.certificacion_id == detail.certificacion_id
+            )
             or _normalise_name(item.nombre_detectado) == _normalise_name(target_name)
         ),
         None,
@@ -866,7 +909,12 @@ def _certification_result(requirement, detail, analysis_data, profile_data):
         (
             item
             for item in profile_data["certifications"]
-            if item.certificacion_id == getattr(detail, "certificacion_id", None)
+            if (
+                item.certificacion_id == getattr(detail, "certificacion_id", None)
+                and detail is not None
+            )
+            or _normalise_name(item.certificacion_nombre)
+            == _normalise_name(target_name)
         ),
         None,
     )
@@ -887,14 +935,22 @@ def _education_result(requirement, detail, analysis_data, profile_data):
         return False, Decimal("0.00"), "No se encontro formacion academica.", "Falta formacion academica."
     required_level = _rank(detail.nivel_educativo_minimo if detail else None)
     for record in records:
-        record_level = _rank(getattr(record, "nivel_educativo", None))
+        record_level = _rank_or_catalog(
+            getattr(record, "nivel_educativo", None)
+            or getattr(record, "nivel_educativo_texto", None),
+            NivelEducativo,
+        )
         level_ok = required_level is None or (
             record_level is not None and record_level >= required_level
         )
         area_ok = True
         if detail and detail.area_estudio_id:
             area_id = getattr(record, "area_estudio_id", None)
-            area_name = getattr(getattr(record, "area_estudio", None), "nombre", "")
+            area_name = (
+                getattr(getattr(record, "area_estudio", None), "nombre", None)
+                or getattr(record, "area_estudio_texto", None)
+                or getattr(record, "area_estudio_nombre", None)
+            )
             area_ok = area_id == detail.area_estudio_id or _normalise_name(
                 area_name
             ) == _normalise_name(detail.area_estudio.nombre)

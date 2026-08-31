@@ -11,8 +11,12 @@ from reclutamiento.ai_analysis import (
     InvalidAnalysisResponse,
     RetryableAnalysisError,
     call_groq,
+    _certification_result,
+    _education_result,
     _experience_result,
+    _language_result,
     _months_from_experiences,
+    _skill_result,
     validate_analysis_response,
 )
 
@@ -219,3 +223,119 @@ class ExperienceCalculationTests(SimpleTestCase):
             result[2],
             "Se calcularon 12 meses de experiencia para Ingeniería de software.",
         )
+
+    def test_experience_matches_a_free_text_profession(self):
+        detail = SimpleNamespace(
+            profesion_id=7,
+            profesion=SimpleNamespace(nombre="Ingeniería de software"),
+            meses_minimos=12,
+        )
+        requirement = SimpleNamespace(descripcion="Experiencia en backend")
+        analysis = SimpleNamespace(meses_experiencia_calculados=0)
+        profile_record = SimpleNamespace(
+            profesion_id=None,
+            profesion_texto="Ingeniería de software",
+            puesto="Desarrolladora backend",
+            fecha_inicio=date(2020, 1, 1),
+            fecha_fin=date(2021, 1, 1),
+        )
+
+        result = _experience_result(
+            requirement,
+            detail,
+            analysis,
+            {"experiences": []},
+            {"experiences": [profile_record]},
+        )
+
+        self.assertTrue(result[0])
+        self.assertEqual(result[1], 100)
+
+
+class FreeTextProfileMatchingTests(SimpleTestCase):
+    @patch("reclutamiento.ai_analysis._catalog_index", return_value={})
+    def test_profile_text_matches_skill_language_certification_and_education(
+        self, _catalog_index
+    ):
+        skill_result = _skill_result(
+            SimpleNamespace(descripcion="Python"),
+            SimpleNamespace(
+                habilidad_id=1,
+                habilidad=SimpleNamespace(nombre="Python"),
+                nivel_habilidad_minimo_id=None,
+                anios_minimos=None,
+            ),
+            {"skills": []},
+            {
+                "skills": [
+                    SimpleNamespace(
+                        habilidad_id=None,
+                        nivel_habilidad_id=None,
+                        habilidad_nombre="Python",
+                        nivel_habilidad_nombre="Avanzado",
+                    )
+                ]
+            },
+        )
+        language_result = _language_result(
+            SimpleNamespace(descripcion="Inglés"),
+            SimpleNamespace(
+                idioma_id=2,
+                idioma=SimpleNamespace(nombre="Inglés"),
+                nivel_idioma_minimo=None,
+            ),
+            {"languages": []},
+            {
+                "languages": [
+                    SimpleNamespace(
+                        idioma_id=None,
+                        nivel_idioma_id=None,
+                        idioma_nombre="Inglés",
+                        nivel_idioma_nombre="C1",
+                    )
+                ]
+            },
+        )
+        certification_result = _certification_result(
+            SimpleNamespace(descripcion="Scrum Master"),
+            SimpleNamespace(
+                certificacion_id=3,
+                certificacion=SimpleNamespace(nombre="Scrum Master"),
+                debe_estar_vigente=False,
+            ),
+            {"certifications": []},
+            {
+                "certifications": [
+                    SimpleNamespace(
+                        certificacion_id=None,
+                        certificacion_nombre="Scrum Master",
+                        vence_en=None,
+                    )
+                ]
+            },
+        )
+        education_result = _education_result(
+            SimpleNamespace(descripcion="Formación en datos"),
+            SimpleNamespace(
+                nivel_educativo_minimo=None,
+                area_estudio_id=4,
+                area_estudio=SimpleNamespace(nombre="Ciencia de datos"),
+            ),
+            {"educations": []},
+            {
+                "educations": [
+                    SimpleNamespace(
+                        nivel_educativo=None,
+                        nivel_educativo_texto="Licenciatura",
+                        area_estudio_id=None,
+                        area_estudio=None,
+                        area_estudio_texto="Ciencia de datos",
+                    )
+                ]
+            },
+        )
+
+        self.assertTrue(skill_result[0])
+        self.assertTrue(language_result[0])
+        self.assertTrue(certification_result[0])
+        self.assertTrue(education_result[0])

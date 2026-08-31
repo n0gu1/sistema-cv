@@ -334,13 +334,12 @@ class ApplicantWorkflowTests(TransactionTestCase):
 
     def test_profile_update_and_owned_experience(self):
         self.client.force_login(self.applicant)
-        profession = Profesion.objects.create(nombre="Ingeniería de software")
         response = self.client.post(
             reverse("perfil_aspirante"),
             {
                 "first_name": "Andrea",
                 "last_name": "Ruiz",
-                "profesion": profession.pk,
+                "profesion": "Ingeniería de software",
                 "telefono": "5555-0101",
                 "resumen_profesional": "Desarrolladora de software.",
                 "acepta_viajar": "on",
@@ -350,7 +349,8 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.profile.refresh_from_db()
         self.applicant.refresh_from_db()
         self.assertEqual(self.applicant.first_name, "Andrea")
-        self.assertEqual(self.profile.profesion, profession)
+        self.assertIsNone(self.profile.profesion_id)
+        self.assertEqual(self.profile.profesion_texto, "Ingeniería de software")
         self.assertTrue(self.profile.acepta_viajar)
 
         experience = ExperienciaLaboral.objects.create(
@@ -364,21 +364,16 @@ class ApplicantWorkflowTests(TransactionTestCase):
         )
         self.assertEqual(response.status_code, 404)
 
-    def test_applicant_can_add_new_global_catalog_values(self):
+    def test_applicant_can_enter_free_text_profile_values(self):
         self.client.force_login(self.applicant)
-        country = Pais.objects.create(codigo_iso="GT", nombre="Guatemala")
-        region = Region.objects.create(pais=country, nombre="Guatemala", codigo="GU")
 
         response = self.client.post(
             reverse("perfil_aspirante"),
             {
                 "first_name": "Nombre",
                 "last_name": "Prueba",
-                "profesion": "",
-                "nueva_profesion": "Arquitectura de datos",
-                "ciudad": "",
-                "nueva_ciudad": "Quetzaltenango",
-                "region_nueva_ciudad": region.pk,
+                "profesion": "Arquitectura de datos",
+                "ciudad": "Quetzaltenango",
                 "telefono": "5555-0101",
                 "direccion": "Zona 1",
                 "resumen_profesional": "Perfil de prueba.",
@@ -387,72 +382,70 @@ class ApplicantWorkflowTests(TransactionTestCase):
         )
         self.assertRedirects(response, reverse("perfil_aspirante"))
         self.profile.refresh_from_db()
-        self.assertEqual(self.profile.profesion.nombre, "Arquitectura de datos")
-        self.assertEqual(self.profile.ciudad.nombre, "Quetzaltenango")
+        self.assertEqual(self.profile.profesion_texto, "Arquitectura de datos")
+        self.assertEqual(self.profile.ciudad_texto, "Quetzaltenango")
+        self.assertIsNone(self.profile.profesion_id)
+        self.assertIsNone(self.profile.ciudad_id)
 
         response = self.client.post(
             reverse("nuevo_registro_perfil", args=["formacion"]),
             {
-                "institucion": "",
-                "nueva_institucion": "Academia Global",
-                "ciudad_institucion": self.profile.ciudad_id,
-                "nivel_educativo": "",
-                "nuevo_nivel_educativo": "Diplomado profesional",
-                "area_estudio": "",
-                "nueva_area_estudio": "Ciberseguridad",
+                "institucion": "Academia Global",
+                "nivel_educativo": "Diplomado profesional",
+                "area_estudio": "Ciberseguridad",
                 "titulo_obtenido": "Diplomado en seguridad",
             },
         )
         self.assertRedirects(response, reverse("perfil_aspirante"))
         education = FormacionAcademica.objects.get(aspirante=self.profile)
-        self.assertEqual(education.institucion.nombre, "Academia Global")
-        self.assertEqual(education.nivel_educativo.nombre, "Diplomado profesional")
-        self.assertEqual(education.area_estudio.nombre, "Ciberseguridad")
+        self.assertEqual(education.institucion_texto, "Academia Global")
+        self.assertEqual(education.nivel_educativo_texto, "Diplomado profesional")
+        self.assertEqual(education.area_estudio_texto, "Ciberseguridad")
+        self.assertIsNone(education.institucion_id)
+        self.assertIsNone(education.nivel_educativo_id)
+        self.assertIsNone(education.area_estudio_id)
 
         response = self.client.post(
             reverse("agregar_habilidad"),
             {
-                "habilidad": "",
-                "nueva_habilidad": "Kotlin",
-                "nivel_habilidad": "",
-                "nuevo_nivel_habilidad": "Especialista",
+                "habilidad": "Kotlin",
+                "nivel_habilidad": "Especialista",
                 "anios_experiencia": "2.5",
             },
         )
         self.assertRedirects(response, reverse("perfil_aspirante"))
         skill = HabilidadAspirante.objects.get(aspirante=self.profile)
-        self.assertEqual(skill.habilidad.nombre, "Kotlin")
-        self.assertEqual(skill.nivel_habilidad.nombre, "Especialista")
+        self.assertEqual(skill.habilidad_texto, "Kotlin")
+        self.assertEqual(skill.nivel_habilidad_texto, "Especialista")
+        self.assertIsNone(skill.habilidad_id)
+        self.assertIsNone(skill.nivel_habilidad_id)
 
         response = self.client.post(
             reverse("agregar_idioma"),
             {
-                "idioma": "",
-                "nuevo_idioma": "Alemán",
-                "nivel_idioma": "",
-                "nuevo_nivel_idioma": "Conversacional",
+                "idioma": "Alemán",
+                "nivel_idioma": "Conversacional",
             },
         )
         self.assertRedirects(response, reverse("perfil_aspirante"))
         language = IdiomaAspirante.objects.get(aspirante=self.profile)
-        self.assertEqual(language.idioma.nombre, "Alemán")
-        self.assertEqual(language.nivel_idioma.nombre, "Conversacional")
+        self.assertEqual(language.idioma_texto, "Alemán")
+        self.assertEqual(language.nivel_idioma_texto, "Conversacional")
+        self.assertIsNone(language.idioma_id)
+        self.assertIsNone(language.nivel_idioma_id)
 
         response = self.client.post(
             reverse("nuevo_registro_perfil", args=["certificacion"]),
             {
-                "certificacion": "",
-                "nueva_certificacion": "ISO 27001 Foundation",
-                "nueva_organizacion_certificacion": "PECB",
+                "certificacion": "ISO 27001 Foundation",
+                "organizacion_emisora": "PECB",
             },
         )
         self.assertRedirects(response, reverse("perfil_aspirante"))
         certification = CertificacionAspirante.objects.get(aspirante=self.profile)
-        self.assertEqual(certification.certificacion.nombre, "ISO 27001 Foundation")
-        self.assertEqual(
-            certification.certificacion.organizacion_emisora,
-            "PECB",
-        )
+        self.assertEqual(certification.certificacion_texto, "ISO 27001 Foundation")
+        self.assertEqual(certification.organizacion_emisora_texto, "PECB")
+        self.assertIsNone(certification.certificacion_id)
 
     def test_pdf_validation_and_private_download_permissions(self):
         self.client.force_login(self.applicant)
@@ -566,6 +559,8 @@ class ApplicantWorkflowTests(TransactionTestCase):
         city = Ciudad.objects.create(region=region, nombre="Ciudad de Guatemala")
         self.profile.profesion = profession
         self.profile.ciudad = city
+        self.profile.profesion_texto = "Ingeniería de software"
+        self.profile.ciudad_texto = "Ciudad de Guatemala"
         self.profile.telefono = "5555-0101"
         self.profile.direccion = "Zona 10"
         self.profile.resumen_profesional = "Desarrolladora con experiencia web."
@@ -574,6 +569,8 @@ class ApplicantWorkflowTests(TransactionTestCase):
             update_fields=(
                 "profesion",
                 "ciudad",
+                "profesion_texto",
+                "ciudad_texto",
                 "telefono",
                 "direccion",
                 "resumen_profesional",
@@ -583,8 +580,10 @@ class ApplicantWorkflowTests(TransactionTestCase):
         ExperienciaLaboral.objects.create(
             aspirante=self.profile,
             profesion=profession,
+            profesion_texto="Ingeniería de software",
             empresa="Empresa de prueba",
             puesto="Desarrolladora backend",
+            ciudad_texto="Ciudad de Guatemala",
             fecha_inicio=timezone.localdate(),
             descripcion="Construcción de APIs.",
         )
@@ -597,7 +596,10 @@ class ApplicantWorkflowTests(TransactionTestCase):
         FormacionAcademica.objects.create(
             aspirante=self.profile,
             institucion=institution,
+            institucion_texto="Universidad de prueba",
             nivel_educativo=education_level,
+            nivel_educativo_texto="Licenciatura",
+            area_estudio_texto="Ingeniería de software",
             titulo_obtenido="Ingeniera de software",
         )
         skill = Habilidad.objects.create(nombre="Django", activo=True)
@@ -609,7 +611,9 @@ class ApplicantWorkflowTests(TransactionTestCase):
         HabilidadAspirante.objects.create(
             aspirante=self.profile,
             habilidad=skill,
+            habilidad_texto="Django",
             nivel_habilidad=skill_level,
+            nivel_habilidad_texto="Avanzado",
             anios_experiencia="3.0",
         )
         language = Idioma.objects.create(codigo_iso="en", nombre="Inglés")
@@ -621,7 +625,9 @@ class ApplicantWorkflowTests(TransactionTestCase):
         IdiomaAspirante.objects.create(
             aspirante=self.profile,
             idioma=language,
+            idioma_texto="Inglés",
             nivel_idioma=language_level,
+            nivel_idioma_texto="Intermedio alto",
         )
         certification = Certificacion.objects.create(
             nombre="Django Certified",
@@ -630,6 +636,8 @@ class ApplicantWorkflowTests(TransactionTestCase):
         CertificacionAspirante.objects.create(
             aspirante=self.profile,
             certificacion=certification,
+            certificacion_texto="Django Certified",
+            organizacion_emisora_texto="Python Institute",
             codigo_credencial="CERT-001",
             url_credencial="https://certs.example.com/CERT-001",
         )
@@ -677,13 +685,10 @@ class ApplicantWorkflowTests(TransactionTestCase):
         )
 
     def test_credential_urls_accept_only_http_or_https(self):
-        certification = Certificacion.objects.create(
-            nombre="Certificación de prueba",
-            organizacion_emisora="Organización de prueba",
-        )
         valid = FormularioCertificacionAspirante(
             data={
-                "certificacion": certification.pk,
+                "certificacion": "Certificación de prueba",
+                "organizacion_emisora": "Organización de prueba",
                 "url_credencial": "https://certs.example.com/valid",
             }
         )
@@ -691,7 +696,7 @@ class ApplicantWorkflowTests(TransactionTestCase):
 
         invalid = FormularioCertificacionAspirante(
             data={
-                "certificacion": certification.pk,
+                "certificacion": "Certificación de prueba",
                 "url_credencial": "javascript:alert(1)",
             }
         )
@@ -1370,9 +1375,8 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertIsNotNone(remaining_offer.respondida_en)
 
     def test_negative_skill_experience_is_rejected_by_the_form(self):
-        skill = Habilidad.objects.create(nombre="Python", activo=True)
         form = FormularioHabilidadAspirante(
-            data={"habilidad": skill.pk, "anios_experiencia": "-0.1"},
+            data={"habilidad": "Python", "anios_experiencia": "-0.1"},
             aspirante=self.profile,
         )
 
@@ -1403,17 +1407,19 @@ class ApplicantWorkflowTests(TransactionTestCase):
         )
         self.client.force_login(self.applicant)
 
+        skill_record = HabilidadAspirante.objects.get(aspirante=self.profile)
+        language_record = IdiomaAspirante.objects.get(aspirante=self.profile)
         skill_response = self.client.post(
-            reverse("editar_habilidad", args=[skill.pk]),
+            reverse("editar_habilidad", args=[skill_record.pk]),
             {
-                "habilidad": skill.pk,
-                "nivel_habilidad": advanced.pk,
+                "habilidad": "Python",
+                "nivel_habilidad": "Avanzado",
                 "anios_experiencia": "3.5",
             },
         )
         language_response = self.client.post(
-            reverse("editar_idioma", args=[language.pk]),
-            {"idioma": language.pk, "nivel_idioma": c1.pk},
+            reverse("editar_idioma", args=[language_record.pk]),
+            {"idioma": "Inglés", "nivel_idioma": "C1"},
         )
 
         self.assertRedirects(skill_response, reverse("perfil_aspirante"))
@@ -1422,9 +1428,15 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(IdiomaAspirante.objects.count(), 1)
         skill_record = HabilidadAspirante.objects.get()
         language_record = IdiomaAspirante.objects.get()
-        self.assertEqual(skill_record.nivel_habilidad, advanced)
+        self.assertEqual(skill_record.habilidad_texto, "Python")
+        self.assertIsNone(skill_record.habilidad_id)
+        self.assertEqual(skill_record.nivel_habilidad_texto, "Avanzado")
+        self.assertIsNone(skill_record.nivel_habilidad_id)
         self.assertEqual(str(skill_record.anios_experiencia), "3.5")
-        self.assertEqual(language_record.nivel_idioma, c1)
+        self.assertEqual(language_record.idioma_texto, "Inglés")
+        self.assertIsNone(language_record.idioma_id)
+        self.assertEqual(language_record.nivel_idioma_texto, "C1")
+        self.assertIsNone(language_record.nivel_idioma_id)
 
     def test_full_vacancy_is_hidden_even_if_its_status_is_published(self):
         application = create_application(self.vacancy.pk, self.profile)
@@ -1757,6 +1769,69 @@ class ApplicantWorkflowTests(TransactionTestCase):
         response = client.get(reverse("api-aspirante-list"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 2)
+
+    def test_api_exposes_and_filters_free_text_applicant_data(self):
+        self.profile.profesion_texto = "Arquitectura de datos"
+        self.profile.ciudad_texto = "Quetzaltenango"
+        self.profile.save(update_fields=("profesion_texto", "ciudad_texto"))
+        ExperienciaLaboral.objects.create(
+            aspirante=self.profile,
+            profesion_texto="Arquitectura de datos",
+            empresa="Empresa de prueba",
+            puesto="Arquitecta de datos",
+            ciudad_texto="Quetzaltenango",
+            fecha_inicio=timezone.localdate(),
+        )
+        FormacionAcademica.objects.create(
+            aspirante=self.profile,
+            institucion_texto="Academia Global",
+            nivel_educativo_texto="Diplomado profesional",
+            area_estudio_texto="Ciencia de datos",
+            titulo_obtenido="Diplomado en datos",
+        )
+        HabilidadAspirante.objects.create(
+            aspirante=self.profile,
+            habilidad_texto="Python",
+            nivel_habilidad_texto="Avanzado",
+        )
+        IdiomaAspirante.objects.create(
+            aspirante=self.profile,
+            idioma_texto="Inglés",
+            nivel_idioma_texto="C1",
+        )
+        CertificacionAspirante.objects.create(
+            aspirante=self.profile,
+            certificacion_texto="Scrum Master",
+            organizacion_emisora_texto="Scrum.org",
+        )
+
+        client = APIClient()
+        client.force_authenticate(user=self.hr_user)
+
+        response = client.get(
+            reverse("api-aspirante-list"),
+            {"profesion": "Arquitectura de datos"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 1)
+        applicant = response.data["results"][0]
+        self.assertEqual(applicant["profesion"], "Arquitectura de datos")
+        self.assertEqual(applicant["ciudad"], "Quetzaltenango")
+        self.assertEqual(
+            applicant["experiencias"][0]["profesion"],
+            "Arquitectura de datos",
+        )
+        self.assertEqual(
+            applicant["formacion"][0]["institucion"],
+            "Academia Global",
+        )
+        self.assertEqual(applicant["habilidades"][0]["habilidad"], "Python")
+        self.assertEqual(applicant["idiomas"][0]["idioma"], "Inglés")
+        self.assertEqual(
+            applicant["certificaciones"][0]["organizacion_emisora"],
+            "Scrum.org",
+        )
 
     def test_applicant_can_create_and_track_application_via_api(self):
         client = APIClient()
