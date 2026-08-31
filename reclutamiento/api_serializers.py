@@ -335,8 +335,12 @@ class ApplicantSerializer(ApplicantSummarySerializer):
         ).data
 
 class SkillRequirementSerializer(serializers.ModelSerializer):
-    habilidad = CatalogSerializer(read_only=True)
-    nivel_habilidad_minimo = CatalogSerializer(read_only=True, allow_null=True)
+    habilidad = serializers.CharField(
+        source="habilidad_nombre", read_only=True, allow_null=True
+    )
+    nivel_habilidad_minimo = serializers.CharField(
+        source="nivel_habilidad_minimo_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = RequisitoHabilidad
@@ -344,8 +348,12 @@ class SkillRequirementSerializer(serializers.ModelSerializer):
 
 
 class LanguageRequirementSerializer(serializers.ModelSerializer):
-    idioma = CatalogSerializer(read_only=True)
-    nivel_idioma_minimo = CatalogSerializer(read_only=True)
+    idioma = serializers.CharField(
+        source="idioma_nombre", read_only=True, allow_null=True
+    )
+    nivel_idioma_minimo = serializers.CharField(
+        source="nivel_idioma_minimo_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = RequisitoIdioma
@@ -353,7 +361,9 @@ class LanguageRequirementSerializer(serializers.ModelSerializer):
 
 
 class CertificationRequirementSerializer(serializers.ModelSerializer):
-    certificacion = CatalogSerializer(read_only=True)
+    certificacion = serializers.CharField(
+        source="certificacion_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = RequisitoCertificacion
@@ -361,8 +371,12 @@ class CertificationRequirementSerializer(serializers.ModelSerializer):
 
 
 class EducationRequirementSerializer(serializers.ModelSerializer):
-    nivel_educativo_minimo = CatalogSerializer(read_only=True)
-    area_estudio = CatalogSerializer(read_only=True, allow_null=True)
+    nivel_educativo_minimo = serializers.CharField(
+        source="nivel_educativo_minimo_nombre", read_only=True, allow_null=True
+    )
+    area_estudio = serializers.CharField(
+        source="area_estudio_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = RequisitoEducacion
@@ -370,7 +384,9 @@ class EducationRequirementSerializer(serializers.ModelSerializer):
 
 
 class ExperienceRequirementSerializer(serializers.ModelSerializer):
-    profesion = CatalogSerializer(read_only=True, allow_null=True)
+    profesion = serializers.CharField(
+        source="profesion_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = RequisitoExperiencia
@@ -430,8 +446,12 @@ class RequirementSerializer(serializers.ModelSerializer):
 
 class VacancySummarySerializer(serializers.ModelSerializer):
     estado = CatalogSerializer(read_only=True)
-    departamento = CatalogSerializer(read_only=True)
-    ciudad = CitySerializer(read_only=True, allow_null=True)
+    departamento = serializers.CharField(
+        source="departamento_nombre", read_only=True, allow_null=True
+    )
+    ciudad = serializers.CharField(
+        source="ciudad_nombre", read_only=True, allow_null=True
+    )
 
     class Meta:
         model = Plaza
@@ -439,11 +459,19 @@ class VacancySummarySerializer(serializers.ModelSerializer):
 
 
 class VacancySerializer(VacancySummarySerializer):
-    profesion = CatalogSerializer(read_only=True, allow_null=True)
+    profesion = serializers.CharField(
+        source="profesion_nombre", read_only=True, allow_null=True
+    )
     creado_por = UserSummarySerializer(read_only=True)
-    tipo_empleo = CatalogSerializer(read_only=True)
-    modalidad_trabajo = CatalogSerializer(read_only=True)
-    periodo_salarial = CatalogSerializer(read_only=True, allow_null=True)
+    tipo_empleo = serializers.CharField(
+        source="tipo_empleo_nombre", read_only=True, allow_null=True
+    )
+    modalidad_trabajo = serializers.CharField(
+        source="modalidad_trabajo_nombre", read_only=True, allow_null=True
+    )
+    periodo_salarial = serializers.CharField(
+        source="periodo_salarial_nombre", read_only=True, allow_null=True
+    )
     requisitos = serializers.SerializerMethodField()
 
     class Meta(VacancySummarySerializer.Meta):

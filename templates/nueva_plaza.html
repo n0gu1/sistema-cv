@@ -4,11 +4,10 @@
 {% block content %}
 <div class="editor-heading">
     <div><a class="back-link" href="{% if plaza %}{% url 'detalle_plaza' plaza.pk %}{% else %}{% url 'plazas' %}{% endif %}"><i class="bi bi-arrow-left"></i> Volver</a><h1>{% if plaza %}Editar plaza{% else %}Crear nueva plaza{% endif %}</h1><p>Completa la información para publicar una nueva oportunidad laboral.</p></div>
-    <div class="editor-actions"><a class="btn btn-light" href="{% url 'plazas' %}">Cancelar</a>{% if not plaza %}<button class="btn btn-outline-primary" form="vacancyForm" name="accion" value="borrador" type="submit"{% if not catalogs_ready %} disabled title="Configura los catálogos requeridos antes de guardar"{% endif %}>Guardar borrador</button>{% endif %}<button class="btn btn-primary" form="vacancyForm" name="accion" value="publicar" type="submit"{% if not catalogs_ready %} disabled title="Configura los catálogos requeridos antes de guardar"{% endif %}><i class="bi bi-send"></i> {% if plaza %}Guardar cambios{% else %}Publicar plaza{% endif %}</button></div>
+    <div class="editor-actions"><a class="btn btn-light" href="{% url 'plazas' %}">Cancelar</a>{% if not plaza %}<button class="btn btn-outline-primary" form="vacancyForm" name="accion" value="borrador" type="submit">Guardar borrador</button>{% endif %}<button class="btn btn-primary" form="vacancyForm" name="accion" value="publicar" type="submit"><i class="bi bi-send"></i> {% if plaza %}Guardar cambios{% else %}Publicar plaza{% endif %}</button></div>
 </div>
 
 {% if form.errors %}<div class="auth-alert error form-alert"><i class="bi bi-exclamation-circle"></i><span>Revisa los campos señalados antes de continuar. {{ form.non_field_errors }}</span></div>{% endif %}
-{% if not catalogs_ready %}<div class="auth-alert error form-alert"><i class="bi bi-database-exclamation"></i><span>No puedes guardar esta plaza todavía. Faltan los siguientes catálogos: <strong>{% for catalog in missing_catalogs %}{{ catalog }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong>.</span></div>{% endif %}
 
 <form method="post" class="vacancy-form" id="vacancyForm">
     {% csrf_token %}
@@ -39,8 +38,8 @@
             <div class="field-stack"><label for="{{ form.anios_experiencia.id_for_label }}">Años de experiencia</label>{{ form.anios_experiencia }}{{ form.anios_experiencia.errors }}</div>
             <div class="field-stack"><label for="{{ form.nivel_educativo.id_for_label }}">Nivel educativo</label>{{ form.nivel_educativo }}{{ form.nivel_educativo.errors }}</div>
             <div class="field-stack field-span-2"><label for="{{ form.area_estudio.id_for_label }}">Área de estudio</label>{{ form.area_estudio }}{{ form.area_estudio.errors }}</div>
-            <div class="field-stack"><label for="{{ form.habilidades_obligatorias.id_for_label }}">Habilidades obligatorias</label>{{ form.habilidades_obligatorias }}{{ form.habilidades_obligatorias.errors }}<small>Selecciona las habilidades que son indispensables para el puesto.</small></div>
-            <div class="field-stack"><label for="{{ form.habilidades_deseables.id_for_label }}">Habilidades deseables</label>{{ form.habilidades_deseables }}{{ form.habilidades_deseables.errors }}<small>Selecciona las habilidades que representan una ventaja.</small></div>
+            <div class="field-stack"><label for="{{ form.habilidades_obligatorias.id_for_label }}">Habilidades obligatorias</label>{{ form.habilidades_obligatorias }}{{ form.habilidades_obligatorias.errors }}<small>Escribe una habilidad por línea; son indispensables para el puesto.</small></div>
+            <div class="field-stack"><label for="{{ form.habilidades_deseables.id_for_label }}">Habilidades deseables</label>{{ form.habilidades_deseables }}{{ form.habilidades_deseables.errors }}<small>Escribe una habilidad por línea; representan una ventaja.</small></div>
             <div class="field-stack"><label for="{{ form.idioma.id_for_label }}">Idioma requerido</label>{{ form.idioma }}{{ form.idioma.errors }}</div>
             <div class="field-stack"><label for="{{ form.nivel_idioma.id_for_label }}">Nivel del idioma</label>{{ form.nivel_idioma }}{{ form.nivel_idioma.errors }}</div>
             <div class="field-stack field-span-2"><label for="{{ form.certificaciones.id_for_label }}">Certificaciones</label>{{ form.certificaciones }}{{ form.certificaciones.errors }}</div>
@@ -57,6 +56,6 @@
         </div>
     </section>{% endif %}
 
-    <div class="mobile-editor-actions {% if plaza %}editing{% endif %}"><a class="btn btn-light" href="{% url 'plazas' %}">Cancelar</a>{% if not plaza %}<button class="btn btn-outline-primary" name="accion" value="borrador" type="submit"{% if not catalogs_ready %} disabled title="Configura los catálogos requeridos antes de guardar"{% endif %}>Guardar borrador</button>{% endif %}<button class="btn btn-primary" name="accion" value="publicar" type="submit"{% if not catalogs_ready %} disabled title="Configura los catálogos requeridos antes de guardar"{% endif %}>{% if plaza %}Guardar cambios{% else %}Publicar plaza{% endif %}</button></div>
+    <div class="mobile-editor-actions {% if plaza %}editing{% endif %}"><a class="btn btn-light" href="{% url 'plazas' %}">Cancelar</a>{% if not plaza %}<button class="btn btn-outline-primary" name="accion" value="borrador" type="submit">Guardar borrador</button>{% endif %}<button class="btn btn-primary" name="accion" value="publicar" type="submit">{% if plaza %}Guardar cambios{% else %}Publicar plaza{% endif %}</button></div>
 </form>
 {% endblock %}

@@ -8,7 +8,7 @@
     <div>
         <span class="section-kicker">Postulación #{{ postulacion.pk }}</span>
         <h1>{{ postulacion.plaza.titulo }}</h1>
-        <p>{{ postulacion.plaza.departamento.nombre }} · {{ postulacion.plaza.modalidad_trabajo.nombre }}</p>
+        <p>{{ postulacion.plaza.departamento_nombre }} · {{ postulacion.plaza.modalidad_trabajo_nombre }}</p>
     </div>
     <span class="application-state-large">{{ postulacion.estado.nombre }}</span>
 </section>

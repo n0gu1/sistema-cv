@@ -551,9 +551,12 @@ def _experience_matches_profession(record, profession_id, profession_name):
         occupation = (
             getattr(record, "profesion_texto", None)
             or getattr(record, "occupation", None)
-            or getattr(record, "puesto", None)
         )
-    if record_profession_id is not None:
+        if not occupation:
+            profession = getattr(record, "profesion", None)
+            occupation = getattr(profession, "nombre", None)
+        occupation = occupation or getattr(record, "puesto", None)
+    if profession_id is not None and record_profession_id is not None:
         return record_profession_id == profession_id
     return _normalise_name(occupation) == _normalise_name(profession_name)
 
@@ -766,6 +769,22 @@ def get_current_evaluation(application_or_id):
     return _current_evaluation(application_or_id)
 
 
+def _named_value(value, property_name, text_field=None, relation_field=None):
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    name = getattr(value, property_name, None)
+    if name:
+        return name
+    if text_field:
+        name = getattr(value, text_field, None)
+        if name:
+            return name
+    relation = getattr(value, relation_field, None) if relation_field else None
+    return getattr(relation, "nombre", None)
+
+
 def _rank(value):
     return getattr(value, "orden_nivel", None) if value else None
 
@@ -779,15 +798,29 @@ def _rank_or_catalog(value, model):
     return _rank(catalog)
 
 
+def _level_satisfies(required_rank, required_name, level_rank, level_name):
+    if required_rank is not None and level_rank is not None:
+        return level_rank >= required_rank
+    return bool(
+        required_name
+        and level_name
+        and _normalise_name(required_name) == _normalise_name(level_name)
+    )
+
+
 def _skill_result(requirement, detail, analysis_data, profile_data):
-    target = detail.habilidad if detail else None
-    target_name = target.nombre if target else requirement.descripcion
+    target_name = (
+        _named_value(detail, "habilidad_nombre", "habilidad_texto", "habilidad")
+        if detail
+        else requirement.descripcion
+    )
     extracted = next(
         (
             item
             for item in analysis_data["skills"]
             if (
                 detail is not None
+                and detail.habilidad_id
                 and item.habilidad_id == detail.habilidad_id
             )
             or _normalise_name(item.nombre_detectado) == _normalise_name(target_name)
@@ -799,10 +832,14 @@ def _skill_result(requirement, detail, analysis_data, profile_data):
             item
             for item in profile_data["skills"]
             if (
-                item.habilidad_id == getattr(detail, "habilidad_id", None)
-                and detail is not None
+                detail is not None
+                and detail.habilidad_id
+                and item.habilidad_id == detail.habilidad_id
             )
-            or _normalise_name(item.habilidad_nombre) == _normalise_name(target_name)
+            or _normalise_name(
+                _named_value(item, "habilidad_nombre", "habilidad_texto", "habilidad")
+            )
+            == _normalise_name(target_name)
         ),
         None,
     )
@@ -810,18 +847,41 @@ def _skill_result(requirement, detail, analysis_data, profile_data):
         return False, Decimal("0.00"), "No se detecto la habilidad.", f"Falta {target_name}."
 
     checks = []
-    if detail and detail.nivel_habilidad_minimo_id:
-        level = _rank_or_catalog(
-            (
-                declared.nivel_habilidad
-                if declared and declared.nivel_habilidad_id
-                else getattr(declared, "nivel_habilidad_nombre", None)
-            ),
-            NivelHabilidad,
+    required_level_name = (
+        _named_value(
+            detail,
+            "nivel_habilidad_minimo_nombre",
+            "nivel_habilidad_minimo_texto",
+            "nivel_habilidad_minimo",
         )
-        required = _rank_or_catalog(detail.nivel_habilidad_minimo, NivelHabilidad)
+        if detail
+        else None
+    )
+    if detail and required_level_name:
+        declared_level = (
+            declared.nivel_habilidad
+            if declared and getattr(declared, "nivel_habilidad_id", None)
+            else _named_value(
+                declared,
+                "nivel_habilidad_nombre",
+                "nivel_habilidad_texto",
+                "nivel_habilidad",
+            )
+        )
+        level = _rank_or_catalog(declared_level, NivelHabilidad)
+        required = _rank_or_catalog(required_level_name, NivelHabilidad)
         checks.append(
-            level is not None and required is not None and level >= required
+            _level_satisfies(
+                required,
+                required_level_name,
+                level,
+                _named_value(
+                    declared,
+                    "nivel_habilidad_nombre",
+                    "nivel_habilidad_texto",
+                    "nivel_habilidad",
+                ),
+            )
         )
     if detail and detail.anios_minimos is not None:
         years = declared.anios_experiencia if declared else None
@@ -837,14 +897,18 @@ def _skill_result(requirement, detail, analysis_data, profile_data):
 
 
 def _language_result(requirement, detail, analysis_data, profile_data):
-    target = detail.idioma if detail else None
-    target_name = target.nombre if target else requirement.descripcion
+    target_name = (
+        _named_value(detail, "idioma_nombre", "idioma_texto", "idioma")
+        if detail
+        else requirement.descripcion
+    )
     extracted = next(
         (
             item
             for item in analysis_data["languages"]
             if (
                 detail is not None
+                and detail.idioma_id
                 and item.idioma_id == detail.idioma_id
             )
             or _normalise_name(item.nombre_detectado) == _normalise_name(target_name)
@@ -856,49 +920,96 @@ def _language_result(requirement, detail, analysis_data, profile_data):
             item
             for item in profile_data["languages"]
             if (
-                item.idioma_id == getattr(detail, "idioma_id", None)
-                and detail is not None
+                detail is not None
+                and detail.idioma_id
+                and item.idioma_id == detail.idioma_id
             )
-            or _normalise_name(item.idioma_nombre) == _normalise_name(target_name)
+            or _normalise_name(
+                _named_value(item, "idioma_nombre", "idioma_texto", "idioma")
+            )
+            == _normalise_name(target_name)
         ),
         None,
     )
     if not extracted and not declared:
         return False, Decimal("0.00"), "No se detecto el idioma.", f"Falta {target_name}."
-    levels = [
-        _rank(extracted.nivel_idioma if extracted else None),
-        _rank_or_catalog(
+    levels = []
+    if extracted:
+        extracted_level = getattr(extracted, "nivel_idioma", None)
+        levels.append(
             (
-                declared.nivel_idioma
-                if declared and declared.nivel_idioma_id
-                else getattr(declared, "nivel_idioma_nombre", None)
-            ),
-            NivelIdioma,
-        ),
-    ]
-    levels = [level for level in levels if level is not None]
-    required = _rank(detail.nivel_idioma_minimo if detail else None)
-    if required is None:
+                _rank(extracted_level)
+                if getattr(extracted, "nivel_idioma_id", None)
+                else None,
+                getattr(extracted_level, "nombre", None),
+            )
+        )
+    if declared:
+        declared_level = (
+            declared.nivel_idioma
+            if getattr(declared, "nivel_idioma_id", None)
+            else _named_value(
+                declared,
+                "nivel_idioma_nombre",
+                "nivel_idioma_texto",
+                "nivel_idioma",
+            )
+        )
+        levels.append(
+            (
+                _rank_or_catalog(declared_level, NivelIdioma),
+                _named_value(
+                    declared,
+                    "nivel_idioma_nombre",
+                    "nivel_idioma_texto",
+                    "nivel_idioma",
+                ),
+            )
+        )
+    required_name = (
+        _named_value(
+            detail,
+            "nivel_idioma_minimo_nombre",
+            "nivel_idioma_minimo_texto",
+            "nivel_idioma_minimo",
+        )
+        if detail
+        else None
+    )
+    required = _rank_or_catalog(required_name, NivelIdioma)
+    if not required_name:
         met, score = True, Decimal("100.00")
-    elif not levels:
-        met, score = False, Decimal("50.00")
     else:
-        met = max(levels) >= required
+        met = any(
+            _level_satisfies(required, required_name, level_rank, level_name)
+            for level_rank, level_name in levels
+        )
         score = Decimal("100.00") if met else Decimal("0.00")
+        if not levels:
+            score = Decimal("50.00")
     evidence = "Idioma detectado en el curriculo." if extracted else "Idioma declarado en el perfil."
     explanation = "Cumple el nivel de idioma requerido." if met else "El nivel detectado o declarado es inferior al mínimo requerido."
     return met, score, evidence, explanation
 
 
 def _certification_result(requirement, detail, analysis_data, profile_data):
-    target = detail.certificacion if detail else None
-    target_name = target.nombre if target else requirement.descripcion
+    target_name = (
+        _named_value(
+            detail,
+            "certificacion_nombre",
+            "certificacion_texto",
+            "certificacion",
+        )
+        if detail
+        else requirement.descripcion
+    )
     extracted = next(
         (
             item
             for item in analysis_data["certifications"]
             if (
                 detail is not None
+                and detail.certificacion_id
                 and item.certificacion_id == detail.certificacion_id
             )
             or _normalise_name(item.nombre_detectado) == _normalise_name(target_name)
@@ -910,10 +1021,18 @@ def _certification_result(requirement, detail, analysis_data, profile_data):
             item
             for item in profile_data["certifications"]
             if (
-                item.certificacion_id == getattr(detail, "certificacion_id", None)
-                and detail is not None
+                detail is not None
+                and detail.certificacion_id
+                and item.certificacion_id == detail.certificacion_id
             )
-            or _normalise_name(item.certificacion_nombre)
+            or _normalise_name(
+                _named_value(
+                    item,
+                    "certificacion_nombre",
+                    "certificacion_texto",
+                    "certificacion",
+                )
+            )
             == _normalise_name(target_name)
         ),
         None,
@@ -933,27 +1052,68 @@ def _education_result(requirement, detail, analysis_data, profile_data):
     records = list(analysis_data["educations"]) + list(profile_data["educations"])
     if not records:
         return False, Decimal("0.00"), "No se encontro formacion academica.", "Falta formacion academica."
-    required_level = _rank(detail.nivel_educativo_minimo if detail else None)
-    for record in records:
-        record_level = _rank_or_catalog(
-            getattr(record, "nivel_educativo", None)
-            or getattr(record, "nivel_educativo_texto", None),
-            NivelEducativo,
+    required_level_name = (
+        _named_value(
+            detail,
+            "nivel_educativo_minimo_nombre",
+            "nivel_educativo_texto",
+            "nivel_educativo_minimo",
         )
-        level_ok = required_level is None or (
-            record_level is not None and record_level >= required_level
+        if detail
+        else None
+    )
+    required_level = _rank_or_catalog(required_level_name, NivelEducativo)
+    for record in records:
+        record_level_value = (
+            record.nivel_educativo
+            if getattr(record, "nivel_educativo_id", None)
+            else getattr(record, "nivel_educativo_texto", None)
+            or _named_value(
+                record,
+                "nivel_educativo_nombre",
+                "nivel_educativo_texto",
+                "nivel_educativo",
+            )
+        )
+        record_level = _rank_or_catalog(record_level_value, NivelEducativo)
+        level_ok = not required_level_name or _level_satisfies(
+            required_level,
+            required_level_name,
+            record_level,
+            _named_value(
+                record,
+                "nivel_educativo_nombre",
+                "nivel_educativo_texto",
+                "nivel_educativo",
+            ),
         )
         area_ok = True
-        if detail and detail.area_estudio_id:
+        required_area_name = (
+            _named_value(
+                detail,
+                "area_estudio_nombre",
+                "area_estudio_texto",
+                "area_estudio",
+            )
+            if detail
+            else None
+        )
+        if required_area_name:
             area_id = getattr(record, "area_estudio_id", None)
             area_name = (
                 getattr(getattr(record, "area_estudio", None), "nombre", None)
                 or getattr(record, "area_estudio_texto", None)
-                or getattr(record, "area_estudio_nombre", None)
+                or _named_value(
+                    record,
+                    "area_estudio_nombre",
+                    "area_estudio_texto",
+                    "area_estudio",
+                )
             )
-            area_ok = area_id == detail.area_estudio_id or _normalise_name(
-                area_name
-            ) == _normalise_name(detail.area_estudio.nombre)
+            area_ok = (
+                bool(detail.area_estudio_id and area_id == detail.area_estudio_id)
+                or _normalise_name(area_name) == _normalise_name(required_area_name)
+            )
         if level_ok and area_ok:
             return True, Decimal("100.00"), "Formacion academica compatible detectada.", "Cumple el requisito educativo."
     return False, Decimal("50.00"), "Se encontro formacion, pero no coincide completamente.", "El nivel o area de estudio requiere validacion."
@@ -962,14 +1122,20 @@ def _education_result(requirement, detail, analysis_data, profile_data):
 def _experience_result(requirement, detail, analysis, analysis_data, profile_data):
     experiences = list(analysis_data["experiences"]) + list(profile_data["experiences"])
     required_months = detail.meses_minimos if detail else 0
-    if detail and detail.profesion_id:
+    profession_id = detail.profesion_id if detail else None
+    profession_name = (
+        _named_value(detail, "profesion_nombre", "profesion_texto", "profesion")
+        if detail
+        else None
+    )
+    if detail and profession_name:
         experiences = [
             record
             for record in experiences
             if _experience_matches_profession(
                 record,
-                detail.profesion_id,
-                detail.profesion.nombre,
+                profession_id,
+                profession_name,
             )
         ]
         months = _months_from_experiences(experiences)
@@ -987,8 +1153,8 @@ def _experience_result(requirement, detail, analysis, analysis_data, profile_dat
     if not profession_ok:
         score = min(score, Decimal("50.00"))
     evidence = f"Se calcularon {months} meses de experiencia"
-    if detail and detail.profesion_id:
-        evidence += f" para {detail.profesion.nombre}"
+    if detail and profession_name:
+        evidence += f" para {profession_name}"
     evidence += "."
     explanation = "Cumple la experiencia requerida." if met else "La experiencia o la profesion relacionada requiere validacion."
     return met, score.quantize(Decimal("0.01")), evidence, explanation

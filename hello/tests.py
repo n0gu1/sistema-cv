@@ -613,11 +613,12 @@ class VacancyManagementTests(TransactionTestCase):
     def _payload(self, **overrides):
         data = {
             "titulo": "Desarrollador Python",
-            "departamento": Departamento.objects.get(nombre="Tecnología").pk,
-            "profesion": Profesion.objects.get(nombre="Ingeniería de software").pk,
-            "tipo_empleo": TipoEmpleo.objects.get(codigo="TIEMPO_COMPLETO").pk,
-            "modalidad_trabajo": ModalidadTrabajo.objects.get(codigo="REMOTO").pk,
-            "periodo_salarial": PeriodoSalarial.objects.get(codigo="MES").pk,
+            "departamento": "Innovación y automatización",
+            "profesion": "Ingeniería de software aplicada",
+            "tipo_empleo": "Contrato indefinido",
+            "modalidad_trabajo": "Remoto flexible",
+            "ciudad": "Quetzaltenango",
+            "periodo_salarial": "Quincenal",
             "descripcion": "Construir servicios confiables con Python y Django.",
             "detalle_ubicacion": "Remoto en Guatemala",
             "salario_minimo": "12000.00",
@@ -628,19 +629,13 @@ class VacancyManagementTests(TransactionTestCase):
                 "%Y-%m-%dT%H:%M"
             ),
             "anios_experiencia": "3",
-            "nivel_educativo": NivelEducativo.objects.get(
-                codigo="LICENCIATURA"
-            ).pk,
-            "area_estudio": AreaEstudio.objects.get(
-                nombre="Ingeniería en sistemas"
-            ).pk,
-            "habilidades_obligatorias": [
-                Habilidad.objects.get(nombre="Python").pk,
-                Habilidad.objects.get(nombre="Django").pk,
-            ],
-            "habilidades_deseables": [Habilidad.objects.get(nombre="Docker").pk],
-            "idioma": Idioma.objects.get(codigo_iso="en").pk,
-            "nivel_idioma": NivelIdioma.objects.get(codigo="B2").pk,
+            "nivel_educativo": "Diplomado superior",
+            "area_estudio": "Ciberseguridad aplicada",
+            "habilidades_obligatorias": "Python\nDjango",
+            "habilidades_deseables": "Docker",
+            "idioma": "Inglés",
+            "nivel_idioma": "Conversacional avanzado",
+            "certificaciones": "Certificación interna de seguridad",
             "requiere_viajar": "on",
             "descripcion_horario": "Lunes a viernes",
         }
@@ -708,14 +703,35 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertRedirects(response, reverse("detalle_plaza", args=[vacancy.pk]))
         self.assertEqual(vacancy.estado_id, "PUBLICADA")
         self.assertIsNotNone(vacancy.publicado_en)
+        self.assertEqual(vacancy.departamento_texto, "Innovación y automatización")
+        self.assertEqual(vacancy.profesion_texto, "Ingeniería de software aplicada")
+        self.assertEqual(vacancy.ciudad_texto, "Quetzaltenango")
+        self.assertEqual(vacancy.tipo_empleo_texto, "Contrato indefinido")
+        self.assertEqual(vacancy.modalidad_trabajo_texto, "Remoto flexible")
+        self.assertEqual(vacancy.periodo_salarial_texto, "Quincenal")
+        self.assertIsNone(vacancy.departamento_id)
+        self.assertIsNone(vacancy.tipo_empleo_id)
+        self.assertIsNone(vacancy.modalidad_trabajo_id)
         requirements = RequisitoPlaza.objects.filter(plaza=vacancy)
-        self.assertEqual(requirements.count(), 7)
+        self.assertEqual(requirements.count(), 8)
         self.assertEqual(sum(item.peso for item in requirements), 100)
         self.assertEqual(RequisitoExperiencia.objects.count(), 1)
         self.assertEqual(RequisitoEducacion.objects.count(), 1)
         self.assertEqual(RequisitoHabilidad.objects.count(), 3)
         self.assertEqual(RequisitoIdioma.objects.count(), 1)
+        self.assertEqual(RequisitoCertificacion.objects.count(), 1)
         self.assertEqual(RequisitoDisponibilidad.objects.count(), 1)
+        education = RequisitoEducacion.objects.get()
+        self.assertEqual(education.nivel_educativo_texto, "Diplomado superior")
+        self.assertEqual(education.area_estudio_texto, "Ciberseguridad aplicada")
+        language = RequisitoIdioma.objects.get()
+        self.assertEqual(language.idioma_texto, "Inglés")
+        self.assertEqual(language.nivel_idioma_minimo_texto, "Conversacional avanzado")
+        certification = RequisitoCertificacion.objects.get()
+        self.assertEqual(
+            certification.certificacion_texto,
+            "Certificación interna de seguridad",
+        )
         self.assertEqual(
             list(
                 HistorialEstadoPlaza.objects.values_list(
@@ -731,7 +747,7 @@ class VacancyManagementTests(TransactionTestCase):
             "Aprobación de la convocatoria técnica.",
         )
 
-    def test_vacancy_multiselects_render_as_mobile_checkboxes(self):
+    def test_vacancy_free_text_fields_render_as_text_inputs(self):
         form = FormularioPlaza()
 
         for field_name in (
@@ -740,13 +756,12 @@ class VacancyManagementTests(TransactionTestCase):
             "certificaciones",
         ):
             with self.subTest(field_name=field_name):
-                self.assertIsInstance(
-                    form.fields[field_name].widget,
-                    forms.CheckboxSelectMultiple,
-                )
+                self.assertIsInstance(form.fields[field_name], forms.CharField)
+                self.assertIsInstance(form.fields[field_name].widget, forms.Textarea)
 
         response = self.client.get(reverse("nueva_plaza"))
-        self.assertContains(response, "multi-checkboxes")
+        self.assertContains(response, "placeholder=\"Ej. Tecnología\"")
+        self.assertNotContains(response, "multi-checkboxes")
         self.assertNotContains(response, "Ctrl o Cmd")
 
     def test_edit_vacancy_preserves_requirements(self):
@@ -754,15 +769,16 @@ class VacancyManagementTests(TransactionTestCase):
         requirement_ids = list(
             RequisitoPlaza.objects.filter(plaza=vacancy).values_list("pk", flat=True)
         )
+        form_response = self.client.get(reverse("editar_plaza", args=[vacancy.pk]))
+        self.assertContains(form_response, "Innovación y automatización")
+        self.assertContains(form_response, "Remoto flexible")
         response = self.client.post(
             reverse("editar_plaza", args=[vacancy.pk]),
             {
                 **self._payload(
                     titulo="Desarrollador Django Senior",
-                    habilidades_obligatorias=[
-                        Habilidad.objects.get(nombre="PostgreSQL").pk
-                    ],
-                    habilidades_deseables=[],
+                    habilidades_obligatorias="PostgreSQL",
+                    habilidades_deseables="",
                     idioma="",
                     nivel_idioma="",
                     requiere_viajar="",
@@ -785,6 +801,36 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertEqual(RequisitoHabilidad.objects.count(), 3)
         self.assertEqual(RequisitoIdioma.objects.count(), 1)
 
+    def test_edit_form_prefills_catalog_backed_values(self):
+        vacancy = self._create_draft()
+        department = Departamento.objects.get(nombre="Tecnología")
+        profession = Profesion.objects.get(nombre="Ingeniería de software")
+        employment_type = TipoEmpleo.objects.get(codigo="TIEMPO_COMPLETO")
+        work_mode = ModalidadTrabajo.objects.get(codigo="REMOTO")
+        salary_period = PeriodoSalarial.objects.get(codigo="MES")
+        city = Ciudad.objects.first()
+        Plaza.objects.filter(pk=vacancy.pk).update(
+            departamento=department,
+            departamento_texto=None,
+            profesion=profession,
+            profesion_texto=None,
+            ciudad=city,
+            ciudad_texto=None,
+            tipo_empleo=employment_type,
+            tipo_empleo_texto=None,
+            modalidad_trabajo=work_mode,
+            modalidad_trabajo_texto=None,
+            periodo_salarial=salary_period,
+            periodo_salarial_texto=None,
+        )
+
+        response = self.client.get(reverse("editar_plaza", args=[vacancy.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        for catalog in (department, profession, city, employment_type, work_mode, salary_period):
+            with self.subTest(catalog=catalog.nombre):
+                self.assertContains(response, catalog.nombre)
+
     def test_vacancy_count_cannot_be_reduced_below_existing_hires(self):
         vacancy = self._create_draft()
         with connection.cursor() as cursor:
@@ -805,20 +851,10 @@ class VacancyManagementTests(TransactionTestCase):
 
     def test_advanced_requirements_store_per_item_configuration(self):
         vacancy = self._create_draft()
-        python = Habilidad.objects.get(nombre="Python")
-        django = Habilidad.objects.get(nombre="Django")
-        intermediate = NivelHabilidad.objects.get(codigo="INTERMEDIO")
-        advanced = NivelHabilidad.objects.get(codigo="AVANZADO")
-        english = Idioma.objects.get(codigo_iso="en")
-        spanish = Idioma.objects.get(codigo_iso="es")
-        b1 = NivelIdioma.objects.get(codigo="B1")
-        c1 = NivelIdioma.objects.get(codigo="C1")
-        certification = Certificacion.objects.first()
-        profession = Profesion.objects.get(nombre="Ingeniería de software")
         general_form = FormularioRequisitosGenerales(
             data={
                 "general-anios_experiencia": "4",
-                "general-profesion": profession.pk,
+                "general-profesion": "Ingeniería de software aplicada",
             },
             prefix="general",
         )
@@ -828,12 +864,12 @@ class VacancyManagementTests(TransactionTestCase):
                 "habilidades-INITIAL_FORMS": "0",
                 "habilidades-MIN_NUM_FORMS": "0",
                 "habilidades-MAX_NUM_FORMS": "1000",
-                "habilidades-0-habilidad": python.pk,
-                "habilidades-0-nivel_habilidad_minimo": intermediate.pk,
+                "habilidades-0-habilidad": "Python",
+                "habilidades-0-nivel_habilidad_minimo": "Intermedio personalizado",
                 "habilidades-0-anios_minimos": "2.5",
                 "habilidades-0-obligatorio": "on",
-                "habilidades-1-habilidad": django.pk,
-                "habilidades-1-nivel_habilidad_minimo": advanced.pk,
+                "habilidades-1-habilidad": "Django",
+                "habilidades-1-nivel_habilidad_minimo": "Avanzado personalizado",
                 "habilidades-1-anios_minimos": "4",
             },
             prefix="habilidades",
@@ -844,11 +880,11 @@ class VacancyManagementTests(TransactionTestCase):
                 "idiomas-INITIAL_FORMS": "0",
                 "idiomas-MIN_NUM_FORMS": "0",
                 "idiomas-MAX_NUM_FORMS": "1000",
-                "idiomas-0-idioma": english.pk,
-                "idiomas-0-nivel_idioma_minimo": c1.pk,
+                "idiomas-0-idioma": "Inglés",
+                "idiomas-0-nivel_idioma_minimo": "C1 personalizado",
                 "idiomas-0-obligatorio": "on",
-                "idiomas-1-idioma": spanish.pk,
-                "idiomas-1-nivel_idioma_minimo": b1.pk,
+                "idiomas-1-idioma": "Español",
+                "idiomas-1-nivel_idioma_minimo": "B1 personalizado",
             },
             prefix="idiomas",
         )
@@ -858,7 +894,7 @@ class VacancyManagementTests(TransactionTestCase):
                 "certificaciones-INITIAL_FORMS": "0",
                 "certificaciones-MIN_NUM_FORMS": "0",
                 "certificaciones-MAX_NUM_FORMS": "1000",
-                "certificaciones-0-certificacion": certification.pk,
+                "certificaciones-0-certificacion": "Certificación interna de seguridad",
                 "certificaciones-0-obligatorio": "on",
                 "certificaciones-0-debe_estar_vigente": "on",
             },
@@ -883,11 +919,24 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertEqual(RequisitoHabilidad.objects.count(), 2)
         self.assertEqual(RequisitoIdioma.objects.count(), 2)
         self.assertEqual(RequisitoCertificacion.objects.count(), 1)
-        python_requirement = RequisitoHabilidad.objects.get(habilidad=python)
-        self.assertEqual(python_requirement.nivel_habilidad_minimo, intermediate)
+        python_requirement = RequisitoHabilidad.objects.get(habilidad_texto="Python")
+        self.assertIsNone(python_requirement.habilidad_id)
+        self.assertEqual(
+            python_requirement.nivel_habilidad_minimo_texto,
+            "Intermedio personalizado",
+        )
+        self.assertIsNone(python_requirement.nivel_habilidad_minimo_id)
         self.assertEqual(str(python_requirement.anios_minimos), "2.5")
-        certification_requirement = RequisitoCertificacion.objects.get()
-        self.assertEqual(RequisitoExperiencia.objects.get().profesion, profession)
+        certification_requirement = RequisitoCertificacion.objects.get(
+            certificacion_texto="Certificación interna de seguridad"
+        )
+        self.assertIsNone(certification_requirement.certificacion_id)
+        experience_requirement = RequisitoExperiencia.objects.get()
+        self.assertIsNone(experience_requirement.profesion_id)
+        self.assertEqual(
+            experience_requirement.profesion_texto,
+            "Ingeniería de software aplicada",
+        )
         self.assertTrue(certification_requirement.requisito.obligatorio)
         self.assertTrue(certification_requirement.debe_estar_vigente)
 
@@ -958,6 +1007,7 @@ class VacancyManagementTests(TransactionTestCase):
             habilidades_deseables=[],
             idioma="",
             nivel_idioma="",
+            certificaciones="",
             requiere_viajar="",
             descripcion_horario="",
         )
@@ -971,26 +1021,24 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertContains(response, "Agrega al menos un requisito")
         self.assertEqual(Plaza.objects.count(), 0)
 
-    def test_missing_required_catalogs_explain_and_block_vacancy_saves(self):
+    def test_free_text_vacancy_does_not_require_catalogs(self):
         ModalidadTrabajo.objects.all().delete()
 
         response = self.client.get(reverse("nueva_plaza"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.context["catalogs_ready"])
-        self.assertEqual(response.context["missing_catalogs"], ["modalidades de trabajo"])
-        self.assertContains(response, "Faltan los siguientes catálogos")
-        self.assertContains(response, "modalidades de trabajo")
-        self.assertContains(response, "disabled")
+        self.assertNotContains(response, "Faltan los siguientes catálogos")
+        self.assertNotContains(response, "No se puede guardar la plaza")
 
         response = self.client.post(
             reverse("nueva_plaza"),
-            {"accion": "borrador"},
+            {**self._payload(), "accion": "borrador"},
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "No se puede guardar la plaza")
-        self.assertEqual(Plaza.objects.count(), 0)
+        self.assertEqual(response.status_code, 302)
+        vacancy = Plaza.objects.get()
+        self.assertEqual(vacancy.modalidad_trabajo_texto, "Remoto flexible")
+        self.assertIsNone(vacancy.modalidad_trabajo_id)
 
     def test_vacancy_detail_links_to_filtered_applications(self):
         vacancy = self._create_draft()
@@ -1075,15 +1123,14 @@ class VacancyManagementTests(TransactionTestCase):
         self.assertEqual(pending.context["page"].paginator.count, 2)
 
     def test_salary_and_duplicate_skill_validation(self):
-        python_id = Habilidad.objects.get(nombre="Python").pk
         response = self.client.post(
             reverse("nueva_plaza"),
             {
                 **self._payload(
                     salario_minimo="20000",
                     salario_maximo="10000",
-                    habilidades_obligatorias=[python_id],
-                    habilidades_deseables=[python_id],
+                    habilidades_obligatorias="Python",
+                    habilidades_deseables="python",
                 ),
                 "accion": "borrador",
             },

@@ -29,7 +29,7 @@
     <article class="panel report-panel">
         <div class="panel-header"><div><h2>Plazas con mayor actividad</h2><p>Oportunidades que concentran más postulaciones.</p></div></div>
         <div class="top-vacancy-report">
-            {% for vacancy in top_vacancies %}<div><span><strong>{{ vacancy.titulo }}</strong><small>{{ vacancy.departamento.nombre }}</small></span><div><i style="width:{{ vacancy.bar_width }}%"></i></div><b>{{ vacancy.applicant_count }}</b></div>{% empty %}<div class="inline-empty">No hay plazas disponibles.</div>{% endfor %}
+            {% for vacancy in top_vacancies %}<div><span><strong>{{ vacancy.titulo }}</strong><small>{{ vacancy.departamento_nombre }}</small></span><div><i style="width:{{ vacancy.bar_width }}%"></i></div><b>{{ vacancy.applicant_count }}</b></div>{% empty %}<div class="inline-empty">No hay plazas disponibles.</div>{% endfor %}
         </div>
     </article>
 </section>

@@ -29,8 +29,8 @@
             {% for plaza in page.object_list %}
                 <tr{% if plaza.esta_vencida %} class="vacancy-expired"{% endif %}>
                     <td data-label="Puesto"><a class="vacancy-name" href="{% url 'detalle_plaza' plaza.pk %}">{{ plaza.titulo }}</a><small>ID: PLA-{{ plaza.pk|stringformat:'04d' }}</small></td>
-                    <td data-label="Departamento">{{ plaza.departamento.nombre }}</td>
-                    <td data-label="Ubicación">{{ plaza.detalle_ubicacion|default:plaza.modalidad_trabajo.nombre }}</td>
+                    <td data-label="Departamento">{{ plaza.departamento_nombre }}</td>
+                    <td data-label="Ubicación">{{ plaza.detalle_ubicacion|default:plaza.modalidad_trabajo_nombre }}</td>
                     <td data-label="Postulaciones" class="text-center">{{ plaza.applicant_count }}</td>
                     <td data-label="Estado"><span class="status-badge {% if plaza.esta_vencida %}expired{% elif plaza.estado_id == 'PUBLICADA' %}active{% elif plaza.estado_id == 'PAUSADA' %}paused{% elif plaza.estado_id == 'CERRADA' %}closed{% else %}draft{% endif %}">{% if plaza.esta_vencida %}Vencida{% else %}{{ plaza.estado.nombre }}{% endif %}</span>{% if plaza.esta_vencida %}<small class="status-note">Cierre cumplido</small>{% endif %}</td>
                     <td data-label="Acciones"><div class="management-actions"><a class="icon-button management-action" href="{% url 'detalle_plaza' plaza.pk %}" aria-label="Gestionar {{ plaza.titulo }}"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i><span class="action-label">Gestionar</span></a></div></td>

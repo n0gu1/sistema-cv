@@ -43,6 +43,18 @@ def _free_text(value):
     return " ".join((value or "").split()) or None
 
 
+def _free_text_items(value):
+    items = []
+    seen = set()
+    for line in (value or "").replace(",", "\n").replace(";", "\n").splitlines():
+        item = _free_text(line)
+        key = item.casefold() if item else None
+        if item and key not in seen:
+            seen.add(key)
+            items.append(item)
+    return items
+
+
 def _initial_text(instance, text_field, relation_field):
     value = getattr(instance, text_field, None)
     if value:
@@ -728,40 +740,76 @@ class FormularioReenvioVerificacion(forms.Form):
 
 
 class FormularioPlaza(forms.ModelForm):
-    required_catalogs = (
-        ("departamento", "departamentos"),
-        ("tipo_empleo", "tipos de empleo"),
-        ("modalidad_trabajo", "modalidades de trabajo"),
+    departamento = forms.CharField(
+        max_length=120,
+        label="Departamento",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Tecnología"}),
+    )
+    profesion = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Profesión relacionada",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Ingeniería de software"}),
+    )
+    ciudad = forms.CharField(
+        required=False,
+        max_length=120,
+        label="Ciudad",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Quetzaltenango"}),
+    )
+    tipo_empleo = forms.CharField(
+        max_length=80,
+        label="Tipo de empleo",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Tiempo completo"}),
+    )
+    modalidad_trabajo = forms.CharField(
+        max_length=80,
+        label="Modalidad de trabajo",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Híbrido"}),
+    )
+    periodo_salarial = forms.CharField(
+        required=False,
+        max_length=80,
+        label="Período salarial",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Mensual"}),
     )
 
     anios_experiencia = forms.IntegerField(required=False, min_value=0, max_value=50)
-    nivel_educativo = forms.ModelChoiceField(
-        queryset=NivelEducativo.objects.none(),
+    nivel_educativo = forms.CharField(
         required=False,
+        max_length=100,
+        label="Nivel educativo",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Licenciatura"}),
     )
-    area_estudio = forms.ModelChoiceField(
-        queryset=AreaEstudio.objects.none(),
+    area_estudio = forms.CharField(
         required=False,
+        max_length=150,
+        label="Área de estudio",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Ingeniería ambiental"}),
     )
-    habilidades_obligatorias = forms.ModelMultipleChoiceField(
-        queryset=Habilidad.objects.none(),
+    habilidades_obligatorias = forms.CharField(
         required=False,
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.Textarea(attrs={"rows": 4}),
     )
-    habilidades_deseables = forms.ModelMultipleChoiceField(
-        queryset=Habilidad.objects.none(),
+    habilidades_deseables = forms.CharField(
         required=False,
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.Textarea(attrs={"rows": 4}),
     )
-    idioma = forms.ModelChoiceField(queryset=Idioma.objects.none(), required=False)
-    nivel_idioma = forms.ModelChoiceField(
-        queryset=NivelIdioma.objects.none(),
+    idioma = forms.CharField(
         required=False,
+        max_length=80,
+        label="Idioma requerido",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. Inglés"}),
     )
-    certificaciones = forms.ModelMultipleChoiceField(
-        queryset=Certificacion.objects.none(),
+    nivel_idioma = forms.CharField(
         required=False,
-        widget=forms.CheckboxSelectMultiple,
+        max_length=80,
+        label="Nivel del idioma",
+        widget=forms.TextInput(attrs={"placeholder": "Ej. B2 o conversacional"}),
+    )
+    certificaciones = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4}),
     )
     disponible_desde = forms.DateField(required=False)
     requiere_viajar = forms.BooleanField(required=False)
@@ -778,12 +826,6 @@ class FormularioPlaza(forms.ModelForm):
         model = Plaza
         fields = (
             "titulo",
-            "departamento",
-            "profesion",
-            "ciudad",
-            "tipo_empleo",
-            "modalidad_trabajo",
-            "periodo_salarial",
             "descripcion",
             "detalle_ubicacion",
             "salario_minimo",
@@ -791,6 +833,18 @@ class FormularioPlaza(forms.ModelForm):
             "codigo_moneda",
             "cantidad_vacantes",
             "cierra_en",
+            "anios_experiencia",
+            "nivel_educativo",
+            "area_estudio",
+            "habilidades_obligatorias",
+            "habilidades_deseables",
+            "idioma",
+            "nivel_idioma",
+            "certificaciones",
+            "disponible_desde",
+            "requiere_viajar",
+            "requiere_reubicacion",
+            "descripcion_horario",
         )
 
     def __init__(self, *args, **kwargs):
@@ -803,33 +857,46 @@ class FormularioPlaza(forms.ModelForm):
             attrs={"type": "date"},
             format="%Y-%m-%d",
         )
-        self.fields["departamento"].queryset = Departamento.objects.filter(
-            activo=True
-        ).order_by("nombre")
-        self.fields["profesion"].queryset = Profesion.objects.order_by("nombre")
-        self.fields["ciudad"].queryset = Ciudad.objects.select_related("region").order_by(
-            "nombre"
-        )
-        self.fields["tipo_empleo"].queryset = TipoEmpleo.objects.order_by("nombre")
-        self.fields["modalidad_trabajo"].queryset = ModalidadTrabajo.objects.order_by(
-            "nombre"
-        )
-        self.fields["periodo_salarial"].queryset = PeriodoSalarial.objects.order_by(
-            "nombre"
-        )
-        self.fields["nivel_educativo"].queryset = NivelEducativo.objects.order_by(
-            "orden_nivel"
-        )
-        self.fields["area_estudio"].queryset = AreaEstudio.objects.order_by("nombre")
-        skills = Habilidad.objects.filter(activo=True).order_by("nombre")
-        self.fields["habilidades_obligatorias"].queryset = skills
-        self.fields["habilidades_deseables"].queryset = skills
-        self.fields["idioma"].queryset = Idioma.objects.order_by("nombre")
-        self.fields["nivel_idioma"].queryset = NivelIdioma.objects.order_by(
-            "orden_nivel"
-        )
-        self.fields["certificaciones"].queryset = Certificacion.objects.order_by(
-            "nombre"
+        for relation_field, text_field in (
+            ("departamento", "departamento_texto"),
+            ("profesion", "profesion_texto"),
+            ("ciudad", "ciudad_texto"),
+            ("tipo_empleo", "tipo_empleo_texto"),
+            ("modalidad_trabajo", "modalidad_trabajo_texto"),
+            ("periodo_salarial", "periodo_salarial_texto"),
+        ):
+            self.fields[relation_field].initial = _initial_text(
+                self.instance, text_field, relation_field
+            )
+        self.order_fields(
+            (
+                "titulo",
+                "departamento",
+                "profesion",
+                "tipo_empleo",
+                "modalidad_trabajo",
+                "ciudad",
+                "detalle_ubicacion",
+                "cantidad_vacantes",
+                "cierra_en",
+                "salario_minimo",
+                "salario_maximo",
+                "codigo_moneda",
+                "periodo_salarial",
+                "descripcion",
+                "anios_experiencia",
+                "nivel_educativo",
+                "area_estudio",
+                "habilidades_obligatorias",
+                "habilidades_deseables",
+                "idioma",
+                "nivel_idioma",
+                "certificaciones",
+                "disponible_desde",
+                "requiere_viajar",
+                "requiere_reubicacion",
+                "descripcion_horario",
+            )
         )
         for field in self.fields.values():
             if isinstance(field.widget, forms.CheckboxInput):
@@ -871,8 +938,14 @@ class FormularioPlaza(forms.ModelForm):
             self.add_error("idioma", message)
             self.add_error("nivel_idioma", message)
 
-        mandatory = set(cleaned_data.get("habilidades_obligatorias") or [])
-        desired = set(cleaned_data.get("habilidades_deseables") or [])
+        mandatory = {
+            item.casefold()
+            for item in cleaned_data.get("habilidades_obligatorias") or []
+        }
+        desired = {
+            item.casefold()
+            for item in cleaned_data.get("habilidades_deseables") or []
+        }
         if mandatory.intersection(desired):
             self.add_error(
                 "habilidades_deseables",
@@ -881,6 +954,54 @@ class FormularioPlaza(forms.ModelForm):
 
         cleaned_data["codigo_moneda"] = currency or None
         return cleaned_data
+
+    def clean_departamento(self):
+        value = _free_text(self.cleaned_data.get("departamento"))
+        if not value:
+            raise forms.ValidationError("Indica el departamento.")
+        return value
+
+    def clean_profesion(self):
+        return _free_text(self.cleaned_data.get("profesion"))
+
+    def clean_ciudad(self):
+        return _free_text(self.cleaned_data.get("ciudad"))
+
+    def clean_tipo_empleo(self):
+        value = _free_text(self.cleaned_data.get("tipo_empleo"))
+        if not value:
+            raise forms.ValidationError("Indica el tipo de empleo.")
+        return value
+
+    def clean_modalidad_trabajo(self):
+        value = _free_text(self.cleaned_data.get("modalidad_trabajo"))
+        if not value:
+            raise forms.ValidationError("Indica la modalidad de trabajo.")
+        return value
+
+    def clean_periodo_salarial(self):
+        return _free_text(self.cleaned_data.get("periodo_salarial"))
+
+    def clean_nivel_educativo(self):
+        return _free_text(self.cleaned_data.get("nivel_educativo"))
+
+    def clean_area_estudio(self):
+        return _free_text(self.cleaned_data.get("area_estudio"))
+
+    def clean_idioma(self):
+        return _free_text(self.cleaned_data.get("idioma"))
+
+    def clean_nivel_idioma(self):
+        return _free_text(self.cleaned_data.get("nivel_idioma"))
+
+    def clean_habilidades_obligatorias(self):
+        return _free_text_items(self.cleaned_data.get("habilidades_obligatorias"))
+
+    def clean_habilidades_deseables(self):
+        return _free_text_items(self.cleaned_data.get("habilidades_deseables"))
+
+    def clean_certificaciones(self):
+        return _free_text_items(self.cleaned_data.get("certificaciones"))
 
     def clean_salario_minimo(self):
         salary_min = self.cleaned_data.get("salario_minimo")
@@ -900,12 +1021,24 @@ class FormularioPlaza(forms.ModelForm):
             raise forms.ValidationError("La fecha de cierre debe estar en el futuro.")
         return closes_at
 
+    def save(self, commit=True):
+        vacancy = super().save(commit=False)
+        for relation_field, text_field in (
+            ("departamento", "departamento_texto"),
+            ("profesion", "profesion_texto"),
+            ("ciudad", "ciudad_texto"),
+            ("tipo_empleo", "tipo_empleo_texto"),
+            ("modalidad_trabajo", "modalidad_trabajo_texto"),
+            ("periodo_salarial", "periodo_salarial_texto"),
+        ):
+            setattr(vacancy, relation_field, None)
+            setattr(vacancy, text_field, self.cleaned_data.get(relation_field))
+        if commit:
+            vacancy.save()
+        return vacancy
+
     def missing_required_catalogs(self):
-        return [
-            label
-            for field_name, label in self.required_catalogs
-            if not self.fields[field_name].queryset.exists()
-        ]
+        return []
 
     def has_required_catalogs(self):
         return not self.missing_required_catalogs()
@@ -935,18 +1068,18 @@ class FormularioDatosPlaza(FormularioPlaza):
 
 class FormularioRequisitosGenerales(forms.Form):
     anios_experiencia = forms.IntegerField(required=False, min_value=0, max_value=50)
-    profesion = forms.ModelChoiceField(
-        queryset=Profesion.objects.none(),
+    profesion = forms.CharField(
         required=False,
         label="Profesión de la experiencia",
+        max_length=150,
     )
-    nivel_educativo = forms.ModelChoiceField(
-        queryset=NivelEducativo.objects.none(),
+    nivel_educativo = forms.CharField(
         required=False,
+        max_length=100,
     )
-    area_estudio = forms.ModelChoiceField(
-        queryset=AreaEstudio.objects.none(),
+    area_estudio = forms.CharField(
         required=False,
+        max_length=150,
     )
     disponible_desde = forms.DateField(
         required=False,
@@ -958,11 +1091,6 @@ class FormularioRequisitosGenerales(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["nivel_educativo"].queryset = NivelEducativo.objects.order_by(
-            "orden_nivel"
-        )
-        self.fields["profesion"].queryset = Profesion.objects.order_by("nombre")
-        self.fields["area_estudio"].queryset = AreaEstudio.objects.order_by("nombre")
         for field in self.fields.values():
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs["class"] = "form-check-input"
@@ -971,13 +1099,22 @@ class FormularioRequisitosGenerales(forms.Form):
             else:
                 field.widget.attrs["class"] = "form-control"
 
+    def clean_profesion(self):
+        return _free_text(self.cleaned_data.get("profesion"))
+
+    def clean_nivel_educativo(self):
+        return _free_text(self.cleaned_data.get("nivel_educativo"))
+
+    def clean_area_estudio(self):
+        return _free_text(self.cleaned_data.get("area_estudio"))
+
 
 class FormularioRequisitoHabilidadPlaza(forms.Form):
-    habilidad = forms.ModelChoiceField(queryset=Habilidad.objects.none())
-    nivel_habilidad_minimo = forms.ModelChoiceField(
-        queryset=NivelHabilidad.objects.none(),
+    habilidad = forms.CharField(max_length=150, label="Habilidad")
+    nivel_habilidad_minimo = forms.CharField(
         required=False,
         label="Nivel mínimo",
+        max_length=80,
     )
     anios_minimos = forms.DecimalField(
         required=False,
@@ -991,32 +1128,47 @@ class FormularioRequisitoHabilidadPlaza(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["habilidad"].queryset = Habilidad.objects.filter(
-            activo=True
-        ).order_by("nombre")
-        self.fields["nivel_habilidad_minimo"].queryset = (
-            NivelHabilidad.objects.order_by("orden_nivel")
-        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "form-control"
+
+    def clean_habilidad(self):
+        value = _free_text(self.cleaned_data.get("habilidad"))
+        if not value:
+            raise forms.ValidationError("Indica la habilidad.")
+        return value
+
+    def clean_nivel_habilidad_minimo(self):
+        return _free_text(self.cleaned_data.get("nivel_habilidad_minimo"))
 
 
 class FormularioRequisitoIdiomaPlaza(forms.Form):
-    idioma = forms.ModelChoiceField(queryset=Idioma.objects.none())
-    nivel_idioma_minimo = forms.ModelChoiceField(
-        queryset=NivelIdioma.objects.none(),
+    idioma = forms.CharField(max_length=80, label="Idioma")
+    nivel_idioma_minimo = forms.CharField(
         label="Nivel mínimo",
+        max_length=80,
     )
     obligatorio = forms.BooleanField(required=False, initial=True)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["idioma"].queryset = Idioma.objects.order_by("nombre")
-        self.fields["nivel_idioma_minimo"].queryset = NivelIdioma.objects.order_by(
-            "orden_nivel"
-        )
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "form-control"
+
+    def clean_idioma(self):
+        value = _free_text(self.cleaned_data.get("idioma"))
+        if not value:
+            raise forms.ValidationError("Indica el idioma.")
+        return value
+
+    def clean_nivel_idioma_minimo(self):
+        value = _free_text(self.cleaned_data.get("nivel_idioma_minimo"))
+        if not value:
+            raise forms.ValidationError("Indica el nivel mínimo del idioma.")
+        return value
 
 
 class FormularioRequisitoCertificacionPlaza(forms.Form):
-    certificacion = forms.ModelChoiceField(queryset=Certificacion.objects.none())
+    certificacion = forms.CharField(max_length=180, label="Certificación")
     obligatorio = forms.BooleanField(required=False, initial=True)
     debe_estar_vigente = forms.BooleanField(
         required=False,
@@ -1026,7 +1178,14 @@ class FormularioRequisitoCertificacionPlaza(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["certificacion"].queryset = Certificacion.objects.order_by("nombre")
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "form-control"
+
+    def clean_certificacion(self):
+        value = _free_text(self.cleaned_data.get("certificacion"))
+        if not value:
+            raise forms.ValidationError("Indica la certificación.")
+        return value
 
 
 class FormularioBaseRequisitosUnicos(BaseFormSet):
@@ -1041,9 +1200,10 @@ class FormularioBaseRequisitosUnicos(BaseFormSet):
             if not data or data.get("DELETE"):
                 continue
             value = data.get(self.unique_field)
-            if value in values:
+            key = value.casefold() if isinstance(value, str) else value
+            if key in values:
                 raise forms.ValidationError("No repitas el mismo requisito.")
-            values.add(value)
+            values.add(key)
 
 
 class FormularioBaseHabilidadesUnicas(FormularioBaseRequisitosUnicos):

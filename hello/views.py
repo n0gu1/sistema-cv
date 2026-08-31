@@ -464,7 +464,7 @@ def exportar_reporte(request):
                 spreadsheet_safe(application.aspirante.usuario.get_full_name()),
                 spreadsheet_safe(application.aspirante.usuario.email),
                 spreadsheet_safe(application.plaza.titulo),
-                spreadsheet_safe(application.plaza.departamento.nombre),
+                spreadsheet_safe(application.plaza.departamento_nombre),
                 application.postulado_en.date().isoformat(),
                 spreadsheet_safe(application.estado.nombre),
             )
@@ -521,7 +521,18 @@ def plazas(request):
         vacancies = vacancies.filter(
             Q(titulo__icontains=query)
             | Q(descripcion__icontains=query)
+            | Q(departamento_texto__icontains=query)
             | Q(departamento__nombre__icontains=query)
+            | Q(profesion_texto__icontains=query)
+            | Q(profesion__nombre__icontains=query)
+            | Q(ciudad_texto__icontains=query)
+            | Q(ciudad__nombre__icontains=query)
+            | Q(tipo_empleo_texto__icontains=query)
+            | Q(tipo_empleo__nombre__icontains=query)
+            | Q(modalidad_trabajo_texto__icontains=query)
+            | Q(modalidad_trabajo__nombre__icontains=query)
+            | Q(periodo_salarial_texto__icontains=query)
+            | Q(periodo_salarial__nombre__icontains=query)
         )
     if status:
         if status == "PUBLICADA":
@@ -533,9 +544,19 @@ def plazas(request):
         else:
             vacancies = vacancies.filter(estado_id=status)
     if department:
-        vacancies = vacancies.filter(departamento_id=department)
+        department_query = Q(departamento_texto__icontains=department) | Q(
+            departamento__nombre__icontains=department
+        )
+        if department.isdigit():
+            department_query |= Q(departamento_id=department)
+        vacancies = vacancies.filter(department_query)
     if work_mode:
-        vacancies = vacancies.filter(modalidad_trabajo_id=work_mode)
+        work_mode_query = Q(modalidad_trabajo_texto__icontains=work_mode) | Q(
+            modalidad_trabajo__nombre__icontains=work_mode
+        )
+        if work_mode.isdigit():
+            work_mode_query |= Q(modalidad_trabajo_id=work_mode)
+        vacancies = vacancies.filter(work_mode_query)
 
     status_counts = dict(
         Plaza.objects.values_list("estado_id")
@@ -570,16 +591,7 @@ def plazas(request):
 @roles_required("RRHH", "ADMINISTRADOR")
 def nueva_plaza(request):
     form = FormularioPlaza(request.POST or None)
-    missing_catalogs = form.missing_required_catalogs()
-    catalogs_ready = not missing_catalogs
-    if request.method == "POST" and not catalogs_ready:
-        form.add_error(
-            None,
-            "No se puede guardar la plaza porque faltan catálogos obligatorios: "
-            + ", ".join(missing_catalogs)
-            + ".",
-        )
-    elif request.method == "POST" and form.is_valid():
+    if request.method == "POST" and form.is_valid():
         publish = request.POST.get("accion") == "publicar"
         try:
             vacancy = save_vacancy(
@@ -601,8 +613,6 @@ def nueva_plaza(request):
         "nueva_plaza.html",
         {
             "form": form,
-            "catalogs_ready": catalogs_ready,
-            "missing_catalogs": missing_catalogs,
             "editing": False,
         },
     )
@@ -618,16 +628,7 @@ def editar_plaza(request, plaza_id):
         request.POST or None,
         instance=vacancy,
     )
-    missing_catalogs = form.missing_required_catalogs()
-    catalogs_ready = not missing_catalogs
-    if request.method == "POST" and not catalogs_ready:
-        form.add_error(
-            None,
-            "No se puede guardar la plaza porque faltan catálogos obligatorios: "
-            + ", ".join(missing_catalogs)
-            + ".",
-        )
-    elif request.method == "POST" and form.is_valid():
+    if request.method == "POST" and form.is_valid():
         try:
             vacancy = save_vacancy(form, request.user)
         except ValidationError as error:
@@ -641,8 +642,6 @@ def editar_plaza(request, plaza_id):
         {
             "form": form,
             "plaza": vacancy,
-            "catalogs_ready": catalogs_ready,
-            "missing_catalogs": missing_catalogs,
             "editing": True,
         },
     )
@@ -1617,23 +1616,35 @@ def oportunidades(request):
         vacancies = vacancies.filter(
             Q(titulo__icontains=query)
             | Q(descripcion__icontains=query)
+            | Q(departamento_texto__icontains=query)
             | Q(departamento__nombre__icontains=query)
+            | Q(profesion_texto__icontains=query)
+            | Q(profesion__nombre__icontains=query)
+            | Q(ciudad_texto__icontains=query)
             | Q(ciudad__nombre__icontains=query)
+            | Q(tipo_empleo_texto__icontains=query)
             | Q(tipo_empleo__nombre__icontains=query)
+            | Q(modalidad_trabajo_texto__icontains=query)
             | Q(modalidad_trabajo__nombre__icontains=query)
+            | Q(periodo_salarial_texto__icontains=query)
+            | Q(periodo_salarial__nombre__icontains=query)
         )
     for field_name in ("departamento", "modalidad", "ciudad", "tipo_empleo"):
         value = filters[field_name]
-        if value and value.isdigit():
-            lookup = {
-                "departamento": "departamento_id",
-                "modalidad": "modalidad_trabajo_id",
-                "ciudad": "ciudad_id",
-                "tipo_empleo": "tipo_empleo_id",
-            }[field_name]
-            vacancies = vacancies.filter(**{lookup: value})
-        elif value:
-            filters[field_name] = ""
+        if not value:
+            continue
+        relation_field, text_field = {
+            "departamento": ("departamento", "departamento_texto"),
+            "modalidad": ("modalidad_trabajo", "modalidad_trabajo_texto"),
+            "ciudad": ("ciudad", "ciudad_texto"),
+            "tipo_empleo": ("tipo_empleo", "tipo_empleo_texto"),
+        }[field_name]
+        value_query = Q(**{f"{text_field}__icontains": value}) | Q(
+            **{f"{relation_field}__nombre__icontains": value}
+        )
+        if value.isdigit():
+            value_query |= Q(**{f"{relation_field}_id": value})
+        vacancies = vacancies.filter(value_query)
     applied_ids = set(
         Postulacion.objects.filter(aspirante=profile).values_list("plaza_id", flat=True)
     )

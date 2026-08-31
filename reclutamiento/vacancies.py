@@ -42,26 +42,26 @@ def get_vacancy_form_initial(vacancy):
             detail = RequisitoExperiencia.objects.filter(requisito=requirement).first()
             if detail:
                 initial["anios_experiencia"] = detail.meses_minimos // 12
-                initial["profesion"] = detail.profesion_id
+                initial["profesion"] = detail.profesion_nombre
         elif kind == "EDUCACION":
             detail = RequisitoEducacion.objects.filter(requisito=requirement).first()
             if detail:
-                initial["nivel_educativo"] = detail.nivel_educativo_minimo_id
-                initial["area_estudio"] = detail.area_estudio_id
+                initial["nivel_educativo"] = detail.nivel_educativo_minimo_nombre
+                initial["area_estudio"] = detail.area_estudio_nombre
         elif kind == "HABILIDAD":
             detail = RequisitoHabilidad.objects.filter(requisito=requirement).first()
             if detail:
                 target = mandatory_skills if requirement.obligatorio else desired_skills
-                target.append(detail.habilidad_id)
+                target.append(detail.habilidad_nombre)
         elif kind == "IDIOMA":
             detail = RequisitoIdioma.objects.filter(requisito=requirement).first()
             if detail:
-                initial["idioma"] = detail.idioma_id
-                initial["nivel_idioma"] = detail.nivel_idioma_minimo_id
+                initial["idioma"] = detail.idioma_nombre
+                initial["nivel_idioma"] = detail.nivel_idioma_minimo_nombre
         elif kind == "CERTIFICACION":
             detail = RequisitoCertificacion.objects.filter(requisito=requirement).first()
             if detail:
-                certifications.append(detail.certificacion_id)
+                certifications.append(detail.certificacion_nombre)
         elif kind == "DISPONIBILIDAD":
             detail = RequisitoDisponibilidad.objects.filter(requisito=requirement).first()
             if detail:
@@ -88,7 +88,11 @@ def _requirement_specs(cleaned_data):
                 "EXPERIENCIA",
                 True,
                 f"Mínimo {years} años de experiencia.",
-                {"meses_minimos": years * 12, "profesion": cleaned_data.get("profesion")},
+                {
+                    "meses_minimos": years * 12,
+                    "profesion": None,
+                    "profesion_texto": cleaned_data.get("profesion"),
+                },
             )
         )
     education = cleaned_data.get("nivel_educativo")
@@ -97,10 +101,12 @@ def _requirement_specs(cleaned_data):
             (
                 "EDUCACION",
                 True,
-                f"Nivel educativo mínimo: {education.nombre}.",
+                f"Nivel educativo mínimo: {education}.",
                 {
-                    "nivel_educativo_minimo": education,
-                    "area_estudio": cleaned_data.get("area_estudio"),
+                    "nivel_educativo_minimo": None,
+                    "nivel_educativo_texto": education,
+                    "area_estudio": None,
+                    "area_estudio_texto": cleaned_data.get("area_estudio"),
                 },
             )
         )
@@ -109,8 +115,8 @@ def _requirement_specs(cleaned_data):
             (
                 "HABILIDAD",
                 True,
-                f"Habilidad obligatoria: {skill.nombre}.",
-                {"habilidad": skill},
+                f"Habilidad obligatoria: {skill}.",
+                {"habilidad": None, "habilidad_texto": skill},
             )
         )
     for skill in cleaned_data.get("habilidades_deseables") or []:
@@ -118,18 +124,24 @@ def _requirement_specs(cleaned_data):
             (
                 "HABILIDAD",
                 False,
-                f"Habilidad deseable: {skill.nombre}.",
-                {"habilidad": skill},
+                f"Habilidad deseable: {skill}.",
+                {"habilidad": None, "habilidad_texto": skill},
             )
         )
     language = cleaned_data.get("idioma")
     if language:
+        language_level = cleaned_data.get("nivel_idioma")
         specs.append(
             (
                 "IDIOMA",
                 True,
-                f"{language.nombre}: {cleaned_data['nivel_idioma'].nombre}.",
-                {"idioma": language, "nivel_idioma_minimo": cleaned_data["nivel_idioma"]},
+                f"{language}: {language_level}." if language_level else f"{language}.",
+                {
+                    "idioma": None,
+                    "idioma_texto": language,
+                    "nivel_idioma_minimo": None,
+                    "nivel_idioma_minimo_texto": language_level,
+                },
             )
         )
     for certification in cleaned_data.get("certificaciones") or []:
@@ -137,8 +149,12 @@ def _requirement_specs(cleaned_data):
             (
                 "CERTIFICACION",
                 False,
-                f"Certificación: {certification.nombre}.",
-                {"certificacion": certification, "debe_estar_vigente": True},
+                f"Certificación: {certification}.",
+                {
+                    "certificacion": None,
+                    "certificacion_texto": certification,
+                    "debe_estar_vigente": True,
+                },
             )
         )
     if any(
@@ -281,8 +297,8 @@ def get_requirement_editor_initial(vacancy):
             if detail:
                 skills.append(
                     {
-                        "habilidad": detail.habilidad_id,
-                        "nivel_habilidad_minimo": detail.nivel_habilidad_minimo_id,
+                        "habilidad": detail.habilidad_nombre,
+                        "nivel_habilidad_minimo": detail.nivel_habilidad_minimo_nombre,
                         "anios_minimos": detail.anios_minimos,
                         "obligatorio": requirement.obligatorio,
                     }
@@ -292,8 +308,8 @@ def get_requirement_editor_initial(vacancy):
             if detail:
                 languages.append(
                     {
-                        "idioma": detail.idioma_id,
-                        "nivel_idioma_minimo": detail.nivel_idioma_minimo_id,
+                        "idioma": detail.idioma_nombre,
+                        "nivel_idioma_minimo": detail.nivel_idioma_minimo_nombre,
                         "obligatorio": requirement.obligatorio,
                     }
                 )
@@ -302,7 +318,7 @@ def get_requirement_editor_initial(vacancy):
             if detail:
                 certifications.append(
                     {
-                        "certificacion": detail.certificacion_id,
+                        "certificacion": detail.certificacion_nombre,
                         "obligatorio": requirement.obligatorio,
                         "debe_estar_vigente": detail.debe_estar_vigente,
                     }
@@ -338,10 +354,12 @@ def save_vacancy_requirements(
             (
                 "HABILIDAD",
                 data["obligatorio"],
-                f"Habilidad: {skill.nombre}.",
+                f"Habilidad: {skill}.",
                 {
-                    "habilidad": skill,
-                    "nivel_habilidad_minimo": data.get("nivel_habilidad_minimo"),
+                    "habilidad": None,
+                    "habilidad_texto": skill,
+                    "nivel_habilidad_minimo": None,
+                    "nivel_habilidad_minimo_texto": data.get("nivel_habilidad_minimo"),
                     "anios_minimos": data.get("anios_minimos"),
                 },
             )
@@ -353,8 +371,13 @@ def save_vacancy_requirements(
             (
                 "IDIOMA",
                 data["obligatorio"],
-                f"{language.nombre}: {level.nombre}.",
-                {"idioma": language, "nivel_idioma_minimo": level},
+                f"{language}: {level}.",
+                {
+                    "idioma": None,
+                    "idioma_texto": language,
+                    "nivel_idioma_minimo": None,
+                    "nivel_idioma_minimo_texto": level,
+                },
             )
         )
     for data in _active_form_data(certification_formset):
@@ -363,9 +386,10 @@ def save_vacancy_requirements(
             (
                 "CERTIFICACION",
                 data["obligatorio"],
-                f"Certificación: {certification.nombre}.",
+                f"Certificación: {certification}.",
                 {
-                    "certificacion": certification,
+                    "certificacion": None,
+                    "certificacion_texto": certification,
                     "debe_estar_vigente": data["debe_estar_vigente"],
                 },
             )

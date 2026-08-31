@@ -717,11 +717,25 @@ class Plaza(ModeloExistente):
         Departamento,
         models.PROTECT,
         db_column="departamento_id",
+        blank=True,
+        null=True,
+    )
+    departamento_texto = models.CharField(
+        max_length=120,
+        db_column="departamento_texto",
+        blank=True,
+        null=True,
     )
     profesion = models.ForeignKey(
         Profesion,
         models.SET_NULL,
         db_column="profesion_id",
+        blank=True,
+        null=True,
+    )
+    profesion_texto = models.CharField(
+        max_length=150,
+        db_column="profesion_texto",
         blank=True,
         null=True,
     )
@@ -737,20 +751,48 @@ class Plaza(ModeloExistente):
         blank=True,
         null=True,
     )
+    ciudad_texto = models.CharField(
+        max_length=120,
+        db_column="ciudad_texto",
+        blank=True,
+        null=True,
+    )
     tipo_empleo = models.ForeignKey(
         TipoEmpleo,
         models.PROTECT,
         db_column="tipo_empleo_id",
+        blank=True,
+        null=True,
+    )
+    tipo_empleo_texto = models.CharField(
+        max_length=80,
+        db_column="tipo_empleo_texto",
+        blank=True,
+        null=True,
     )
     modalidad_trabajo = models.ForeignKey(
         ModalidadTrabajo,
         models.PROTECT,
         db_column="modalidad_trabajo_id",
+        blank=True,
+        null=True,
+    )
+    modalidad_trabajo_texto = models.CharField(
+        max_length=80,
+        db_column="modalidad_trabajo_texto",
+        blank=True,
+        null=True,
     )
     periodo_salarial = models.ForeignKey(
         PeriodoSalarial,
         models.PROTECT,
         db_column="periodo_salarial_id",
+        blank=True,
+        null=True,
+    )
+    periodo_salarial_texto = models.CharField(
+        max_length=80,
+        db_column="periodo_salarial_texto",
         blank=True,
         null=True,
     )
@@ -787,6 +829,40 @@ class Plaza(ModeloExistente):
 
     def __str__(self):
         return self.titulo
+
+    @property
+    def departamento_nombre(self):
+        return self.departamento_texto or (
+            self.departamento.nombre if self.departamento_id else None
+        )
+
+    @property
+    def profesion_nombre(self):
+        return self.profesion_texto or (
+            self.profesion.nombre if self.profesion_id else None
+        )
+
+    @property
+    def ciudad_nombre(self):
+        return self.ciudad_texto or (self.ciudad.nombre if self.ciudad_id else None)
+
+    @property
+    def tipo_empleo_nombre(self):
+        return self.tipo_empleo_texto or (
+            self.tipo_empleo.nombre if self.tipo_empleo_id else None
+        )
+
+    @property
+    def modalidad_trabajo_nombre(self):
+        return self.modalidad_trabajo_texto or (
+            self.modalidad_trabajo.nombre if self.modalidad_trabajo_id else None
+        )
+
+    @property
+    def periodo_salarial_nombre(self):
+        return self.periodo_salarial_texto or (
+            self.periodo_salarial.nombre if self.periodo_salarial_id else None
+        )
 
     @property
     def esta_vencida(self):
@@ -847,11 +923,29 @@ class RequisitoHabilidad(ModeloExistente):
         db_column="requisito_id",
         primary_key=True,
     )
-    habilidad = models.ForeignKey(Habilidad, models.PROTECT, db_column="habilidad_id")
+    habilidad = models.ForeignKey(
+        Habilidad,
+        models.PROTECT,
+        db_column="habilidad_id",
+        blank=True,
+        null=True,
+    )
+    habilidad_texto = models.CharField(
+        max_length=150,
+        db_column="habilidad_texto",
+        blank=True,
+        null=True,
+    )
     nivel_habilidad_minimo = models.ForeignKey(
         NivelHabilidad,
         models.PROTECT,
         db_column="nivel_habilidad_minimo_id",
+        blank=True,
+        null=True,
+    )
+    nivel_habilidad_minimo_texto = models.CharField(
+        max_length=80,
+        db_column="nivel_habilidad_minimo_texto",
         blank=True,
         null=True,
     )
@@ -865,6 +959,20 @@ class RequisitoHabilidad(ModeloExistente):
     class Meta(ModeloExistente.Meta):
         db_table = "requisitos_habilidad"
 
+    @property
+    def habilidad_nombre(self):
+        return self.habilidad_texto or (
+            self.habilidad.nombre if self.habilidad_id else None
+        )
+
+    @property
+    def nivel_habilidad_minimo_nombre(self):
+        return self.nivel_habilidad_minimo_texto or (
+            self.nivel_habilidad_minimo.nombre
+            if self.nivel_habilidad_minimo_id
+            else None
+        )
+
 
 class RequisitoIdioma(ModeloExistente):
     requisito = models.OneToOneField(
@@ -873,15 +981,47 @@ class RequisitoIdioma(ModeloExistente):
         db_column="requisito_id",
         primary_key=True,
     )
-    idioma = models.ForeignKey(Idioma, models.PROTECT, db_column="idioma_id")
+    idioma = models.ForeignKey(
+        Idioma,
+        models.PROTECT,
+        db_column="idioma_id",
+        blank=True,
+        null=True,
+    )
+    idioma_texto = models.CharField(
+        max_length=80,
+        db_column="idioma_texto",
+        blank=True,
+        null=True,
+    )
     nivel_idioma_minimo = models.ForeignKey(
         NivelIdioma,
         models.PROTECT,
         db_column="nivel_idioma_minimo_id",
+        blank=True,
+        null=True,
+    )
+    nivel_idioma_minimo_texto = models.CharField(
+        max_length=80,
+        db_column="nivel_idioma_minimo_texto",
+        blank=True,
+        null=True,
     )
 
     class Meta(ModeloExistente.Meta):
         db_table = "requisitos_idioma"
+
+    @property
+    def idioma_nombre(self):
+        return self.idioma_texto or (self.idioma.nombre if self.idioma_id else None)
+
+    @property
+    def nivel_idioma_minimo_nombre(self):
+        return self.nivel_idioma_minimo_texto or (
+            self.nivel_idioma_minimo.nombre
+            if self.nivel_idioma_minimo_id
+            else None
+        )
 
 
 class RequisitoCertificacion(ModeloExistente):
@@ -895,11 +1035,25 @@ class RequisitoCertificacion(ModeloExistente):
         Certificacion,
         models.PROTECT,
         db_column="certificacion_id",
+        blank=True,
+        null=True,
+    )
+    certificacion_texto = models.CharField(
+        max_length=180,
+        db_column="certificacion_texto",
+        blank=True,
+        null=True,
     )
     debe_estar_vigente = models.BooleanField(default=True)
 
     class Meta(ModeloExistente.Meta):
         db_table = "requisitos_certificacion"
+
+    @property
+    def certificacion_nombre(self):
+        return self.certificacion_texto or (
+            self.certificacion.nombre if self.certificacion_id else None
+        )
 
 
 class RequisitoEducacion(ModeloExistente):
@@ -913,6 +1067,14 @@ class RequisitoEducacion(ModeloExistente):
         NivelEducativo,
         models.PROTECT,
         db_column="nivel_educativo_minimo_id",
+        blank=True,
+        null=True,
+    )
+    nivel_educativo_texto = models.CharField(
+        max_length=100,
+        db_column="nivel_educativo_texto",
+        blank=True,
+        null=True,
     )
     area_estudio = models.ForeignKey(
         AreaEstudio,
@@ -921,9 +1083,29 @@ class RequisitoEducacion(ModeloExistente):
         blank=True,
         null=True,
     )
+    area_estudio_texto = models.CharField(
+        max_length=150,
+        db_column="area_estudio_texto",
+        blank=True,
+        null=True,
+    )
 
     class Meta(ModeloExistente.Meta):
         db_table = "requisitos_educacion"
+
+    @property
+    def nivel_educativo_minimo_nombre(self):
+        return self.nivel_educativo_texto or (
+            self.nivel_educativo_minimo.nombre
+            if self.nivel_educativo_minimo_id
+            else None
+        )
+
+    @property
+    def area_estudio_nombre(self):
+        return self.area_estudio_texto or (
+            self.area_estudio.nombre if self.area_estudio_id else None
+        )
 
 
 class RequisitoExperiencia(ModeloExistente):
@@ -940,10 +1122,22 @@ class RequisitoExperiencia(ModeloExistente):
         blank=True,
         null=True,
     )
+    profesion_texto = models.CharField(
+        max_length=150,
+        db_column="profesion_texto",
+        blank=True,
+        null=True,
+    )
     meses_minimos = models.IntegerField()
 
     class Meta(ModeloExistente.Meta):
         db_table = "requisitos_experiencia"
+
+    @property
+    def profesion_nombre(self):
+        return self.profesion_texto or (
+            self.profesion.nombre if self.profesion_id else None
+        )
 
 
 class RequisitoDisponibilidad(ModeloExistente):
