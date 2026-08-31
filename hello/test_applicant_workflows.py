@@ -364,6 +364,96 @@ class ApplicantWorkflowTests(TransactionTestCase):
         )
         self.assertEqual(response.status_code, 404)
 
+    def test_applicant_can_add_new_global_catalog_values(self):
+        self.client.force_login(self.applicant)
+        country = Pais.objects.create(codigo_iso="GT", nombre="Guatemala")
+        region = Region.objects.create(pais=country, nombre="Guatemala", codigo="GU")
+
+        response = self.client.post(
+            reverse("perfil_aspirante"),
+            {
+                "first_name": "Nombre",
+                "last_name": "Prueba",
+                "profesion": "",
+                "nueva_profesion": "Arquitectura de datos",
+                "ciudad": "",
+                "nueva_ciudad": "Quetzaltenango",
+                "region_nueva_ciudad": region.pk,
+                "telefono": "5555-0101",
+                "direccion": "Zona 1",
+                "resumen_profesional": "Perfil de prueba.",
+                "disponible_desde": "2026-09-01",
+            },
+        )
+        self.assertRedirects(response, reverse("perfil_aspirante"))
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.profesion.nombre, "Arquitectura de datos")
+        self.assertEqual(self.profile.ciudad.nombre, "Quetzaltenango")
+
+        response = self.client.post(
+            reverse("nuevo_registro_perfil", args=["formacion"]),
+            {
+                "institucion": "",
+                "nueva_institucion": "Academia Global",
+                "ciudad_institucion": self.profile.ciudad_id,
+                "nivel_educativo": "",
+                "nuevo_nivel_educativo": "Diplomado profesional",
+                "area_estudio": "",
+                "nueva_area_estudio": "Ciberseguridad",
+                "titulo_obtenido": "Diplomado en seguridad",
+            },
+        )
+        self.assertRedirects(response, reverse("perfil_aspirante"))
+        education = FormacionAcademica.objects.get(aspirante=self.profile)
+        self.assertEqual(education.institucion.nombre, "Academia Global")
+        self.assertEqual(education.nivel_educativo.nombre, "Diplomado profesional")
+        self.assertEqual(education.area_estudio.nombre, "Ciberseguridad")
+
+        response = self.client.post(
+            reverse("agregar_habilidad"),
+            {
+                "habilidad": "",
+                "nueva_habilidad": "Kotlin",
+                "nivel_habilidad": "",
+                "nuevo_nivel_habilidad": "Especialista",
+                "anios_experiencia": "2.5",
+            },
+        )
+        self.assertRedirects(response, reverse("perfil_aspirante"))
+        skill = HabilidadAspirante.objects.get(aspirante=self.profile)
+        self.assertEqual(skill.habilidad.nombre, "Kotlin")
+        self.assertEqual(skill.nivel_habilidad.nombre, "Especialista")
+
+        response = self.client.post(
+            reverse("agregar_idioma"),
+            {
+                "idioma": "",
+                "nuevo_idioma": "Alemán",
+                "nivel_idioma": "",
+                "nuevo_nivel_idioma": "Conversacional",
+            },
+        )
+        self.assertRedirects(response, reverse("perfil_aspirante"))
+        language = IdiomaAspirante.objects.get(aspirante=self.profile)
+        self.assertEqual(language.idioma.nombre, "Alemán")
+        self.assertEqual(language.nivel_idioma.nombre, "Conversacional")
+
+        response = self.client.post(
+            reverse("nuevo_registro_perfil", args=["certificacion"]),
+            {
+                "certificacion": "",
+                "nueva_certificacion": "ISO 27001 Foundation",
+                "nueva_organizacion_certificacion": "PECB",
+            },
+        )
+        self.assertRedirects(response, reverse("perfil_aspirante"))
+        certification = CertificacionAspirante.objects.get(aspirante=self.profile)
+        self.assertEqual(certification.certificacion.nombre, "ISO 27001 Foundation")
+        self.assertEqual(
+            certification.certificacion.organizacion_emisora,
+            "PECB",
+        )
+
     def test_pdf_validation_and_private_download_permissions(self):
         self.client.force_login(self.applicant)
         invalid = SimpleUploadedFile(

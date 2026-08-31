@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from django import forms
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import (
@@ -6,6 +9,8 @@ from django.contrib.auth.forms import (
     UserCreationForm,
 )
 from django.core.validators import RegexValidator, URLValidator
+from django.db import IntegrityError, transaction
+from django.db.models import Max
 from django.forms import BaseFormSet, formset_factory
 from django.utils import timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -35,8 +40,190 @@ from reclutamiento.models import (
     PerfilPersonal,
     Plaza,
     Profesion,
+    Region,
     TipoEmpleo,
 )
+
+
+def _normalize_catalog_text(value):
+    return " ".join((value or "").split())
+
+
+def _insert_field_after(fields, anchor, name, field):
+    items = list(fields.items())
+    position = next(
+        (index for index, (field_name, _) in enumerate(items) if field_name == anchor),
+        len(items) - 1,
+    )
+    items.insert(position + 1, (name, field))
+    fields.clear()
+    fields.update(items)
+
+
+def _add_new_field(form, anchor, name, label, max_length, help_text):
+    _insert_field_after(
+        form.fields,
+        anchor,
+        name,
+        forms.CharField(
+            required=False,
+            max_length=max_length,
+            label=label,
+            help_text=help_text,
+        ),
+    )
+
+
+def _clean_choice_or_custom(
+    form,
+    cleaned_data,
+    choice_name,
+    custom_name,
+    label,
+    required=False,
+):
+    selected = cleaned_data.get(choice_name)
+    custom = _normalize_catalog_text(cleaned_data.get(custom_name))
+    if selected and custom:
+        form.add_error(
+            custom_name,
+            f"Selecciona {label} existente o escribe uno nuevo, no ambos.",
+        )
+        return ""
+    if not selected and not custom and required:
+        form.add_error(
+            choice_name,
+            f"Selecciona {label} o escribe un valor nuevo.",
+        )
+    if custom:
+        cleaned_data[custom_name] = custom
+    return custom
+
+
+def _clean_city_choice_or_custom(form, cleaned_data, required=False):
+    custom = _clean_choice_or_custom(
+        form,
+        cleaned_data,
+        "ciudad",
+        "nueva_ciudad",
+        "la ciudad",
+        required=required,
+    )
+    if custom and not cleaned_data.get("region_nueva_ciudad"):
+        form.add_error(
+            "region_nueva_ciudad",
+            "Selecciona la región de la nueva ciudad.",
+        )
+    return custom
+
+
+def _catalog_code(model, value, max_length, field_name="codigo"):
+    base = unicodedata.normalize("NFKD", value)
+    base = base.encode("ascii", "ignore").decode("ascii").upper()
+    base = re.sub(r"[^A-Z0-9]+", "_", base).strip("_")
+    base = (base or "VALOR")[:max_length].rstrip("_") or "VALOR"
+    candidate = base
+    suffix = 2
+    while model.objects.filter(**{field_name: candidate}).exists():
+        suffix_text = f"_{suffix}"
+        candidate = f"{base[: max_length - len(suffix_text)]}{suffix_text}"
+        suffix += 1
+    return candidate
+
+
+def _get_or_create_named_catalog(model, value, defaults=None):
+    value = _normalize_catalog_text(value)
+    existing = model.objects.filter(nombre__iexact=value).first()
+    if existing:
+        return existing
+    try:
+        with transaction.atomic():
+            return model.objects.create(nombre=value, **(defaults or {}))
+    except IntegrityError:
+        return model.objects.get(nombre__iexact=value)
+
+
+def _get_or_create_ranked_catalog(model, value, code_length):
+    value = _normalize_catalog_text(value)
+    existing = model.objects.filter(nombre__iexact=value).first()
+    if existing:
+        return existing
+    try:
+        with transaction.atomic():
+            order = (
+                model.objects.aggregate(max_order=Max("orden_nivel"))["max_order"] or 0
+            ) + 1
+            return model.objects.create(
+                codigo=_catalog_code(model, value, code_length),
+                nombre=value,
+                orden_nivel=order,
+            )
+    except IntegrityError:
+        existing = model.objects.filter(nombre__iexact=value).first()
+        if existing:
+            return existing
+        raise
+
+
+def _get_or_create_language(value):
+    value = _normalize_catalog_text(value)
+    existing = Idioma.objects.filter(nombre__iexact=value).first()
+    if existing:
+        return existing
+    try:
+        with transaction.atomic():
+            return Idioma.objects.create(
+                codigo_iso=_catalog_code(Idioma, value, 10, "codigo_iso"),
+                nombre=value,
+            )
+    except IntegrityError:
+        return Idioma.objects.get(nombre__iexact=value)
+
+
+def _get_or_create_city(value, region):
+    value = _normalize_catalog_text(value)
+    existing = Ciudad.objects.filter(region=region, nombre__iexact=value).first()
+    if existing:
+        return existing
+    try:
+        with transaction.atomic():
+            return Ciudad.objects.create(region=region, nombre=value)
+    except IntegrityError:
+        return Ciudad.objects.get(region=region, nombre__iexact=value)
+
+
+def _get_or_create_institution(value, city=None):
+    value = _normalize_catalog_text(value)
+    existing = Institucion.objects.filter(nombre__iexact=value).first()
+    if existing:
+        return existing
+    try:
+        with transaction.atomic():
+            return Institucion.objects.create(nombre=value, ciudad=city)
+    except IntegrityError:
+        return Institucion.objects.filter(nombre__iexact=value).first()
+
+
+def _get_or_create_certification(value, organization):
+    value = _normalize_catalog_text(value)
+    organization = _normalize_catalog_text(organization)
+    existing = Certificacion.objects.filter(
+        nombre__iexact=value,
+        organizacion_emisora__iexact=organization,
+    ).first()
+    if existing:
+        return existing
+    try:
+        with transaction.atomic():
+            return Certificacion.objects.create(
+                nombre=value,
+                organizacion_emisora=organization,
+            )
+    except IntegrityError:
+        return Certificacion.objects.get(
+            nombre__iexact=value,
+            organizacion_emisora__iexact=organization,
+        )
 
 
 class FormularioRegistroAspirante(UserCreationForm):
@@ -97,9 +284,69 @@ class FormularioPerfilAspirante(forms.ModelForm):
         self.fields["ciudad"].queryset = Ciudad.objects.select_related(
             "region", "region__pais"
         ).order_by("nombre")
+        self.fields["profesion"].required = False
+        self.fields["ciudad"].required = False
+        _add_new_field(
+            self,
+            "profesion",
+            "nueva_profesion",
+            "Nueva profesión",
+            150,
+            "Si no aparece en la lista, escribe una profesión nueva para el catálogo.",
+        )
+        _add_new_field(
+            self,
+            "ciudad",
+            "nueva_ciudad",
+            "Nueva ciudad",
+            120,
+            "Si no aparece en la lista, escribe una ciudad nueva para el catálogo.",
+        )
+        self.fields["region_nueva_ciudad"] = forms.ModelChoiceField(
+            queryset=Region.objects.select_related("pais").order_by(
+                "pais__nombre", "nombre"
+            ),
+            required=False,
+            label="Región de la nueva ciudad",
+            help_text="Necesaria únicamente cuando agregas una ciudad nueva.",
+        )
+        _insert_field_after(
+            self.fields,
+            "nueva_ciudad",
+            "region_nueva_ciudad",
+            self.fields.pop("region_nueva_ciudad"),
+        )
         if self.instance and self.instance.pk:
             self.fields["first_name"].initial = self.instance.usuario.first_name
             self.fields["last_name"].initial = self.instance.usuario.last_name
+
+    def clean(self):
+        cleaned_data = super().clean()
+        _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "profesion",
+            "nueva_profesion",
+            "la profesión",
+        )
+        _clean_city_choice_or_custom(self, cleaned_data)
+        return cleaned_data
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        if not profile.profesion_id and self.cleaned_data.get("nueva_profesion"):
+            profile.profesion = _get_or_create_named_catalog(
+                Profesion,
+                self.cleaned_data["nueva_profesion"],
+            )
+        if not profile.ciudad_id and self.cleaned_data.get("nueva_ciudad"):
+            profile.ciudad = _get_or_create_city(
+                self.cleaned_data["nueva_ciudad"],
+                self.cleaned_data["region_nueva_ciudad"],
+            )
+        if commit:
+            profile.save()
+        return profile
 
 
 class FormularioConfiguracionCuenta(forms.ModelForm):
@@ -173,14 +420,70 @@ class FormularioExperiencia(forms.ModelForm):
         self.fields["ciudad"].queryset = Ciudad.objects.select_related("region").order_by(
             "nombre"
         )
+        self.fields["profesion"].required = False
+        self.fields["ciudad"].required = False
+        _add_new_field(
+            self,
+            "profesion",
+            "nueva_profesion",
+            "Nueva profesión",
+            150,
+            "Si no aparece en la lista, escribe una profesión nueva para el catálogo.",
+        )
+        _add_new_field(
+            self,
+            "ciudad",
+            "nueva_ciudad",
+            "Nueva ciudad",
+            120,
+            "Si no aparece en la lista, escribe una ciudad nueva para el catálogo.",
+        )
+        self.fields["region_nueva_ciudad"] = forms.ModelChoiceField(
+            queryset=Region.objects.select_related("pais").order_by(
+                "pais__nombre", "nombre"
+            ),
+            required=False,
+            label="Región de la nueva ciudad",
+            help_text="Necesaria únicamente cuando agregas una ciudad nueva.",
+        )
+        _insert_field_after(
+            self.fields,
+            "nueva_ciudad",
+            "region_nueva_ciudad",
+            self.fields.pop("region_nueva_ciudad"),
+        )
 
     def clean(self):
         cleaned_data = super().clean()
+        _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "profesion",
+            "nueva_profesion",
+            "la profesión",
+        )
+        _clean_city_choice_or_custom(self, cleaned_data)
         start = cleaned_data.get("fecha_inicio")
         end = cleaned_data.get("fecha_fin")
         if start and end and end < start:
             self.add_error("fecha_fin", "La fecha final no puede ser anterior al inicio.")
         return cleaned_data
+
+    def save(self, commit=True):
+        experience = super().save(commit=False)
+        if not experience.profesion_id and self.cleaned_data.get("nueva_profesion"):
+            experience.profesion = _get_or_create_named_catalog(
+                Profesion,
+                self.cleaned_data["nueva_profesion"],
+            )
+        if not experience.ciudad_id and self.cleaned_data.get("nueva_ciudad"):
+            experience.ciudad = _get_or_create_city(
+                self.cleaned_data["nueva_ciudad"],
+                self.cleaned_data["region_nueva_ciudad"],
+            )
+        if commit:
+            experience.save()
+        return experience
 
 
 class FormularioFormacion(forms.ModelForm):
@@ -199,14 +502,99 @@ class FormularioFormacion(forms.ModelForm):
             "orden_nivel"
         )
         self.fields["area_estudio"].queryset = AreaEstudio.objects.order_by("nombre")
+        self.fields["institucion"].required = False
+        self.fields["nivel_educativo"].required = False
+        _add_new_field(
+            self,
+            "institucion",
+            "nueva_institucion",
+            "Nueva institución",
+            180,
+            "Si no aparece en la lista, escribe una institución nueva para el catálogo.",
+        )
+        self.fields["ciudad_institucion"] = forms.ModelChoiceField(
+            queryset=Ciudad.objects.order_by("nombre"),
+            required=False,
+            label="Ciudad de la nueva institución",
+            help_text="Opcional; se usa únicamente al crear una institución nueva.",
+        )
+        _insert_field_after(
+            self.fields,
+            "nueva_institucion",
+            "ciudad_institucion",
+            self.fields.pop("ciudad_institucion"),
+        )
+        _add_new_field(
+            self,
+            "nivel_educativo",
+            "nuevo_nivel_educativo",
+            "Nuevo nivel educativo",
+            100,
+            "El código y el orden se generan automáticamente para el catálogo.",
+        )
+        _add_new_field(
+            self,
+            "area_estudio",
+            "nueva_area_estudio",
+            "Nueva área de estudio",
+            150,
+            "Si no aparece en la lista, escribe un área nueva para el catálogo.",
+        )
 
     def clean(self):
         cleaned_data = super().clean()
+        _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "institucion",
+            "nueva_institucion",
+            "la institución",
+            required=True,
+        )
+        _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "nivel_educativo",
+            "nuevo_nivel_educativo",
+            "el nivel educativo",
+            required=True,
+        )
+        _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "area_estudio",
+            "nueva_area_estudio",
+            "el área de estudio",
+        )
         start = cleaned_data.get("fecha_inicio")
         end = cleaned_data.get("fecha_fin")
         if start and end and end < start:
             self.add_error("fecha_fin", "La fecha final no puede ser anterior al inicio.")
         return cleaned_data
+
+    def save(self, commit=True):
+        education = super().save(commit=False)
+        if not education.institucion_id and self.cleaned_data.get("nueva_institucion"):
+            education.institucion = _get_or_create_institution(
+                self.cleaned_data["nueva_institucion"],
+                self.cleaned_data.get("ciudad_institucion"),
+            )
+        if not education.nivel_educativo_id and self.cleaned_data.get(
+            "nuevo_nivel_educativo"
+        ):
+            education.nivel_educativo = _get_or_create_ranked_catalog(
+                NivelEducativo,
+                self.cleaned_data["nuevo_nivel_educativo"],
+                30,
+            )
+        if not education.area_estudio_id and self.cleaned_data.get("nueva_area_estudio"):
+            education.area_estudio = _get_or_create_named_catalog(
+                AreaEstudio,
+                self.cleaned_data["nueva_area_estudio"],
+            )
+        if commit:
+            education.save()
+        return education
 
 
 class FormularioHabilidadAspirante(forms.ModelForm):
@@ -229,6 +617,7 @@ class FormularioHabilidadAspirante(forms.ModelForm):
     def __init__(self, *args, aspirante=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.aspirante = aspirante
+        self.fields["habilidad"].required = False
         skills = Habilidad.objects.filter(activo=True)
         if aspirante and self.instance._state.adding:
             skills = skills.exclude(habilidadaspirante__aspirante=aspirante)
@@ -238,6 +627,70 @@ class FormularioHabilidadAspirante(forms.ModelForm):
         self.fields["nivel_habilidad"].queryset = NivelHabilidad.objects.order_by(
             "orden_nivel"
         )
+        _add_new_field(
+            self,
+            "habilidad",
+            "nueva_habilidad",
+            "Nueva habilidad",
+            150,
+            "Si no aparece en la lista, escribe una habilidad nueva para el catálogo.",
+        )
+        _add_new_field(
+            self,
+            "nivel_habilidad",
+            "nuevo_nivel_habilidad",
+            "Nuevo nivel de habilidad",
+            80,
+            "El código y el orden se generan automáticamente para el catálogo.",
+        )
+        if not self.instance._state.adding:
+            self.fields["nueva_habilidad"].disabled = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_skill = _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "habilidad",
+            "nueva_habilidad",
+            "la habilidad",
+            required=True,
+        )
+        _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "nivel_habilidad",
+            "nuevo_nivel_habilidad",
+            "el nivel de habilidad",
+        )
+        if (
+            new_skill
+            and self.aspirante
+            and HabilidadAspirante.objects.filter(
+                aspirante=self.aspirante,
+                habilidad__nombre__iexact=new_skill,
+            ).exists()
+        ):
+            self.add_error("nueva_habilidad", "Ya tienes esta habilidad en tu perfil.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        skill = super().save(commit=False)
+        if not skill.habilidad_id and self.cleaned_data.get("nueva_habilidad"):
+            skill.habilidad = _get_or_create_named_catalog(
+                Habilidad,
+                self.cleaned_data["nueva_habilidad"],
+                {"activo": True},
+            )
+        if not skill.nivel_habilidad_id and self.cleaned_data.get("nuevo_nivel_habilidad"):
+            skill.nivel_habilidad = _get_or_create_ranked_catalog(
+                NivelHabilidad,
+                self.cleaned_data["nuevo_nivel_habilidad"],
+                30,
+            )
+        if commit:
+            skill.save()
+        return skill
 
 
 class FormularioIdiomaAspirante(forms.ModelForm):
@@ -247,6 +700,9 @@ class FormularioIdiomaAspirante(forms.ModelForm):
 
     def __init__(self, *args, aspirante=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.aspirante = aspirante
+        self.fields["idioma"].required = False
+        self.fields["nivel_idioma"].required = False
         languages = Idioma.objects.all()
         if aspirante and self.instance._state.adding:
             languages = languages.exclude(idiomaaspirante__aspirante=aspirante)
@@ -256,6 +712,69 @@ class FormularioIdiomaAspirante(forms.ModelForm):
         self.fields["nivel_idioma"].queryset = NivelIdioma.objects.order_by(
             "orden_nivel"
         )
+        _add_new_field(
+            self,
+            "idioma",
+            "nuevo_idioma",
+            "Nuevo idioma",
+            80,
+            "El código se genera automáticamente para el catálogo.",
+        )
+        _add_new_field(
+            self,
+            "nivel_idioma",
+            "nuevo_nivel_idioma",
+            "Nuevo nivel de idioma",
+            80,
+            "El código y el orden se generan automáticamente para el catálogo.",
+        )
+        if not self.instance._state.adding:
+            self.fields["nuevo_idioma"].disabled = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_language = _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "idioma",
+            "nuevo_idioma",
+            "el idioma",
+            required=True,
+        )
+        _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "nivel_idioma",
+            "nuevo_nivel_idioma",
+            "el nivel de idioma",
+            required=True,
+        )
+        if (
+            new_language
+            and self.aspirante
+            and IdiomaAspirante.objects.filter(
+                aspirante=self.aspirante,
+                idioma__nombre__iexact=new_language,
+            ).exists()
+        ):
+            self.add_error("nuevo_idioma", "Ya tienes este idioma en tu perfil.")
+        return cleaned_data
+
+    def save(self, commit=True):
+        language = super().save(commit=False)
+        if not language.idioma_id and self.cleaned_data.get("nuevo_idioma"):
+            language.idioma = _get_or_create_language(
+                self.cleaned_data["nuevo_idioma"]
+            )
+        if not language.nivel_idioma_id and self.cleaned_data.get("nuevo_nivel_idioma"):
+            language.nivel_idioma = _get_or_create_ranked_catalog(
+                NivelIdioma,
+                self.cleaned_data["nuevo_nivel_idioma"],
+                10,
+            )
+        if commit:
+            language.save()
+        return language
 
 
 class FormularioCertificacionAspirante(forms.ModelForm):
@@ -276,16 +795,68 @@ class FormularioCertificacionAspirante(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["certificacion"].required = False
         self.fields["certificacion"].queryset = Certificacion.objects.order_by("nombre")
+        _add_new_field(
+            self,
+            "certificacion",
+            "nueva_certificacion",
+            "Nueva certificación",
+            180,
+            "Si no aparece en la lista, escribe una certificación nueva para el catálogo.",
+        )
+        _add_new_field(
+            self,
+            "nueva_certificacion",
+            "nueva_organizacion_certificacion",
+            "Organización emisora",
+            180,
+            "Indica la organización que emite la nueva certificación.",
+        )
 
     def clean(self):
         cleaned_data = super().clean()
+        new_certification = _clean_choice_or_custom(
+            self,
+            cleaned_data,
+            "certificacion",
+            "nueva_certificacion",
+            "la certificación",
+            required=True,
+        )
+        organization = _normalize_catalog_text(
+            cleaned_data.get("nueva_organizacion_certificacion")
+        )
+        if new_certification and not organization:
+            self.add_error(
+                "nueva_organizacion_certificacion",
+                "Indica la organización emisora de la nueva certificación.",
+            )
+        elif organization and not new_certification:
+            self.add_error(
+                "nueva_organizacion_certificacion",
+                "Escribe también el nombre de la nueva certificación.",
+            )
+        if organization:
+            cleaned_data["nueva_organizacion_certificacion"] = organization
         issued = cleaned_data.get("emitida_en")
         expires = cleaned_data.get("vence_en")
         if issued and expires and expires < issued:
             self.add_error("vence_en", "El vencimiento no puede ser anterior a la emisión.")
         return cleaned_data
 
+    def save(self, commit=True):
+        certification = super().save(commit=False)
+        if not certification.certificacion_id and self.cleaned_data.get(
+            "nueva_certificacion"
+        ):
+            certification.certificacion = _get_or_create_certification(
+                self.cleaned_data["nueva_certificacion"],
+                self.cleaned_data["nueva_organizacion_certificacion"],
+            )
+        if commit:
+            certification.save()
+        return certification
 
 class FormularioCurriculo(forms.Form):
     archivo = forms.FileField(

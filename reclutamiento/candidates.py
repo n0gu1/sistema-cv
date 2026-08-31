@@ -78,6 +78,7 @@ def save_profile(form, user):
     return profile
 
 
+@transaction.atomic
 def save_profile_record(form, profile):
     record = form.save(commit=False)
     record.aspirante = profile

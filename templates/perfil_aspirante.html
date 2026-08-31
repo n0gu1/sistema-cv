@@ -6,7 +6,7 @@
 <form method="post" class="portal-form-card portal-form">{% csrf_token %}
     <div class="portal-card-header"><div><span class="section-kicker">Información principal</span><h2>Datos personales y disponibilidad</h2></div></div>
     {% if form.non_field_errors %}<div class="auth-alert error">{{ form.non_field_errors.0 }}</div>{% endif %}
-    <div class="portal-form-grid">{% for field in form %}<div class="{% if field.field.widget.input_type == 'checkbox' %}portal-check{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.errors %}<span class="auth-field-error">{{ field.errors.0 }}</span>{% endif %}</div>{% endfor %}</div>
+    <div class="portal-form-grid">{% for field in form %}<div class="{% if field.field.widget.input_type == 'checkbox' %}portal-check{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% if field.errors %}<span class="auth-field-error">{{ field.errors.0 }}</span>{% endif %}</div>{% endfor %}</div>
     <div class="portal-form-actions"><button class="btn btn-dark" type="submit">Guardar información</button></div>
 </form>
 <div class="profile-sections">
