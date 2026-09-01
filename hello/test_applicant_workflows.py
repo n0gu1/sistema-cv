@@ -1050,6 +1050,91 @@ class ApplicantWorkflowTests(TransactionTestCase):
         )
         deliver.assert_called_once()
 
+    @patch("reclutamiento.notifications.logger.exception")
+    @patch(
+        "reclutamiento.notifications._deliver_notification_email",
+        side_effect=RuntimeError("Fallo inesperado de entrega"),
+    )
+    def test_pipeline_endpoints_redirect_when_email_callbacks_fail(
+        self, deliver, log_exception
+    ):
+        application = create_application(self.vacancy.pk, self.profile)
+        detail_url = reverse("detalle_postulacion", args=[application.pk])
+        self.client.force_login(self.hr_user)
+
+        for state in ("EN_REVISION", "PRESELECCIONADA"):
+            response = self.client.post(
+                reverse("cambiar_estado_postulacion", args=[application.pk]),
+                {"estado": state, "motivo": "Validación del flujo."},
+            )
+            self.assertRedirects(response, detail_url)
+
+        start = timezone.now() + timezone.timedelta(days=2)
+        response = self.client.post(
+            reverse("programar_entrevista", args=[application.pk]),
+            {
+                "inicia_en": start.strftime("%Y-%m-%dT%H:%M"),
+                "termina_en": (start + timezone.timedelta(hours=1)).strftime(
+                    "%Y-%m-%dT%H:%M"
+                ),
+                "zona_horaria": "America/Guatemala",
+                "url_reunion": "https://meet.example.com/entrevista",
+            },
+        )
+        self.assertRedirects(response, detail_url)
+
+        interview = Entrevista.objects.get(postulacion=application)
+        response = self.client.post(
+            reverse("cambiar_estado_entrevista", args=[interview.pk]),
+            {"estado": "CONFIRMADA"},
+        )
+        self.assertRedirects(response, detail_url)
+
+        response = self.client.post(
+            reverse("enviar_oferta", args=[application.pk]),
+            {
+                "condiciones": "Salario y fecha de inicio acordados.",
+                "vence_en": (
+                    timezone.now() + timezone.timedelta(days=5)
+                ).strftime("%Y-%m-%dT%H:%M"),
+            },
+        )
+        self.assertRedirects(response, detail_url)
+
+        offer = OfertaLaboral.objects.get(postulacion=application)
+        self.client.force_login(self.applicant)
+        response = self.client.post(
+            reverse("responder_oferta", args=[offer.pk, "ACEPTADA"]),
+        )
+        self.assertRedirects(
+            response,
+            reverse("mi_postulacion", args=[application.pk]),
+        )
+
+        self.client.force_login(self.hr_user)
+        response = self.client.post(
+            reverse("cambiar_estado_postulacion", args=[application.pk]),
+            {"estado": "CONTRATADA", "motivo": "Oferta aceptada."},
+        )
+        self.assertRedirects(response, detail_url)
+
+        application.refresh_from_db()
+        offer.refresh_from_db()
+        interview.refresh_from_db()
+        self.vacancy.refresh_from_db()
+        self.assertEqual(application.estado_id, "CONTRATADA")
+        self.assertEqual(offer.estado_id, "ACEPTADA")
+        self.assertEqual(interview.estado_id, "CANCELADA")
+        self.assertEqual(self.vacancy.estado_id, "CERRADA")
+        self.assertEqual(
+            EntregaNotificacion.objects.filter(
+                canal_id="CORREO",
+                estado_id="FALLIDO",
+            ).count(),
+            deliver.call_count,
+        )
+        self.assertEqual(log_exception.call_count, deliver.call_count)
+
     def test_applicant_can_withdraw_but_cannot_manage_pipeline(self):
         application = create_application(self.vacancy.pk, self.profile)
         with self.assertRaises(ValidationError):
@@ -1541,7 +1626,12 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["page"].paginator.count, 10)
         self.assertEqual(response.context["page"].paginator.num_pages, 2)
-        self.assertContains(response, "Operaciones 0")
+        self.assertTrue(
+            all(
+                vacancy.titulo.startswith("Operaciones ")
+                for vacancy in response.context["page"].object_list
+            )
+        )
         self.assertContains(response, "pagina=2")
         self.assertEqual(response.context["filters"]["ciudad"], str(city.pk))
 
