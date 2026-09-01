@@ -66,12 +66,50 @@ def create_notification(
         programado_en=now,
     )
     transaction.on_commit(
-        lambda delivery_id=email_delivery.pk: deliver_notification_email(delivery_id)
+        lambda delivery_id=email_delivery.pk: deliver_notification_email(delivery_id),
+        # Un flujo confirmado no debe convertirse en HTTP 500 por el correo.
+        robust=True,
     )
     return notification
 
 
+def _record_delivery_failure(delivery_id, error):
+    try:
+        with transaction.atomic():
+            delivery = EntregaNotificacion.objects.select_for_update().get(
+                pk=delivery_id
+            )
+            if delivery.estado_id in {"ENVIADO", "FALLIDO"}:
+                return
+            delivery.estado_id = "FALLIDO"
+            delivery.save(update_fields=("estado",))
+            IntentoEntregaNotificacion.objects.create(
+                entrega=delivery,
+                intentado_en=timezone.now(),
+                exitoso=False,
+                mensaje_error=str(error),
+            )
+    except EntregaNotificacion.DoesNotExist:
+        return
+    except Exception:
+        logger.exception(
+            "No se pudo registrar el fallo de entrega por correo id=%s", delivery_id
+        )
+
+
 def deliver_notification_email(delivery_id):
+    try:
+        return _deliver_notification_email(delivery_id)
+    except Exception as error:
+        _record_delivery_failure(delivery_id, error)
+        logger.exception(
+            "No se pudo procesar la entrega de notificación por correo id=%s",
+            delivery_id,
+        )
+        return False
+
+
+def _deliver_notification_email(delivery_id):
     try:
         with transaction.atomic():
             delivery = (
@@ -108,18 +146,7 @@ def deliver_notification_email(delivery_id):
         if not message.send():
             raise RuntimeError("El backend de correo no aceptó el mensaje.")
     except Exception as error:
-        with transaction.atomic():
-            delivery = EntregaNotificacion.objects.select_for_update().get(
-                pk=delivery_id
-            )
-            delivery.estado_id = "FALLIDO"
-            delivery.save(update_fields=("estado",))
-            IntentoEntregaNotificacion.objects.create(
-                entrega=delivery,
-                intentado_en=timezone.now(),
-                exitoso=False,
-                mensaje_error=str(error),
-            )
+        _record_delivery_failure(delivery_id, error)
         logger.exception(
             "No se pudo entregar la notificación por correo id=%s", delivery_id
         )

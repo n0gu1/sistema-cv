@@ -1009,6 +1009,47 @@ class ApplicantWorkflowTests(TransactionTestCase):
         self.assertIn("SMTP caído", attempt.mensaje_error)
         send.assert_called_once()
 
+    @patch(
+        "reclutamiento.notifications._deliver_notification_email",
+        side_effect=RuntimeError("Fallo inesperado de entrega"),
+    )
+    def test_unexpected_email_failure_does_not_break_application(
+        self, deliver
+    ):
+        application = create_application(self.vacancy.pk, self.profile)
+        notification = Notificacion.objects.get(postulacion=application)
+        delivery = EntregaNotificacion.objects.get(
+            notificacion=notification,
+            canal_id="CORREO",
+        )
+
+        self.assertEqual(delivery.estado_id, "FALLIDO")
+        attempt = IntentoEntregaNotificacion.objects.get(entrega=delivery)
+        self.assertFalse(attempt.exitoso)
+        self.assertIn("Fallo inesperado de entrega", attempt.mensaje_error)
+        deliver.assert_called_once_with(delivery.pk)
+
+    @patch(
+        "reclutamiento.notifications._deliver_notification_email",
+        side_effect=RuntimeError("Fallo inesperado de entrega"),
+    )
+    def test_application_endpoint_redirects_when_email_callback_fails(
+        self, deliver
+    ):
+        self.client.force_login(self.applicant)
+
+        response = self.client.post(
+            reverse("detalle_oportunidad", args=[self.vacancy.pk]),
+            {"carta_presentacion": "Me interesa esta oportunidad."},
+        )
+
+        application = Postulacion.objects.get()
+        self.assertRedirects(
+            response,
+            reverse("mi_postulacion", args=[application.pk]),
+        )
+        deliver.assert_called_once()
+
     def test_applicant_can_withdraw_but_cannot_manage_pipeline(self):
         application = create_application(self.vacancy.pk, self.profile)
         with self.assertRaises(ValidationError):
