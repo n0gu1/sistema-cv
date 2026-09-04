@@ -222,6 +222,11 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() == "true"
 EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "20"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+BREVO_API_KEY = os.environ.get("BREVO_API_KEY", "")
+BREVO_API_URL = os.environ.get(
+    "BREVO_API_URL",
+    "https://api.brevo.com/v3/smtp/email",
+)
 DEFAULT_FROM_EMAIL = os.environ.get(
     "DEFAULT_FROM_EMAIL",
     EMAIL_HOST_USER or "Sistema CV <no-reply@example.com>",

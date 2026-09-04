@@ -34,6 +34,25 @@ python manage.py crear_usuario admin@empresa.com `
 Los roles permitidos son `ADMINISTRADOR`, `RRHH` y `ASPIRANTE`. El estado de
 este y los siguientes modulos se mantiene en [`BACKEND_CHECKLIST.txt`](BACKEND_CHECKLIST.txt).
 
+## Correo transaccional
+
+Render Free bloquea las conexiones SMTP salientes en los puertos 25, 465 y
+587. Para enviar verificacion de cuentas, recuperacion de contrasenas y
+notificaciones desde Render se puede usar la API HTTPS de Brevo.
+
+Configura la cuenta y el remitente en Brevo, genera una API key y agrega estas
+variables al entorno de produccion. El remitente debe estar verificado en
+Brevo:
+
+```text
+EMAIL_BACKEND=reclutamiento.email_backend.BrevoEmailBackend
+BREVO_API_KEY=...
+BREVO_API_URL=https://api.brevo.com/v3/smtp/email
+DEFAULT_FROM_EMAIL=tu-cuenta@gmail.com
+```
+
+La API key debe guardarse como secreto en Render y nunca en el repositorio.
+
 ## Catalogos de plazas
 
 Antes de crear la primera plaza, inicializa los catalogos base. El comando es
